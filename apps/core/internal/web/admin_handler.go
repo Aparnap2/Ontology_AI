@@ -223,6 +223,88 @@ func (h *Handler) APIHITLReject(c *fiber.Ctx) error {
 	return c.SendString(fmt.Sprintf(`<div class="p-4 bg-red-50 text-red-800">Rejected %s</div>`, taskID))
 }
 
+// HTMX Screen 1: Tenant Onboarding Status
+func (h *Handler) APIOnboardingStatus(c *fiber.Ctx) error {
+	if c.Get("HX-Request") == "true" {
+		html := `
+		<div class="grid grid-cols-2 gap-4" hx-get="/api/htmx/onboarding" hx-trigger="every 30s">
+			<div class="p-4 bg-green-50 rounded-lg">
+				<h3 class="font-semibold text-green-800">Slack</h3>
+				<p class="text-sm text-green-600">Connected</p>
+			</div>
+			<div class="p-4 bg-green-50 rounded-lg">
+				<h3 class="font-semibold text-green-800">Razorpay</h3>
+				<p class="text-sm text-green-600">Connected</p>
+			</div>
+			<div class="p-4 bg-yellow-50 rounded-lg">
+				<h3 class="font-semibold text-yellow-800">Telegram</h3>
+				<p class="text-sm text-yellow-600">Pending setup</p>
+			</div>
+			<div class="p-4 bg-gray-50 rounded-lg">
+				<h3 class="font-semibold text-gray-800">PostgreSQL</h3>
+				<p class="text-sm text-gray-600">Not configured</p>
+			</div>
+		</div>`
+		return c.SendString(html)
+	}
+	return c.SendString(`<div class="p-8">Onboarding status</div>`)
+}
+
+// HTMX Screen 2: Guardian Watchlist Viewer
+func (h *Handler) APIWatchlist(c *fiber.Ctx) error {
+	if c.Get("HX-Request") == "true" {
+		html := `
+		<div class="space-y-2" hx-get="/api/htmx/watchlist" hx-trigger="every 30s">
+			<div class="flex items-center justify-between p-3 bg-white border rounded">
+				<div>
+					<p class="font-medium">FG-01: Burn rate alert</p>
+					<p class="text-sm text-gray-500">Threshold: >5% weekly</p>
+				</div>
+				<button class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded">Edit</button>
+			</div>
+			<div class="flex items-center justify-between p-3 bg-white border rounded">
+				<div>
+					<p class="font-medium">BG-02: Error spike alert</p>
+					<p class="text-sm text-gray-500">Threshold: >10 errors/min</p>
+				</div>
+				<button class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded">Edit</button>
+			</div>
+			<div class="flex items-center justify-between p-3 bg-white border rounded">
+				<div>
+					<p class="font-medium">OG-01: Deployment failure</p>
+					<p class="text-sm text-gray-500">Threshold: any failure</p>
+				</div>
+				<button class="px-3 py-1 text-sm bg-red-100 text-red-800 rounded">Edit</button>
+			</div>
+		</div>`
+		return c.SendString(html)
+	}
+	return c.SendString(`<div class="p-8">Watchlist</div>`)
+}
+
+// HTMX Screen 3: LLMOps Dashboard
+func (h *Handler) APILLMOpsDashboard(c *fiber.Ctx) error {
+	if c.Get("HX-Request") == "true" {
+		html := `
+		<div class="grid grid-cols-3 gap-4" hx-get="/api/htmx/llmops" hx-trigger="every 30s">
+			<div class="p-4 bg-blue-50 rounded-lg">
+				<p class="text-2xl font-bold">94%</p>
+				<p class="text-sm text-blue-600">Alert quality score</p>
+			</div>
+			<div class="p-4 bg-green-50 rounded-lg">
+				<p class="text-2xl font-bold">87%</p>
+				<p class="text-sm text-green-600">Acknowledge rate</p>
+			</div>
+			<div class="p-4 bg-purple-50 rounded-lg">
+				<p class="text-2xl font-bold">0.82</p>
+				<p class="text-sm text-purple-600">Eval score</p>
+			</div>
+		</div>`
+		return c.SendString(html)
+	}
+	return c.SendString(`<div class="p-8">LLMOps dashboard</div>`)
+}
+
 // API: Save agent config
 func (h *Handler) APIConfigAgents(c *fiber.Ctx) error {
 	return c.SendString(`<div class="p-3 bg-green-50 text-green-800 rounded">Agent settings saved</div>`)
@@ -342,4 +424,13 @@ func (h *Handler) RegisterAdminRoutes(app *fiber.App) {
 	apiGroup.Get("/telemetry/task-distribution", func(c *fiber.Ctx) error {
 		return c.SendString(`<div class="text-gray-400">Loading distribution...</div>`)
 	})
+
+	// HTMX Screen 1: Tenant Onboarding Status
+	apiGroup.Get("/htmx/onboarding", h.APIOnboardingStatus)
+
+	// HTMX Screen 2: Guardian Watchlist Viewer
+	apiGroup.Get("/htmx/watchlist", h.APIWatchlist)
+
+	// HTMX Screen 3: LLMOps Dashboard
+	apiGroup.Get("/htmx/llmops", h.APILLMOpsDashboard)
 }
