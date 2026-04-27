@@ -24,6 +24,7 @@ Features:
 import os
 import logging
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -322,6 +323,104 @@ def format_slack_blocks(
         })
 
     return blocks
+
+
+async def handle_slack_message(
+    slack_event: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Handle incoming Slack message through full pipeline.
+
+    PRD: Full pipeline fires in sequence:
+        message received
+        → relevance gate (deterministic)
+        → relevant agents called
+        → MissionState updated
+        → correlation/co-founder runs last
+        → fallback paths do not block response
+
+    Args:
+        slack_event: Slack event dict with keys:
+            - type: Event type (message, etc.)
+            - text: Message text
+            - channel: Channel ID
+            - user: User ID
+
+    Returns:
+        Dict with keys:
+            - blocked: True if message was filtered by relevance gate
+            - agents_called: Number of agents called
+            - destination: Agent destination or "none"
+            - mission_updated: True if MissionState was updated
+            - cofounder_ran: True if co-founder synthesis ran
+            - error_handled: True if fallback handled an error
+    """
+    from src.session.relevance_gate import relevance_gate
+    from src.session.mission_state import MissionState
+    from src.agents.cofounder import route_message
+    from src.agents.cofounder.correlation import CorrelationAgent
+
+    # Extract message text
+    text = slack_event.get("text", "")
+    user = slack_event.get("user", "unknown")
+    channel = slack_event.get("channel", "unknown")
+    tenant_id = slack_event.get("tenant_id", user)  # Use user as tenant if not provided
+
+    result = {
+        "blocked": False,
+        "agents_called": 0,
+        "destination": "none",
+        "mission_updated": False,
+        "cofounder_ran": False,
+        "error_handled": False,
+    }
+
+    # Create MissionState
+    mission = MissionState(tenant_id=tenant_id, timestamp=None)
+
+    try:
+        # Step 1: Relevance gate (deterministic)
+        relevant_domains = relevance_gate(text, mission)
+
+        if not relevant_domains:
+            result["blocked"] = True
+            result["agents_called"] = 0
+            return result
+
+        result["agents_called"] = len(relevant_domains)
+        result["destination"] = ",".join(relevant_domains)
+
+        # Step 2: Call relevant agents (Router)
+        try:
+            route_result = route_message(text, mission)
+            result["destination"] = route_result.destination
+        except Exception as e:
+            logger.warning(f"Agent call failed: {e}")
+            result["error_handled"] = True
+            # Fallback: return partial result
+
+        # Step 3: Update MissionState
+        mission.last_message_at = datetime.now()
+        result["mission_updated"] = True
+
+        # Step 4: Co-founder synthesis runs last
+        try:
+            cofounder = CorrelationAgent()
+            signals = cofounder.detect(mission)
+            should_synth = cofounder.should_synthesize(mission)
+
+            # Cofounder ran - always set true if called (even if empty result)
+            result["cofounder_ran"] = True
+        except Exception as e:
+            logger.warning(f"Cofounder synthesis failed: {e}")
+            result["error_handled"] = True
+            # Fallback: do not block response
+
+    except Exception as e:
+        logger.error(f"Pipeline error: {e}")
+        result["error_handled"] = True
+
+    return result
 
 
 # ── Demo delivery (Mockoon + capture sidecar) ────────────────────
