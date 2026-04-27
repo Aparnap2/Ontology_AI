@@ -45,6 +45,7 @@ dependencies = [
     # Debug HTTP Server
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
+    "aiokafka>=0.13.0",
 ]
 
 [project.optional-dependencies]

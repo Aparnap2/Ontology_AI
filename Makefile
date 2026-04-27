@@ -1,7 +1,7 @@
 # IterateSwarm Makefile
 # Quick commands for development and operations
 
-.PHONY: help up down status test build clean proto verify deps logs restart security-test security-race security-lint infra-up infra-down test-py test-py-unit test-py-e2e
+.PHONY: help up down status test build clean proto verify deps logs restart prod prod-up prod-down prod-logs
 
 # Default target
 help:
@@ -13,11 +13,17 @@ help:
 	@echo "  status      Check service status"
 	@echo "  test        Run all tests (Go only)"
 	@echo "  build       Build all applications"
+	@echo "  build-py    Build Python AI worker"
 	@echo "  clean       Clean build artifacts"
 	@echo "  proto       Generate protobuf code"
 	@echo "  verify      Run E2E verification script"
 	@echo "  deps        Install dependencies"
 	@echo "  logs        Tail logs from all services"
+	@echo "  prod        Build production Docker images"
+	@echo "  prod-up     Start production stack"
+	@echo "  prod-down   Stop production stack"
+	@echo "  v3-up      Start V3 minimal stack"
+	@echo "  v3-down    Stop V3 stack"
 
 # Start all infrastructure and applications
 up:
@@ -222,3 +228,48 @@ demo-health:
 	  && echo "  ✅ Redpanda cluster reachable" \
 	  || echo "  ⚠️  Redpanda not responding"
 	@echo "════════════════════════════════════════"
+
+# ───────────────────────────────────────────────────────
+# Production Build Targets
+# ───────────────────────────────────────────────────────
+
+# Build production Docker images
+prod:
+	@echo "Building production Docker images..."
+	@echo "  Building Go Gateway..."
+	cd apps/core && CGO_ENABLED=0 GOOS=linux go build -o bin/server ./cmd/server
+	@echo "  Building Python AI Worker..."
+	cd apps/ai && uv build --wheel
+	@echo "Production build complete"
+
+# Start production stack
+prod-up:
+	@echo "Starting production stack..."
+	docker-compose -f docker-compose.prod.yml up -d
+	@echo "Production services started"
+
+# Start V3 minimal stack
+v3-up:
+	@echo "Starting V3 minimal stack..."
+	docker-compose -f docker-compose.v3.yml up -d
+	@echo "V3 services started"
+
+# Stop V3 stack
+v3-down:
+	@echo "Stopping V3 stack..."
+	docker-compose -f docker-compose.v3.yml down
+
+# Status of V3 stack
+v3-status:
+	@echo "V3 Stack Status:"
+	-docker-compose -f docker-compose.v3.yml ps
+
+# Stop production stack
+prod-down:
+	@echo "Stopping production stack..."
+	docker-compose -f docker-compose.prod.yml down
+
+# Tail production logs
+prod-logs:
+	@echo "Tailing production logs..."
+	docker-compose -f docker-compose.prod.yml logs -f

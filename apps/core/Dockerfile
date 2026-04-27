@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /sarthi-api ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /sarthi-gateway ./cmd/server
 
 # Runtime image
 FROM alpine:3.19
@@ -22,8 +22,8 @@ FROM alpine:3.19
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
-COPY --from=builder /sarthi-api .
+COPY --from=builder /sarthi-gateway .
 
-EXPOSE 8080
+EXPOSE 3000
 
-ENTRYPOINT ["/app/sarthi-api"]
+ENTRYPOINT ["/app/sarthi-gateway"]

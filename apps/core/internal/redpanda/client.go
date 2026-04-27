@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -41,34 +42,9 @@ func NewClient(brokers []string, topic string) (*Client, error) {
 		BatchTimeout: 10 * time.Millisecond,
 	}
 
-	// Ensure topic exists by creating it if needed
-	conn, err := kafka.Dial("tcp", brokers[0])
-	if err != nil {
-		log.Printf("Warning: Could not connect to Kafka: %v", err)
-	} else {
-		controller, err := conn.Controller()
-		if err != nil {
-			log.Printf("Warning: Could not get controller: %v", err)
-		} else {
-			controllerConn, err := kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
-			if err != nil {
-				log.Printf("Warning: Could not connect to controller: %v", err)
-			} else {
-				topicConfigs := []kafka.TopicConfig{
-					{
-						Topic:             topic,
-						NumPartitions:     1,
-						ReplicationFactor: 1,
-					},
-				}
-				err = controllerConn.CreateTopics(topicConfigs...)
-				if err != nil {
-					log.Printf("Topic creation result: %v", err)
-				}
-				controllerConn.Close()
-			}
-		}
-		conn.Close()
+	// Ensure topics exist by creating them if needed
+	for _, t := range []string{topic, "sarthi.slack.events", "sarthi.stripe.events", "sarthi.guardian.results", "sarthi.hitl.decisions"} {
+		ensureTopic(brokers, t)
 	}
 
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -84,6 +60,41 @@ func NewClient(brokers []string, topic string) (*Client, error) {
 		reader: reader,
 		topic:  topic,
 	}, nil
+}
+
+// ensureTopic creates a topic if it doesn't exist.
+func ensureTopic(brokers []string, topic string) {
+	conn, err := kafka.Dial("tcp", brokers[0])
+	if err != nil {
+		log.Printf("Warning: Could not connect to Kafka: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	controller, err := conn.Controller()
+	if err != nil {
+		log.Printf("Warning: Could not get controller: %v", err)
+		return
+	}
+
+	controllerConn, err := kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
+	if err != nil {
+		log.Printf("Warning: Could not connect to controller: %v", err)
+		return
+	}
+	defer controllerConn.Close()
+
+	topicConfigs := []kafka.TopicConfig{
+		{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		},
+	}
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		log.Printf("Topic creation result: %v", err)
+	}
 }
 
 // Publish sends a message to the configured topic.

@@ -355,6 +355,13 @@ func (h *Handler) RegisterAdminRoutes(app *fiber.App) {
 	admin.Get("/config", h.AdminConfig)
 	admin.Get("/telemetry", h.AdminTelemetry)
 
+	// HTMX partial routes - registered under /api for HTMX requests (TEST_MODE bypasses auth)
+	// These are used by dashboard for live updates
+	app.Get("/api/htmx/onboarding", h.APIOnboardingStatus)
+	app.Get("/api/htmx/watchlist", h.APIWatchlist)
+	app.Post("/api/htmx/watchlist/:id/threshold", h.APIWatchlistThresholdUpdate)
+	app.Get("/api/htmx/llmops", h.APILLMOpsDashboard)
+
 	// API endpoints - require auth
 	apiGroup := app.Group("/api/admin", api.RequireAuth())
 
