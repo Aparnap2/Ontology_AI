@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -94,7 +95,7 @@ func (h *TelegramHandler) Handle(c *fiber.Ctx) error {
 	msg := update.Message
 
 	// 3. Classify message type and determine topic/SOP
-	topic, sopName, eventType := h.classifyMessage(msg)
+	topic, _, eventType := h.classifyMessage(msg)
 
 	// 4. Resolve via event dictionary to validate
 	entry, err := h.dict.Resolve(events.SourceTelegram, eventType)
@@ -104,18 +105,15 @@ func (h *TelegramHandler) Handle(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{"status": "dlq_unknown_event"})
 	}
 
-	// Use resolved entry for topic and SOPName (source of truth)
+	// Use resolved entry for topic (source of truth)
 	topic = entry.Topic
-	sopName = entry.SOPName
 
 	// 5. Persist raw event FIRST
 	ikey := h.buildIdempotencyKey(update.UpdateID, msg.MessageID)
 	rawEventID, err := h.store.InsertRawEvent(c.Context(), db.RawEvent{
-		FounderID:      h.resolveFounder(msg.From.ID),
+		TenantID:       h.resolveFounder(msg.From.ID),
 		Source:         "telegram",
-		EventName:      eventType,
-		Topic:          topic,
-		SOPName:        sopName,
+		EventType:      eventType,
 		PayloadHash:    h.computeHash(c.Body()),
 		PayloadBody:    c.Body(),
 		IdempotencyKey: ikey,
@@ -130,10 +128,11 @@ func (h *TelegramHandler) Handle(c *fiber.Ctx) error {
 	// 6. Publish envelope (ref only, not raw payload)
 	envelope := events.EventEnvelope{
 		Source:         events.SourceTelegram,
-		EventName:      eventType,
-		Topic:          topic,
-		SOPName:        sopName,
+		EventType:      eventType,
 		PayloadRef:     "raw_events:" + rawEventID,
+		PayloadHash:    h.computeHash(c.Body()),
+		OccurredAt:     time.Now(),
+		ReceivedAt:     time.Now(),
 		IdempotencyKey: ikey,
 	}
 	if err := h.producer.PublishEnvelope(topic, envelope); err != nil {

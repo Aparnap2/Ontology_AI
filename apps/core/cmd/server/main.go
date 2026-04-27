@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -221,8 +223,8 @@ func handleSlackCommandProxy(c *fiber.Ctx) error {
 	}
 
 	// Forward the request to Python Slack Bolt
-	client := fiber.DefaultClient()
-	resp, err := client.Post(slackBotURL + "/slack/events", "application/x-www-form-urlencoded", c.Body())
+	client := &http.Client{}
+	resp, err := client.Post(slackBotURL+"/slack/events", "application/x-www-form-urlencoded", bytes.NewReader(c.Body()))
 	if err != nil {
 		log.Printf("Failed to proxy to Slack Bot: %v", err)
 		return c.Status(fiber.StatusBadGateway).JSON(map[string]string{

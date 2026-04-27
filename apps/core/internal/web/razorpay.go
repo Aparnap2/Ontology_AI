@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -65,11 +66,9 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
 	// 4. Persist raw event FIRST
 	ikey := h.buildIdempotencyKey(eventName, raw)
 	rawEventID, err := h.store.InsertRawEvent(c.Context(), db.RawEvent{
-		FounderID:      h.resolveFounder(c),
+		TenantID:       h.resolveFounder(c),
 		Source:         "razorpay",
-		EventName:      eventName,
-		Topic:          entry.Topic,
-		SOPName:        entry.SOPName,
+		EventType:      eventName,
 		PayloadHash:    h.computeHash(c.Body()),
 		PayloadBody:    c.Body(),
 		IdempotencyKey: ikey,
@@ -81,13 +80,14 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "storage_failed"})
 	}
 
-	// 5. Publish envelope (ref only, not raw payload)
+// 5. Publish envelope (ref only, not raw payload)
 	envelope := events.EventEnvelope{
 		Source:         events.SourceRazorpay,
-		EventName:      eventName,
-		Topic:          entry.Topic,
-		SOPName:        entry.SOPName,
+		EventType:      eventName,
 		PayloadRef:     "raw_events:" + rawEventID,
+		PayloadHash:    h.computeHash(c.Body()),
+		OccurredAt:     time.Now(),
+		ReceivedAt:     time.Now(),
 		IdempotencyKey: ikey,
 	}
 	if err := h.producer.PublishEnvelope(entry.Topic, envelope); err != nil {

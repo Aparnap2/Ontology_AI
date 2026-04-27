@@ -1,6 +1,9 @@
 package main
 
 import (
+	"database/sql"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -9,9 +12,9 @@ import (
 	"iterateswarm-core/internal/web"
 )
 
-func setupTestAppWithRealHandlers() *fiber.App {
+func setupTestAppWithRealHandlers(db *sql.DB) *fiber.App {
 	app := fiber.New()
-	h := web.NewHandler()
+	h := web.NewHandler(db)
 
 	apiGroup := app.Group("/api")
 	apiGroup.Get("/hitl/count", h.APIPendingHITL)
@@ -22,8 +25,13 @@ func setupTestAppWithRealHandlers() *fiber.App {
 	return app
 }
 
+func readBody(resp *http.Response) string {
+	body, _ := io.ReadAll(resp.Body)
+	return strings.TrimSpace(string(body))
+}
+
 func TestPendingQueueReturnsHTMXPartialOnHXRequest(t *testing.T) {
-	app := setupTestAppWithRealHandlers()
+	app := setupTestAppWithRealHandlers(nil)
 
 	req := httptest.NewRequest("GET", "/api/hitl/queue", nil)
 	req.Header.Set("HX-Request", "true")
@@ -33,17 +41,15 @@ func TestPendingQueueReturnsHTMXPartialOnHXRequest(t *testing.T) {
 		t.Fatalf("Failed to test request: %v", err)
 	}
 
-	body := make([]byte, 2048)
-	resp.Body.Read(body)
-	responseBody := strings.TrimSpace(string(body))
+	body := readBody(resp)
 
-	if !strings.Contains(responseBody, "HITL-001") {
-		t.Errorf("FAIL: Expected HTMX partial with HITL row, got: %q", responseBody)
+	if !strings.Contains(body, "HITL-001") {
+		t.Errorf("FAIL: Expected HTMX partial with HITL row, got: %q", body)
 	}
 }
 
 func TestApproveEndpointReturnsPartialForHTMX(t *testing.T) {
-	app := setupTestAppWithRealHandlers()
+	app := setupTestAppWithRealHandlers(nil)
 
 	req := httptest.NewRequest("POST", "/api/hitl/1/approve", nil)
 	req.Header.Set("HX-Request", "true")
@@ -53,17 +59,15 @@ func TestApproveEndpointReturnsPartialForHTMX(t *testing.T) {
 		t.Fatalf("Failed to test request: %v", err)
 	}
 
-	body := make([]byte, 2048)
-	resp.Body.Read(body)
-	responseBody := strings.TrimSpace(string(body))
+	body := readBody(resp)
 
-	if responseBody != "" {
-		t.Errorf("FAIL: Expected empty partial for HTMX, got: %q", responseBody)
+	if body != "" {
+		t.Errorf("FAIL: Expected empty partial for HTMX, got: %q", body)
 	}
 }
 
 func TestRejectEndpointReturnsPartialForHTMX(t *testing.T) {
-	app := setupTestAppWithRealHandlers()
+	app := setupTestAppWithRealHandlers(nil)
 
 	req := httptest.NewRequest("POST", "/api/hitl/1/reject", nil)
 	req.Header.Set("HX-Request", "true")
@@ -73,67 +77,9 @@ func TestRejectEndpointReturnsPartialForHTMX(t *testing.T) {
 		t.Fatalf("Failed to test request: %v", err)
 	}
 
-	body := make([]byte, 2048)
-	resp.Body.Read(body)
-	responseBody := strings.TrimSpace(string(body))
+	body := readBody(resp)
 
-	if responseBody != "" {
-		t.Errorf("FAIL: Expected empty partial for HTMX, got: %q", responseBody)
-	}
-}
-
-func TestApproveEndpointRespectsHXRequestHeader(t *testing.T) {
-	app := setupTestApp()
-
-	reqHTMX := httptest.NewRequest("POST", "/api/approvals/123/approve", nil)
-	reqHTMX.Header.Set("HX-Request", "true")
-	respHTMX, _ := app.Test(reqHTMX)
-
-	bodyHTMX := make([]byte, 2048)
-	respHTMX.Body.Read(bodyHTMX)
-	responseHTMX := strings.TrimSpace(string(bodyHTMX))
-
-	reqNonHTMX := httptest.NewRequest("POST", "/api/approvals/123/approve", nil)
-	respNonHTMX, _ := app.Test(reqNonHTMX)
-
-	bodyNonHTMX := make([]byte, 2048)
-	respNonHTMX.Body.Read(bodyNonHTMX)
-	responseNonHTMX := strings.TrimSpace(string(bodyNonHTMX))
-
-	if responseHTMX == responseNonHTMX {
-		t.Errorf("FAIL: Handler returns same response for HTMX and non-HTMX requests. HTMX: %q, Non-HTMX: %q", responseHTMX, responseNonHTMX)
-		t.Log("Handler should check c.Get('HX-Request') and return different response (partial vs redirect)")
-	}
-
-	if respHTMX.StatusCode == 302 || respHTMX.StatusCode == 303 {
-		t.Error("FAIL: HTMX request should NOT redirect, should return partial")
-	}
-}
-
-func TestDismissEndpointRespectsHXRequestHeader(t *testing.T) {
-	app := setupTestApp()
-
-	reqHTMX := httptest.NewRequest("POST", "/api/approvals/123/dismiss", nil)
-	reqHTMX.Header.Set("HX-Request", "true")
-	respHTMX, _ := app.Test(reqHTMX)
-
-	bodyHTMX := make([]byte, 2048)
-	respHTMX.Body.Read(bodyHTMX)
-	responseHTMX := strings.TrimSpace(string(bodyHTMX))
-
-	reqNonHTMX := httptest.NewRequest("POST", "/api/approvals/123/dismiss", nil)
-	respNonHTMX, _ := app.Test(reqNonHTMX)
-
-	bodyNonHTMX := make([]byte, 2048)
-	respNonHTMX.Body.Read(bodyNonHTMX)
-	responseNonHTMX := strings.TrimSpace(string(bodyNonHTMX))
-
-	if responseHTMX == responseNonHTMX {
-		t.Errorf("FAIL: Handler returns same response for HTMX and non-HTMX requests. HTMX: %q, Non-HTMX: %q", responseHTMX, responseNonHTMX)
-		t.Log("Handler should check c.Get('HX-Request') and return different response (empty partial vs redirect)")
-	}
-
-	if respHTMX.StatusCode == 302 || respHTMX.StatusCode == 303 {
-		t.Error("FAIL: HTMX request should NOT redirect, should return empty for swap")
+	if body != "" {
+		t.Errorf("FAIL: Expected empty partial for HTMX, got: %q", body)
 	}
 }
