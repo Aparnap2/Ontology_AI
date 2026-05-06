@@ -46,6 +46,13 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "aiokafka>=0.13.0",
+    # OpenTelemetry Tracing
+    "opentelemetry-api>=1.32.0",
+    "opentelemetry-sdk>=1.32.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.32.0",
+    "opentelemetry-instrumentation-aiokafka>=0.52b0",
+    "opentelemetry-instrumentation-redis>=0.52b0",
+    "opentelemetry-instrumentation-qdrant>=0.52b0",
 ]
 
 [project.optional-dependencies]

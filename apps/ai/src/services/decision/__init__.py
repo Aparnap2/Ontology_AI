@@ -48,18 +48,18 @@ class DecisionService:
         Returns:
             DecisionResult with should_alert, severity, confidence, hitl_required
         """
+        # Run guardian detection
         guardian = self._get_guardian()
         hitl_manager = self._get_hitl_manager()
 
-# Run guardian detection
+        # Run guardian detection
         if guardian:
             matches = guardian.run(signals)
-            pattern_name = matches[0].id if matches else None  # Fixed: .id not .pattern_id
+            pattern_name = matches[0].id if matches else None
             severity_str = matches[0].severity if matches else "info"
             severity = Severity(severity_str) if severity_str in ["critical", "warning", "info"] else Severity.INFO
             confidence = 0.85 if matches else 0.5
         else:
-            # Fallback: simple signal-based detection
             pattern_name = self._detect_pattern(signals)
             severity = self._detect_severity(signals)
             confidence = 0.75
@@ -70,7 +70,7 @@ class DecisionService:
         hitl_required = False
         if hitl_manager and should_alert:
             is_investor_update = signals.get("is_investor_update", False)
-            routing = hitl_manager.route(  # Fixed: route() not should_human_review()
+            routing = hitl_manager.route(
                 severity=severity.value,
                 confidence=confidence,
                 is_new_pattern=False,

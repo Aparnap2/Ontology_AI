@@ -24,6 +24,7 @@ import (
 	"iterateswarm-core/internal/events"
 	"iterateswarm-core/internal/redpanda"
 	"iterateswarm-core/internal/temporal"
+	"iterateswarm-core/internal/tracing"
 	"iterateswarm-core/internal/web"
 
 	_ "github.com/lib/pq"
@@ -42,6 +43,15 @@ func main() {
 	flag.Parse()
 
 	log.Println("Starting IterateSwarm Core Server...")
+
+	// Initialize tracing (graceful - fails silently if collector unavailable)
+	tracerProvider, tracerErr := tracing.InitTracer(context.Background(), tracing.NewConfig())
+	if tracerErr != nil {
+		log.Printf("Warning: Tracing unavailable: %v", tracerErr)
+	} else if tracerProvider != nil {
+		defer tracerProvider.Shutdown(context.Background())
+		log.Println("OTel tracing initialized")
+	}
 
 	// Initialize Redpanda client (optional - graceful degradation)
 	var redpandaClient *redpanda.Client
@@ -120,6 +130,9 @@ func main() {
 		Format: "[${time}] ${status} - ${method} ${path} (${latency})\n",
 	}))
 	app.Use(cors.New())
+
+	// Note: OTel tracing middleware can be added when Fiber OTel contrib is available
+	// app.Use(tracing.MiddlewareFiber())
 
 	// Health check routes (no auth required)
 	app.Get("/health", handler.HandleHealth)

@@ -32,6 +32,30 @@ from .schemas import (
 
 log = logging.getLogger(__name__)
 
+# OTel tracing - initialize at module load
+_TRACER = None
+
+
+def _init_tracing():
+    """Initialize tracing once at module load."""
+    global _TRACER
+    if _TRACER is None:
+        try:
+            from apps.ai.src.services.tracing import init_tracing, get_service_name
+            init_tracing(service_name=get_service_name("delivery-service"))
+            from apps.ai.src.services.tracing import get_tracer
+            _TRACER = get_tracer("delivery-service")
+            log.info("Delivery service tracing initialized")
+        except Exception as e:
+            log.warning(f"Tracing init failed: {e}")
+
+
+# Initialize on import
+try:
+    _init_tracing()
+except Exception:
+    pass
+
 # Redpanda configuration
 REDPANDA_URL = os.environ.get("REDPANDA_URL", "localhost:9092")
 CONSUMER_GROUP = "sarthi-delivery-service"

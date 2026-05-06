@@ -1,0 +1,40 @@
+# ═══════════════════════════════════════════════════════════════
+# OTel Collector Configuration
+# Receives traces/metrics from services → exports to Jaeger + Prometheus
+# ═══════════════════════════════════════════════════════════════
+
+receivers:
+  otlp:
+    endpoint: 0.0.0.0:4317
+    tls:
+      insecure: true
+
+exporters:
+  # Jaeger for traces
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  # Prometheus for metrics
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: sarthi
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  memory:
+    limit_mib: 100
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
