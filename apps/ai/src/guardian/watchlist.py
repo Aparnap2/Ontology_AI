@@ -433,6 +433,8 @@ OG_04_DEPLOY_COLLAPSE = SeedStageBlindspot(
     id="OG-04", name="Deploy Frequency Collapse", domain="ops",
     signals_required=["deploys_this_month", "deploys_last_month"],
     detection_logic=lambda s: (
+        "deploys_this_month" in s and  # Signal must exist (not defaulted)
+        "deploys_last_month" in s and  # Signal must exist (not defaulted)
         s.get("deploys_last_month", 1) > 0 and
         s.get("deploys_this_month", 0) <
         s.get("deploys_last_month", 1) * 0.50

@@ -35,7 +35,11 @@ class TestDecisionService:
         from apps.ai.src.services.decision import DecisionService
 
         service = DecisionService()
-        result = service.evaluate("tenant-123", {"burn_multiple": 2.5})
+        # FG-02 requires net_burn and net_new_arr signals
+        result = service.evaluate("tenant-123", {
+            "net_burn": 5000,
+            "net_new_arr": 2000  # burn_multiple = 2.5
+        })
 
         assert result.should_alert is True
         assert result.pattern_name == "FG-02"
@@ -45,23 +49,30 @@ class TestDecisionService:
         from apps.ai.src.services.decision import DecisionService
 
         service = DecisionService()
-        result = service.evaluate("tenant-123", {"activation_rate": 0.15})
+        # BG-01 requires new_signups, activation_rate, mrr_growth_pct
+        result = service.evaluate("tenant-123", {
+            "new_signups": 100,
+            "activation_rate": 0.15,  # below 0.40 threshold
+            "mrr_growth_pct": 0.05
+        })
 
         assert result.should_alert is True
         assert result.pattern_name == "BG-01"
 
     def test_hitl_required_for_critical_low_confidence(self):
         """Test HITL routing for critical severity with low confidence."""
-        from apps.ai.src.services.decision import DecisionService, Severity
+        from apps.ai.src.services.decision import DecisionService
 
         service = DecisionService()
-        # Simulate critical with low confidence via signals
+        # Send signals that trigger a critical pattern with low confidence
+        # Using very high burn to trigger critical severity
         result = service.evaluate("tenant-123", {
-            "severity": "critical",
-            "confidence": 0.4  # Low confidence triggers HITL
+            "net_burn": 50000,  # Very high
+            "net_new_arr": 10000,  # burn_multiple = 5.0 (very high)
+            "confidence": 0.4  # Low confidence override
         })
 
-        # With critical severity and confidence < 0.6, hitl_required should be True
+        # Should have hitl_required True due to critical severity
         assert result.hitl_required is True
 
     def test_no_alert_for_normal_metrics(self):
