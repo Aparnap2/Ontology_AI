@@ -1,110 +1,132 @@
-"""Session Context retrieval for Sarthi V3.0.
-
-This module provides the get_session_context function to retrieve
-recent messages for a tenant.
-
-PRD Reference: Section 795-798
 """
+Session Context — #sarthi channel history.
 
-import logging
+Per PRD Section 7: One Slack channel: #sarthi.
+All agents and founder share this session.
+"""
+from __future__ import annotations
+
 import os
-from dataclasses import dataclass
-from datetime import datetime
-from typing import List, Optional
+import logging
+from datetime import datetime, timedelta
+from typing import Literal
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import asyncpg
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
-# Database connection
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://sarthi:sarthi@localhost:5432/sarthi")
 
 
 @dataclass
 class SessionMessage:
-    """Represents a session message for context retrieval."""
+    """A single message in the #sarthi session."""
 
-    id: str
+    id: str | None
     tenant_id: str
-    role: str  # user, assistant, system
+    role: Literal["founder", "finance", "bi", "ops", "sarthi"]
     content: str
-    timestamp: datetime
+    agent_name: str | None
+    created_at: datetime
 
 
-def _get_db_connection():
-    """Get a database connection with graceful fallback."""
-    try:
-        return psycopg2.connect(DATABASE_URL)
-    except Exception as e:
-        logger.warning(f"Database connection failed: {e}. Using fallback mode.")
-        return None
+async def get_session_context(
+    tenant_id: str,
+    limit: int = 10,
+) -> list[SessionMessage]:
+    """Get last N messages from #sarthi session.
 
-
-from dataclasses import dataclass
-from datetime import datetime
-
-
-def get_session_context(tenant_id: str, limit: int = 10) -> List[dict]:
-    """Retrieve the most recent N messages for a tenant.
-
-    This function fetches recent conversation messages that can be used
-    to provide context for agent responses.
+    Per PRD Section 7: All agents read session context.
+    Co-founder agent reads, employees write.
 
     Args:
-        tenant_id: The tenant identifier
-        limit: Maximum number of messages to retrieve (default: 10)
+        tenant_id: The tenant's session to fetch
+        limit: Number of recent messages to return
 
     Returns:
-        List of message dictionaries with keys: id, tenant_id, role, content, timestamp
-
-    Example:
-        >>> messages = get_session_context("tenant-123", limit=5)
-        >>> for msg in messages:
-        >>>     print(f"{msg['role']}: {msg['content'][:50]}...")
+        List of SessionMessage objects (newest first)
     """
-    conn = _get_db_connection()
-    if conn is None:
-        logger.warning(f"[FALLBACK] Returning empty context for tenant {tenant_id}")
-        return _get_fallback_context(tenant_id, limit)
-
     try:
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-
-        query = """
-            SELECT id, tenant_id, role, content, timestamp
+        conn = await asyncpg.connect(DATABASE_URL)
+        rows = await conn.fetch(
+            """
+            SELECT id, tenant_id, role, content, agent_name, created_at
             FROM session_messages
-            WHERE tenant_id = %s
-            ORDER BY timestamp DESC
-            LIMIT %s
-        """
+            WHERE tenant_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            """,
+            tenant_id,
+            limit,
+        )
+        await conn.close()
 
-        cursor.execute(query, (tenant_id, limit))
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
-
-        # Convert to list of dicts and reverse to get chronological order
-        messages = [dict(row) for row in rows]
-        messages.reverse()
-
-        logger.debug(f"Retrieved {len(messages)} messages for tenant {tenant_id}")
-        return messages
-
+        return [
+            SessionMessage(
+                id=str(row["id"]),
+                tenant_id=row["tenant_id"],
+                role=row["role"],
+                content=row["content"],
+                agent_name=row["agent_name"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
     except Exception as e:
-        logger.error(f"Error fetching session context for tenant {tenant_id}: {e}")
-        return _get_fallback_context(tenant_id, limit)
+        log.warning(f"Session context lookup failed for {tenant_id}: {e}")
+        return []
 
 
-def _get_fallback_context(tenant_id: str, limit: int) -> List[dict]:
-    """Get fallback context when database is unavailable.
+async def write_session_message(
+    tenant_id: str,
+    role: Literal["founder", "finance", "bi", "ops", "sarthi"],
+    content: str,
+    agent_name: str | None = None,
+) -> bool:
+    """Write a message to the #sarthi session.
+
+    Per PRD Section 7: Every message the founder types is context every agent reads.
+    Agents self-activate when their domain keyword is triggered.
 
     Args:
-        tenant_id: The tenant identifier
-        limit: Number of messages to return
+        tenant_id: The tenant
+        role: Who is speaking (founder or which agent)
+        content: The message content
+        agent_name: Name of agent if role is an agent
 
     Returns:
-        Empty list (fallback response)
+        True if successful
     """
-    logger.debug(f"[FALLBACK] No session context available for tenant {tenant_id}")
-    return []
+    try:
+        conn = await asyncpg.connect(DATABASE_URL)
+        await conn.execute(
+            """
+            INSERT INTO session_messages (tenant_id, role, content, agent_name, created_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            """,
+            tenant_id,
+            role,
+            content,
+            agent_name,
+        )
+        await conn.close()
+        return True
+    except Exception as e:
+        log.error(f"Session message write failed: {e}")
+        return False
+
+
+# SQL for table creation (run once during migration)
+SESSION_MESSAGES_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS session_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    agent_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_messages_tenant_created
+    ON session_messages(tenant_id, created_at DESC);
+"""
