@@ -17,6 +17,7 @@ Per PRD Section 7: Agent persona - BI Analyst watches for:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -170,3 +171,31 @@ class BIAnalystGraph:
             "mrr_trend": self.state.mrr_trend,
             "churn_rate": self.state.churn_rate,
         }
+
+    def health_check(self) -> dict:
+        """Return agent health status.
+
+        Returns:
+            dict with status, capability, owner, and latency_ms
+        """
+        start = time.perf_counter()
+        try:
+            # Quick deterministic check - no LLM needed
+            _ = self.state.metrics_snapshot
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            return {
+                "status": "ok",
+                "capability": "bi.user_engagement",
+                "owner": "bi-analyst",
+                "latency_ms": latency_ms,
+            }
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            log.error(f"BI Analyst health check failed: {e}")
+            return {
+                "status": "error",
+                "capability": "bi.user_engagement",
+                "owner": "bi-analyst",
+                "latency_ms": latency_ms,
+                "error": str(e),
+            }

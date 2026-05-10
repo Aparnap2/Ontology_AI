@@ -16,6 +16,7 @@ Per PRD Section 7: Agent persona - Ops Watch monitors:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -178,3 +179,31 @@ class OpsWatchGraph:
             "top_feature_ask": self.state.top_feature_ask,
             "error_spike": self.state.error_spike,
         }
+
+    def health_check(self) -> dict:
+        """Return agent health status.
+
+        Returns:
+            dict with status, capability, owner, and latency_ms
+        """
+        start = time.perf_counter()
+        try:
+            # Quick deterministic check - no LLM needed
+            _ = self.state.ops_snapshot
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            return {
+                "status": "ok",
+                "capability": "ops.health_deployment",
+                "owner": "ops-watch",
+                "latency_ms": latency_ms,
+            }
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            log.error(f"Ops Watch health check failed: {e}")
+            return {
+                "status": "error",
+                "capability": "ops.health_deployment",
+                "owner": "ops-watch",
+                "latency_ms": latency_ms,
+                "error": str(e),
+            }

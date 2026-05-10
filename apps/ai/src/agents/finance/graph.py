@@ -9,6 +9,7 @@ Phase 3: NARRATIVE GENERATION (1 LLM) - bounded 200 words
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -128,3 +129,31 @@ class FinanceGuardianGraph:
             "narrative": self.state.narrative,
             "tenant_id": self.state.tenant_id,
         }
+
+    def health_check(self) -> dict:
+        """Return agent health status.
+
+        Returns:
+            dict with status, capability, owner, and latency_ms
+        """
+        start = time.perf_counter()
+        try:
+            # Quick deterministic check - no LLM needed
+            _ = self.state.financial_snapshot
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            return {
+                "status": "ok",
+                "capability": "finance.runway_risk",
+                "owner": "finance-guardian",
+                "latency_ms": latency_ms,
+            }
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+            log.error(f"Finance Guardian health check failed: {e}")
+            return {
+                "status": "error",
+                "capability": "finance.runway_risk",
+                "owner": "finance-guardian",
+                "latency_ms": latency_ms,
+                "error": str(e),
+            }
