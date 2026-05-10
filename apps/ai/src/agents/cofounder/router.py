@@ -7,8 +7,20 @@ Per PRD Section 220-224: Option C authority (low severity decides, critical esca
 from dataclasses import dataclass
 from typing import Optional
 
+from src.registry.health import HealthPoller
 from src.session.mission_state import get_mission_state, MissionState
 from src.session.relevance_gate import evaluate_relevance, get_triggered_agents
+
+# Capability to domain mapping
+CAPABILITY_DOMAIN_MAP = {
+    "finance.runway_risk": "finance",
+    "bi.cohort_retention": "bi",
+    "ops.error_correlation": "ops",
+    "memory.similar_alerts": "memory",
+    "graphiti.strategy_lookup": "graphiti",
+    "service.api-gateway": "service",
+    "service.workflow": "service",
+}
 
 
 @dataclass
@@ -27,10 +39,63 @@ class Router:
     Per PRD Section 7:
     - Agent responds only if: keyword_hit OR (active_alert AND question)
     - Never responds to every message — that is noise
+
+    Per PRD: Includes HealthPoller to skip unhealthy capabilities.
     """
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        registry=None,
+        health_poller: Optional[HealthPoller] = None,
+    ):
+        """Initialize router with optional registry and health poller.
+
+        Args:
+            registry: Capability registry (loads default if None)
+            health_poller: Health poller for capability health checks
+        """
+        from src.registry.registry import CapabilityRegistry
+        self.registry = registry or CapabilityRegistry()
+        self.health_poller = health_poller
+
+    def _check_capability_health(self, domain: str) -> tuple[bool, str]:
+        """Check if capability for domain is healthy.
+
+        Args:
+            domain: Target domain (finance, bi, ops)
+
+        Returns:
+            Tuple of (is_healthy, reason)
+        """
+        if self.health_poller is None:
+            return True, "no health poller configured"
+
+        # Find matching capability
+        for cap_id, cap_domain in CAPABILITY_DOMAIN_MAP.items():
+            if cap_domain == domain:
+                health = self.health_poller.get_health(cap_id)
+                if health == "down":
+                    return False, f"{cap_id} is down"
+                elif health == "degraded":
+                    return True, f"{cap_id} is degraded"
+                return True, f"{cap_id} is {health}"
+        return True, "no capability mapping found"
+
+    def _fallback_route(self, domain: str) -> RouteDecision:
+        """Route to fallback when capability is unhealthy.
+
+        Args:
+            domain: Original target domain
+
+        Returns:
+            RouteDecision with fallback destination
+        """
+        return RouteDecision(
+            destination="none",
+            reason=f"Capability for {domain} is unhealthy - using fallback",
+            should_escalate=False,
+            triggered_agents=[],
+        )
 
     async def route(
         self,
@@ -79,8 +144,16 @@ class Router:
 
         # Step 5: Primary domain routing (deterministic)
         # Map domain → agent
+        target_domain = relevance.triggered_domains[0] if relevance.triggered_domains else "none"
+
+        # Step 6: Health check before routing
+        if target_domain != "none":
+            is_healthy, health_reason = self._check_capability_health(target_domain)
+            if not is_healthy:
+                return self._fallback_route(target_domain)
+
         return RouteDecision(
-            destination=relevance.triggered_domains[0] if relevance.triggered_domains else "none",
+            destination=target_domain,
             reason=relevance.reason,
             should_escalate=False,
             triggered_agents=triggered_agents,
