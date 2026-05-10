@@ -4,7 +4,7 @@
 > detects 17 seed-stage failure patterns, and delivers contextual guardian insights
 > to founders before problems become crises.
 
-**[![Tests](https://img.shields.io/badge/tests-104%20passing-brightgreen)](#)**
+**[![Tests](https://img.shields.io/badge/tests-31%20passing%20%2B%20E2E%20smoke-brightgreen)](#)**
 **[![Architecture](https://img.shields.io/badge/distributed-Redpanda%20event%20bus-blue)](#)**
 **[![HTMX](https://img.shields.io/badge/HTMX-4%20ops%20screens-purple)](#)**
 
