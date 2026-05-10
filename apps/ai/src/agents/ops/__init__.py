@@ -1,15 +1,6 @@
-"""
-AnomalyAgent — explains detected anomalies with historical context.
-
-Triggered when PulseAgent detects an anomaly.
-"""
+"""Ops Watch — operations monitoring agent for Sarthi."""
 from __future__ import annotations
 
-from src.agents.anomaly.state import AnomalyState
-from src.agents.anomaly.graph import anomaly_graph, build_anomaly_graph
+from src.agents.ops.graph import OpsWatchGraph, OpsWatchState
 
-__all__ = [
-    "AnomalyState",
-    "anomaly_graph",
-    "build_anomaly_graph",
-]
+__all__ = ["OpsWatchGraph", "OpsWatchState"]

@@ -148,21 +148,47 @@ async def run_finance_guardian(tenant_id: str, message: str) -> dict:
 
 
 async def run_bi_analyst(tenant_id: str, message: str) -> dict:
-    """Execute BI Analyst agent."""
+    """Execute BI Analyst agent.
+
+    Per PRD Section 8: Thin LLM, Fat Deterministic Core.
+    Phase 1: DATA ASSEMBLY (zero LLM)
+    Phase 2: COGNITIVE DECISION (1 LLM)
+    Phase 3: NARRATIVE GENERATION (1 LLM)
+    """
     from src.agents.bi.graph import BIAnalystGraph
 
     mission_state = await get_mission_state(tenant_id)
-    # TODO: wire BI agent
-    return {"agent": "BI Analyst", "status": "pending"}
+    graph = BIAnalystGraph()
+    state = await graph.run(tenant_id, mission_state.__dict__)
+
+    return {
+        "agent": "BI Analyst",
+        "alert": graph.get_alert(),
+        "triggered_patterns": state.triggered_patterns,
+        "domain_fields": graph.get_domain_fields(),
+    }
 
 
 async def run_ops_watch(tenant_id: str, message: str) -> dict:
-    """Execute Ops Watch agent."""
+    """Execute Ops Watch agent.
+
+    Per PRD Section 8: Thin LLM, Fat Deterministic Core.
+    Phase 1: DATA ASSEMBLY (zero LLM)
+    Phase 2: COGNITIVE DECISION (1 LLM)
+    Phase 3: NARRATIVE GENERATION (1 LLM)
+    """
     from src.agents.ops.graph import OpsWatchGraph
 
     mission_state = await get_mission_state(tenant_id)
-    # TODO: wire Ops agent
-    return {"agent": "Ops Watch", "status": "pending"}
+    graph = OpsWatchGraph()
+    state = await graph.run(tenant_id, mission_state.__dict__)
+
+    return {
+        "agent": "Ops Watch",
+        "alert": graph.get_alert(),
+        "triggered_patterns": state.triggered_patterns,
+        "domain_fields": graph.get_domain_fields(),
+    }
 
 
 # Agent execution map
