@@ -142,6 +142,90 @@ async def handle_decision_modal_submit(ack, body, client):
         )
 
 
+@app.action("acknowledge")
+async def handle_acknowledge(ack, body, client):
+    """Handle acknowledge button - route to button handler."""
+    await ack()
+    try:
+        from src.integrations.slack_buttons import route_slack_button
+        payload = {
+            "actions": body.get("actions", []),
+            "user": body.get("user", {}),
+        }
+        result = route_slack_button(payload)
+        if result.reply_text:
+            await client.chat_postMessage(
+                channel=body.get("channel", {}).get("id", ""),
+                thread_ts=body.get("message", {}).get("ts", ""),
+                text=result.reply_text
+            )
+    except Exception as e:
+        log.error(f"Error handling acknowledge button: {e}")
+
+
+@app.action("dispute")
+async def handle_dispute(ack, body, client):
+    """Handle dispute button - route to button handler."""
+    await ack()
+    try:
+        from src.integrations.slack_buttons import route_slack_button
+        payload = {
+            "actions": body.get("actions", []),
+            "user": body.get("user", {}),
+        }
+        result = route_slack_button(payload)
+        if result.reply_text:
+            await client.chat_postMessage(
+                channel=body.get("channel", {}).get("id", ""),
+                thread_ts=body.get("message", {}).get("ts", ""),
+                text=result.reply_text
+            )
+    except Exception as e:
+        log.error(f"Error handling dispute button: {e}")
+
+
+@app.action("show_breakdown")
+async def handle_show_breakdown(ack, body, client):
+    """Handle show breakdown button."""
+    await ack()
+    try:
+        from src.integrations.slack_buttons import route_slack_button
+        payload = {
+            "actions": body.get("actions", []),
+            "user": body.get("user", {}),
+        }
+        result = route_slack_button(payload)
+        if result.reply_text:
+            await client.chat_postMessage(
+                channel=body.get("channel", {}).get("id", ""),
+                thread_ts=body.get("message", {}).get("ts", ""),
+                text=result.reply_text
+            )
+    except Exception as e:
+        log.error(f"Error handling show_breakdown button: {e}")
+
+
+@app.action("log_decision")
+async def handle_log_decision(ack, body, client):
+    """Handle log decision button."""
+    await ack()
+    try:
+        from src.integrations.slack_buttons import route_slack_button
+        payload = {
+            "actions": body.get("actions", []),
+            "user": body.get("user", {}),
+        }
+        result = route_slack_button(payload)
+        if result.reply_text:
+            await client.chat_postMessage(
+                channel=body.get("channel", {}).get("id", ""),
+                thread_ts=body.get("message", {}).get("ts", ""),
+                text=result.reply_text
+            )
+    except Exception as e:
+        log.error(f"Error handling log_decision button: {e}")
+
+
 def _build_decision_modal():
     """Build the decision logging modal view."""
     return {

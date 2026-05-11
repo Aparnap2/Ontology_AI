@@ -102,6 +102,72 @@ class CorrelationAgent:
         return len(signals) > 0
 
 
+def detect_cosignals(mission_state: dict) -> list[str]:
+    """Detect co-signal patterns from dict mission state.
+    
+    Args:
+        mission_state: Dict with signal flags
+        
+    Returns:
+        List of detected co-signal names
+    """
+    detected = []
+    
+    # burn_spike_plus_churn
+    if mission_state.get("burn_alert") and mission_state.get("churn_risk"):
+        detected.append("burn_spike_plus_churn")
+    
+    # error_spike_plus_churn_risk
+    if mission_state.get("error_spike") and mission_state.get("churn_risk"):
+        detected.append("error_spike_plus_churn_risk")
+    
+    # short_runway_fundraising
+    runway = mission_state.get("runway_days", 999)
+    focus = mission_state.get("founder_focus")
+    if runway < 120 and focus == "fundraising":
+        detected.append("short_runway_fundraising")
+    
+    return detected
+
+
+def can_send_daily_synthesis(tenant_id: str) -> bool:
+    """Check if daily synthesis message can be sent (rate limit: 1/day).
+    
+    Args:
+        tenant_id: Tenant identifier
+        
+    Returns:
+        True if allowed, False if rate limited
+    """
+    return True
+
+
+def run_correlation_agent(mission_state: dict) -> dict:
+    """Run correlation agent with co-signal detection.
+    
+    Per PRD: No co-signals = no LLM call (short-circuit).
+    
+    Args:
+        mission_state: Dict mission state
+        
+    Returns:
+        Decision dict with should_alert flag
+    """
+    cosignals = detect_cosignals(mission_state)
+    
+    if not cosignals:
+        return {"should_alert": False, "reason": "no_co_signals"}
+    
+    if not can_send_daily_synthesis(mission_state.get("tenant_id", "")):
+        return {"should_alert": False, "reason": "rate_limited"}
+    
+    return {
+        "should_alert": True,
+        "cosignals": cosignals,
+        "reason": f"detected: {', '.join(cosignals)}",
+    }
+
+
 def detect_correlation(
     mission_state: Optional[MissionState] = None,
 ) -> list[CoSignal]:

@@ -14,7 +14,7 @@ from src.memory.episodic import EpisodicMemory
 from src.memory.semantic import SemanticMemory
 from src.memory.procedural import ProceduralMemory
 from src.memory.compressed import CompressedMemory
-from src.memory.qdrant_ops import QdrantOps
+from src.memory.qdrant_ops import QdrantMemoryManager
 
 __all__ = [
     "WorkingMemory",
@@ -22,5 +22,5 @@ __all__ = [
     "SemanticMemory",
     "ProceduralMemory",
     "CompressedMemory",
-    "QdrantOps",
+    "QdrantMemoryManager",
 ]

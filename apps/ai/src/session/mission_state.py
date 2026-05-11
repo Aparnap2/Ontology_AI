@@ -37,6 +37,11 @@ class MissionState:
     tenant_id: str
     timestamp: datetime | None = None
 
+    # Data Quality Gate fields
+    data_last_synced: datetime | None = None
+    mrr: float | None = None
+    burn_rate: float | None = None
+
     # Finance domain (Finance Guardian writes)
     runway_days: int | None = None
     burn_alert: bool = False
@@ -54,6 +59,10 @@ class MissionState:
     # Cross-agent signals (Co-founder manages)
     active_alerts: str | None = None  # comma-separated
     founder_focus: str | None = None
+
+    # Runtime fields (not persisted to DB)
+    skip_reason: str | None = None
+    data_quality: "DataQualityResult" = None
 
 
 async def get_mission_state(tenant_id: str) -> MissionState:

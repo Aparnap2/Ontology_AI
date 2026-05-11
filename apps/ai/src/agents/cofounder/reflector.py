@@ -3,6 +3,7 @@
 Converts founder responses into confidence scores for playbook updates.
 PRD Reference: Section 249-257
 """
+import logging
 from dataclasses import dataclass
 from enum import Enum
 
@@ -91,3 +92,17 @@ def score_founder_response(response: str, domain: str) -> Reflection:
     """Convenience function for scoring."""
     reflector = Reflector()
     return reflector.score(response, domain)
+
+
+def score_from_button(alert_id: str, response_type: str, score: float) -> None:
+    """Score feedback from Slack button interaction.
+    
+    Args:
+        alert_id: The alert/decision being scored
+        response_type: Response type (acknowledged/disputed)
+        score: Feedback score (+1.0 or -1.0)
+    """
+    log = logging.getLogger(__name__)
+    log.info(f"Button feedback: alert={alert_id}, type={response_type}, score={score}")
+    # Placeholder for integration with playbook scoring system
+    pass

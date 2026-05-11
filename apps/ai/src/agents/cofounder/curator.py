@@ -105,3 +105,60 @@ def update_playbook(
     """Convenience function for updating playbook."""
     curator = Curator(tenant_id=tenant_id)
     return curator.update(domain, strategy, score_delta, evidence_count)
+
+
+@dataclass
+class ConfidenceUpdateResult:
+    success: bool
+    tenant_id: str
+    domain: str
+    confidence_delta: float
+    new_confidence: float | None = None
+    error: str | None = None
+
+
+def update_strategy_confidence(
+    tenant_id: str,
+    domain: str,
+    feedback_type: str,
+    score: float,
+) -> ConfidenceUpdateResult:
+    """Update Graphiti Strategy confidence score based on founder feedback."""
+    score_map = {
+        "acknowledged": 1.0,
+        "acted_on": 1.5,
+        "ignored": -0.5,
+        "disputed": -1.0,
+        "dismissed": -1.5,
+    }
+    delta = score_map.get(feedback_type, score)
+
+    try:
+        from src.memory.semantic import SemanticMemory
+
+        memory = SemanticMemory(tenant_id=tenant_id)
+        playbook_entry = (
+            f"domain: {domain}\n"
+            f"strategy: confidence_update\n"
+            f"confidence_delta: {delta}\n"
+            f"feedback_type: {feedback_type}\n"
+        )
+        memory.write_episode(
+            name=f"strategy_confidence:{domain}",
+            body=playbook_entry,
+        )
+        return ConfidenceUpdateResult(
+            success=True,
+            tenant_id=tenant_id,
+            domain=domain,
+            confidence_delta=delta,
+            new_confidence=delta,
+        )
+    except Exception as e:
+        return ConfidenceUpdateResult(
+            success=False,
+            tenant_id=tenant_id,
+            domain=domain,
+            confidence_delta=delta,
+            error=str(e),
+        )

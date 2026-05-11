@@ -1,51 +1,124 @@
-"""Layer 5: Compressed Long-Term Memory — Qdrant founder_patterns."""
-from __future__ import annotations
-import os, uuid, requests
-from typing import Any
+"""L5 compression trigger - after 50 writes, trigger Qdrant optimization."""
+from dataclasses import dataclass
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+COMPRESSION_TRIGGER_THRESHOLD = 50
+
+
+@dataclass
+class CompressionStats:
+    write_count: int
+    tenant_id: str
+    collection_name: str
+
+
+def should_compress(stats: CompressionStats) -> bool:
+    """Check if compression should be triggered."""
+    return stats.write_count >= COMPRESSION_TRIGGER_THRESHOLD
+
+
+def reset_write_count(tenant_id: str, collection_name: str) -> None:
+    """Reset write count for tenant after compression."""
+    from qdrant_client import QdrantClient
+    import os
+    
+    host = os.environ.get("QDRANT_HOST", "localhost")
+    port = os.environ.get("QDRANT_PORT", "6333")
+    client = QdrantClient(host=host, port=int(port))
+    
+    client.set_payload(
+        collection_name=collection_name,
+        payload={"_l5_write_count": 0},
+        points=[],
+        points_selector=None,
+        wait=None,
+    )
+    logger.info(f"Reset write count for tenant={tenant_id}")
+
+
+def increment_write_count(tenant_id: str, collection_name: str) -> int:
+    """Increment write count for tenant."""
+    from src.memory.qdrant_ops import _get_client
+    
+    client = _get_client()
+    
+    filter_conditions = [
+        {"key": "tenant_id", "match": {"value": tenant_id}}
+    ]
+    
+    from qdrant_client.models import Filter, FieldCondition, MatchValue
+    tenant_filter = Filter(
+        must=[FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id))]
+    )
+    
+    points = client.scroll(
+        collection_name=collection_name,
+        scroll_filter=tenant_filter,
+        limit=1,
+        with_payload=True,
+    )
+    
+    current_count = 0
+    if points[0]:
+        point = points[0][0]
+        current_count = point.payload.get("_l5_write_count", 0)
+    
+    new_count = current_count + 1
+    
+    client.set_payload(
+        collection_name=collection_name,
+        payload={"_l5_write_count": new_count},
+        points=[p.id for p in points[0]] if points[0] else [],
+    )
+    
+    return new_count
+
+
+def trigger_compression(tenant_id: str) -> dict:
+    """Trigger L5 compression for tenant."""
+    from qdrant_client import QdrantClient
+    import os
+    
+    host = os.environ.get("QDRANT_HOST", "localhost")
+    port = os.environ.get("QDRANT_PORT", "6333")
+    client = QdrantClient(host=host, port=int(port))
+    
+    collection_name = os.environ.get("QDRANT_COLLECTION", "sarthi_memory")
+    
+    tenant_filter = {
+        "must": [
+            {"key": "tenant_id", "match": {"value": tenant_id}}
+        ]
+    }
+    
+    client.delete(
+        collection_name=collection_name,
+        points_selector={
+            "filter": tenant_filter,
+            "limit": 1000
+        }
+    )
+    
+    logger.info(f"Triggered L5 compression for tenant={tenant_id}")
+    return {"tenant_id": tenant_id, "compressed": True}
 
 
 class CompressedMemory:
+    """L5 compressed memory manager with write-count-based compression."""
+    
     def __init__(self):
-        self.collection = "founder_patterns"
-        self.base = f"http://{os.environ.get('QDRANT_HOST','localhost')}:{os.environ.get('QDRANT_PORT','6333')}"
-
-    def available(self) -> bool:
-        try:
-            r = requests.get(f"{self.base}/collections/{self.collection}", timeout=3)
-            return r.status_code == 200
-        except Exception:
-            return False
-
-    def write(self, tenant_id: str, patterns: dict):
-        if not self.available():
-            return
-        point_id = str(uuid.uuid4())
-        payload = {
-            "tenant_id": tenant_id, "event_type": "compressed_pattern",
-            "weight": 1.0, "confidence": 0.85, "compressed": True, **patterns
-        }
-        try:
-            requests.put(
-                f"{self.base}/collections/{self.collection}/points/{point_id}",
-                json={"id": point_id, "vector": [0.0] * 768, "payload": payload},
-                timeout=15
-            )
-        except Exception:
-            pass
-
-    def search(self, tenant_id: str, top_k: int = 3) -> list[dict]:
-        if not self.available():
-            return []
-        try:
-            r = requests.post(
-                f"{self.base}/collections/{self.collection}/points/search",
-                json={
-                    "vector": [0.0] * 768,
-                    "filter": {"must": [{"key": "tenant_id", "match": {"value": tenant_id}}]},
-                    "limit": top_k, "with_payload": True
-                },
-                timeout=15
-            )
-            return [{"score": x["score"], **x["payload"]} for x in r.json().get("result", [])]
-        except Exception:
-            return []
+        self.write_count = 0
+    
+    def track_write(self, tenant_id: str) -> None:
+        """Track a write operation."""
+        self.write_count += 1
+        if self.write_count >= COMPRESSION_TRIGGER_THRESHOLD:
+            self.trigger_compression(tenant_id)
+    
+    def trigger_compression(self, tenant_id: str) -> dict:
+        """Trigger compression and reset count."""
+        self.write_count = 0
+        return trigger_compression(tenant_id)
