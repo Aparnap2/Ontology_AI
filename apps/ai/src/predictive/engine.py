@@ -8,6 +8,8 @@ threshold-breach prediction. Extensible to ARIMA/Prophet later.
 """
 from __future__ import annotations
 
+from src.llmops.tracer import traced
+
 import math
 import statistics
 from typing import Any
@@ -432,6 +434,7 @@ def churn_acceleration_risk(
     }
 
 
+@traced(agent="predictive", signature="compute_forecast_summary", as_type="span")
 def compute_forecast_summary(
     values: list[float], label: str = "metric"
 ) -> dict[str, Any]:

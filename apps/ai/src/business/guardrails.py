@@ -19,6 +19,8 @@ in ``evaluate_envelope``.
 """
 from __future__ import annotations
 
+from src.llmops.tracer import traced
+
 import re
 from typing import Literal
 
@@ -349,6 +351,7 @@ def _stage7_blocking_override(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+@traced(agent="guardrails", signature="evaluate", as_type="span")
 def evaluate_envelope(envelope: BusinessDecisionEnvelope) -> GuardrailResult:
     """Evaluate a BusinessDecisionEnvelope through all 7 guardrail stages.
 

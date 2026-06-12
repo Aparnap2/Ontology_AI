@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  agent-test-server:
+    build:
+      context: ..
+      dockerfile: tests/Dockerfile.test
+    container_name: sarthi-agent-test-server
+    ports:
+      - "8001:8001"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_CHAT_MODEL=${GROQ_CHAT_MODEL:-qwen/qwen3-32b}
+      - DATABASE_URL=postgresql://iterateswarm:iterateswarm@host.docker.internal:5432/iterateswarm
+      - REDIS_URL=redis://host.docker.internal:6379
+      - QDRANT_URL=http://host.docker.internal:6333
+      - NEO4J_URI=bolt://host.docker.internal:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=neo4j_password
+    depends_on: []
+    command: uvicorn tests.agent_test_server:app --host 0.0.0.0 --port 8001

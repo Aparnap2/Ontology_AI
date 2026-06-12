@@ -8,12 +8,16 @@ Phase 3: NARRATIVE GENERATION (1 LLM) - bounded 200 words
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Literal
 
 from src.schemas.guardian import AlertDecision
+from src.config.llm import chat_completion, get_chat_model
+from src.llmops.tracer import traced
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +72,7 @@ class FinanceGuardianGraph:
             await self._decide_alert(mission_context)
 
         # Phase 3: NARRATIVE GENERATION (1 LLM call, bounded)
-        if self.state.alert_decision and self.state.alert_decision.get("should_alert"):
+        if self.state.alert_decision and self.state.alert_decision.should_alert:
             await self._generate_narrative()
 
         return self.state
@@ -100,25 +104,90 @@ class FinanceGuardianGraph:
         self.state.triggered_patterns = patterns
         log.info(f"Finance Guardian: {len(patterns)} patterns triggered")
 
+    @traced(agent="finance_guardian", signature="decide_alert", as_type="generation")
     async def _decide_alert(self, mission_context: dict):
         """Phase 2: One small LLM call with Pydantic output."""
-        # TODO: Call LLM with Pydantic AI structured output
-        # Input: typed dict — numbers only
-        # Output: AlertDecision (Pydantic model)
+        try:
+            model = os.environ.get("GROQ_CHAT_MODEL", "qwen/qwen3-32b")
+            snapshot_json = json.dumps(self.state.financial_snapshot, default=str)
 
-        self.state.alert_decision = AlertDecision(
-            should_alert=True,
-            severity="warning",
-            primary_signal=self.state.triggered_patterns[0],
-            context_note=f"Pattern {self.state.triggered_patterns[0]} triggered",
-        )
+            prompt = (
+                "You are a Finance Guardian AI for a startup. "
+                "Your job is to decide whether an alert should be sent to the founder "
+                "based on triggered financial patterns and the current financial snapshot.\n\n"
+                f"Triggered Patterns: {self.state.triggered_patterns}\n"
+                f"Financial Snapshot: {snapshot_json}\n\n"
+                "Output a JSON object with exactly these fields:\n"
+                "- should_alert: boolean (whether to alert the founder)\n"
+                "- severity: string (one of 'critical', 'warning', 'info')\n"
+                "- primary_signal: string (the main pattern code that triggered this)\n"
+                "- context_note: string (brief context, max 20 words)\n\n"
+                "Respond with valid JSON only."
+            )
 
+            messages = [
+                {"role": "system", "content": "You are a Finance Guardian AI. Output JSON only."},
+                {"role": "user", "content": prompt},
+            ]
+
+            content = chat_completion(
+                messages=messages,
+                model=model,
+                max_tokens=300,
+                temperature=0.0,
+                json_mode=True,
+            )
+
+            parsed = json.loads(content)
+            self.state.alert_decision = AlertDecision(**parsed)
+            log.info(f"Finance Guardian Phase 2 decision: {parsed}")
+        except Exception as e:
+            log.warning(f"Finance Guardian Phase 2 LLM failed, using fallback: {e}")
+            self.state.alert_decision = AlertDecision(
+                should_alert=True,
+                severity="warning",
+                primary_signal=self.state.triggered_patterns[0],
+                context_note=f"Pattern {self.state.triggered_patterns[0]} triggered",
+            )
+
+    @traced(agent="finance_guardian", signature="generate_narrative", as_type="generation")
     async def _generate_narrative(self):
-        """Phase 3: Bounded narrative generation."""
-        # TODO: Call LLM with max_tokens=120, max 200 words
+        """Phase 3: Bounded narrative generation (max 200 words)."""
+        try:
+            model = os.environ.get("GROQ_CHAT_MODEL", "qwen/qwen3-32b")
+            decision = self.state.alert_decision
+            snapshot_json = json.dumps(self.state.financial_snapshot, default=str)
 
-        pattern = self.state.alert_decision.primary_signal
-        self.state.narrative = f"Finance alert: {pattern} triggered. See dashboard for details."
+            prompt = (
+                "You are a Finance Guardian AI for a startup. "
+                "Write a brief narrative (max 200 words) explaining the financial alert "
+                "to the founder. Be specific, reference the numbers, and suggest what to do.\n\n"
+                f"Alert: {decision.primary_signal} (severity: {decision.severity})\n"
+                f"Context: {decision.context_note}\n"
+                f"Financial Snapshot: {snapshot_json}\n\n"
+                "Write in a direct, helpful tone like a trusted co-founder. "
+                "Max 200 words."
+            )
+
+            messages = [
+                {"role": "system", "content": "You are a Finance Guardian AI. Write concise narratives."},
+                {"role": "user", "content": prompt},
+            ]
+
+            narrative = chat_completion(
+                messages=messages,
+                model=model,
+                max_tokens=200,
+                temperature=0.3,
+                json_mode=False,
+            )
+
+            self.state.narrative = narrative
+            log.info(f"Finance Guardian Phase 3 narrative generated ({len(narrative.split())} words)")
+        except Exception as e:
+            log.warning(f"Finance Guardian Phase 3 LLM failed, using fallback: {e}")
+            pattern = self.state.alert_decision.primary_signal
+            self.state.narrative = f"Finance alert: {pattern} triggered. See dashboard for details."
 
     def get_alert(self) -> dict | None:
         """Get the alert to send to Slack."""

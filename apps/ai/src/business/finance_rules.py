@@ -13,6 +13,8 @@ Pure Python — no LangGraph, LLM, or framework imports. Standard library only.
 
 from __future__ import annotations
 
+from src.llmops.tracer import traced
+
 __all__ = [
     # Section 1 — Detection functions
     "is_silent_churn_death",
@@ -254,6 +256,7 @@ def is_infra_unit_economics_divergence(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@traced(agent="finance_rules", signature="compute", as_type="span")
 def compute_burn_multiple(net_burn: float, net_new_arr: float) -> float:
     """Net Burn / Net New ARR. Series A benchmark < 1.5x.
 

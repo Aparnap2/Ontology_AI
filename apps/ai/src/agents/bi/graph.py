@@ -16,12 +16,16 @@ Per PRD Section 7: Agent persona - BI Analyst watches for:
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Literal
 
 from src.schemas.guardian import AlertDecision
+from src.config.llm import chat_completion, get_chat_model
+from src.llmops.tracer import traced
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +84,7 @@ class BIAnalystGraph:
             await self._decide_alert(mission_context)
 
         # Phase 3: NARRATIVE GENERATION (1 LLM call, bounded)
-        if self.state.alert_decision and self.state.alert_decision.get("should_alert"):
+        if self.state.alert_decision and self.state.alert_decision.should_alert:
             await self._generate_narrative()
 
         return self.state
@@ -132,25 +136,90 @@ class BIAnalystGraph:
         self.state.mrr_trend = snapshot.get("mrr_trend", "stable")
         self.state.churn_rate = f"{snapshot.get('churn_rate', 0) * 100:.1f}%"
 
+    @traced(agent="bi_analyst", signature="decide_alert", as_type="generation")
     async def _decide_alert(self, mission_context: dict):
         """Phase 2: One small LLM call with Pydantic output."""
-        # TODO: Call LLM with Pydantic AI structured output
-        # Input: typed dict — numbers only
-        # Output: AlertDecision (Pydantic model)
+        try:
+            model = os.environ.get("GROQ_CHAT_MODEL", "qwen/qwen3-32b")
+            snapshot_json = json.dumps(self.state.metrics_snapshot, default=str)
 
-        self.state.alert_decision = AlertDecision(
-            should_alert=True,
-            severity="warning",
-            primary_signal=self.state.triggered_patterns[0],
-            context_note=f"Pattern {self.state.triggered_patterns[0]} triggered",
-        )
+            prompt = (
+                "You are a BI Analyst AI for a startup. "
+                "Your job is to decide whether an alert should be sent to the founder "
+                "based on triggered BI patterns and current metrics.\n\n"
+                f"Triggered Patterns: {self.state.triggered_patterns}\n"
+                f"Metrics Snapshot: {snapshot_json}\n\n"
+                "Output a JSON object with exactly these fields:\n"
+                "- should_alert: boolean (whether to alert the founder)\n"
+                "- severity: string (one of 'critical', 'warning', 'info')\n"
+                "- primary_signal: string (the main pattern code)\n"
+                "- context_note: string (brief context, max 20 words)\n\n"
+                "Respond with valid JSON only."
+            )
 
+            messages = [
+                {"role": "system", "content": "You are a BI Analyst AI. Output JSON only."},
+                {"role": "user", "content": prompt},
+            ]
+
+            content = chat_completion(
+                messages=messages,
+                model=model,
+                max_tokens=300,
+                temperature=0.0,
+                json_mode=True,
+            )
+
+            parsed = json.loads(content)
+            self.state.alert_decision = AlertDecision(**parsed)
+            log.info(f"BI Analyst Phase 2 decision: {parsed}")
+        except Exception as e:
+            log.warning(f"BI Analyst Phase 2 LLM failed, using fallback: {e}")
+            self.state.alert_decision = AlertDecision(
+                should_alert=True,
+                severity="warning",
+                primary_signal=self.state.triggered_patterns[0],
+                context_note=f"Pattern {self.state.triggered_patterns[0]} triggered",
+            )
+
+    @traced(agent="bi_analyst", signature="generate_narrative", as_type="generation")
     async def _generate_narrative(self):
-        """Phase 3: Bounded narrative generation."""
-        # TODO: Call LLM with max_tokens=120, max 200 words
+        """Phase 3: Bounded narrative generation (max 200 words)."""
+        try:
+            model = os.environ.get("GROQ_CHAT_MODEL", "qwen/qwen3-32b")
+            decision = self.state.alert_decision
+            snapshot_json = json.dumps(self.state.metrics_snapshot, default=str)
 
-        pattern = self.state.alert_decision.primary_signal
-        self.state.narrative = f"BI Alert: {pattern} triggered. Check analytics dashboard for details."
+            prompt = (
+                "You are a BI Analyst AI for a startup. "
+                "Write a brief narrative (max 200 words) explaining the BI alert "
+                "to the founder. Be specific, reference the metrics, and suggest what to do.\n\n"
+                f"Alert: {decision.primary_signal} (severity: {decision.severity})\n"
+                f"Context: {decision.context_note}\n"
+                f"Metrics Snapshot: {snapshot_json}\n\n"
+                "Write in a direct, helpful tone like a trusted co-founder. "
+                "Max 200 words."
+            )
+
+            messages = [
+                {"role": "system", "content": "You are a BI Analyst AI. Write concise narratives."},
+                {"role": "user", "content": prompt},
+            ]
+
+            narrative = chat_completion(
+                messages=messages,
+                model=model,
+                max_tokens=200,
+                temperature=0.3,
+                json_mode=False,
+            )
+
+            self.state.narrative = narrative
+            log.info(f"BI Analyst Phase 3 narrative generated ({len(narrative.split())} words)")
+        except Exception as e:
+            log.warning(f"BI Analyst Phase 3 LLM failed, using fallback: {e}")
+            pattern = self.state.alert_decision.primary_signal
+            self.state.narrative = f"BI Alert: {pattern} triggered. Check analytics dashboard for details."
 
     def get_alert(self) -> dict | None:
         """Get the alert to send to Slack."""

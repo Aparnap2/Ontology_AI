@@ -21,6 +21,8 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+from src.llmops.tracer import traced
+
 from src.activities.run_finance_rules import run_finance_rules
 from src.activities.run_guardrails import run_guardrails
 from src.activities.send_slack_message import send_slack_message
@@ -130,6 +132,7 @@ def _determine_severity(alert_decision: dict | None, finance_result: dict) -> st
     return "info"
 
 
+@traced(agent="pipeline", signature="run_pipeline", as_type="span")
 async def run_business_pipeline(
     tenant_id: str,
     signals: dict,

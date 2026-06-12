@@ -22,10 +22,10 @@ from src.schemas.guardian import AlertDecision, GuardianMessage
 
 def call_llm(ollama_client, llm_model, prompt, max_tokens=500, temperature=0.0):
     """Call LLM and return content."""
-    options = {"num_predict": max_tokens}
+    options = {"num_predict": max_tokens, "json_mode": True}
     if temperature != 0.0:
         options["temperature"] = temperature
-    
+
     response = ollama_client.chat(
         model=llm_model,
         messages=[{"role": "user", "content": prompt}],
@@ -35,13 +35,11 @@ def call_llm(ollama_client, llm_model, prompt, max_tokens=500, temperature=0.0):
 
 
 def parse_json_response(content):
-    """Parse JSON from LLM response, handling markdown code blocks."""
+    """Parse JSON from LLM response, handling markdown and thinking blocks."""
+    from src.config.llm import extract_json_content
+
     try:
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0]
-        elif "```" in content:
-            content = content.split("```")[1].split("```")[0]
-        return json.loads(content.strip())
+        return json.loads(extract_json_content(content))
     except json.JSONDecodeError as e:
         pytest.fail(f"LLM didn't return valid JSON: {e}\nContent: {content}")
 

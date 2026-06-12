@@ -24,7 +24,7 @@ def _get_langfuse():
         client = Langfuse(
             public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
             secret_key=os.environ["LANGFUSE_SECRET_KEY"],
-            host=os.getenv("LANGFUSE_HOST", "http://localhost:3001"),
+            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
         )
         log.info("✓ Langfuse connected: %s", os.getenv("LANGFUSE_HOST"))
         return client

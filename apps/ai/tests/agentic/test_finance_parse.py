@@ -7,15 +7,18 @@ Per the error attribution: this proves the parser handles real LLM output.
 import pytest
 
 
-def call_llm_with_retry(ollama_client, llm_model, prompt, max_tokens=100, max_retries=1):
+def call_llm_with_retry(ollama_client, llm_model, prompt, max_tokens=100, max_retries=1, json_mode=False):
     """Call LLM with retry on empty response."""
     last_error = None
     for attempt in range(max_retries + 1):
         try:
+            options = {"num_predict": max_tokens}
+            if json_mode:
+                options["json_mode"] = True
             response = ollama_client.chat(
                 model=llm_model,
                 messages=[{"role": "user", "content": prompt}],
-                options={"num_predict": max_tokens},
+                options=options,
             )
             content = response["message"]["content"]
             if content and content.strip():
@@ -44,12 +47,13 @@ Rules flagged: runway_critical, mrr_drop
 Is this alert-worthy? Answer with JSON:
 {{"should_alert": true/false, "severity": "critical/warning/info", "primary_signal": "runway_critical/mrr_drop/none", "context_note": "max 20 words"}}"""
 
-    content, error = call_llm_with_retry(ollama_client, llm_model, prompt, max_tokens=100)
+    content, error = call_llm_with_retry(ollama_client, llm_model, prompt, max_tokens=100, json_mode=True)
     if error:
         pytest.fail(f"LLM call failed after retries: {error}")
 
     import json
-    data = json.loads(content)
+    from src.config.llm import extract_json_content
+    data = json.loads(extract_json_content(content))
     result = AlertDecision(**data)
 
     assert isinstance(result, AlertDecision), "Failed to parse into AlertDecision"
