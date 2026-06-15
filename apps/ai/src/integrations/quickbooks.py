@@ -131,7 +131,8 @@ def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
             if balance_cents > 0:
                 outstanding_invoices += 1
                 total_outstanding_cents += balance_cents
-                unpaid_invoices_30d_cents += balance_cents
+                if txn_date and txn_date >= thirty_days_ago:
+                    unpaid_invoices_30d_cents += balance_cents
                 if due_date and due_date < now:
                     overdue_invoices += 1
                     total_overdue_cents += balance_cents
