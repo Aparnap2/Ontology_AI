@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 def assemble_finance_state(raw: Dict[str, Any]) -> FinanceState:
     total_outstanding_cents = raw.get("finance_total_outstanding_cents", 0)
     total_overdue_cents = raw.get("finance_overdue_cents", 0)
-    unpaid_cents = raw.get("finance_unpaid_cents", 0)
+    unpaid_cents = raw.get("finance_unpaid_cents")
+    if unpaid_cents is None:
+        unpaid_cents = raw.get("finance_unpaid_invoices_30d_cents", 0)
 
     if total_overdue_cents > 1_000_000:
         health = FinancialHealth.CRITICAL
