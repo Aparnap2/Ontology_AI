@@ -1,5 +1,5 @@
 """
-Product Database Integration Module for Sarthi MVP.
+Product Database Integration Module for TrackGuard MVP.
 
 Provides active user count extraction from tenant's product database.
 Reads from user_events or sessions table to calculate 30-day active users.
@@ -8,7 +8,7 @@ Supports MOCK MODE for development/testing.
 Environment Variables:
     PRODUCT_DB_URL: PostgreSQL connection string for product database
     PRODUCT_DB_SCHEMA: Schema name (default: 'public')
-    DATABASE_URL: Fallback to sarthi DB if PRODUCT_DB_URL not set
+    DATABASE_URL: Fallback to trackguard DB if PRODUCT_DB_URL not set
 
 Mock Mode:
     When database is not configured, returns realistic seed data.

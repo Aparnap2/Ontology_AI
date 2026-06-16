@@ -1,5 +1,5 @@
 """
-Comprehensive agentic AI tests for Sarthi v4.2.
+Comprehensive agentic AI tests for TrackGuard v4.2.
 
 Covers:
 - LLM tool calling via factory pattern
@@ -24,8 +24,9 @@ from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
+from openai.types.chat import ChatCompletion, ChatCompletionMessage
+from openai.types.chat.chat_completion import Choice
 from pydantic import ValidationError
 
 from src.config.llm import (
@@ -43,31 +44,47 @@ from src.config.llm import (
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════
 
-def _mock_llm_json_response(content: str) -> MagicMock:
-    """Create a mock httpx.Response that returns JSON content for chat completions."""
-    mock_resp = MagicMock(spec=httpx.Response)
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "choices": [{"message": {"content": content}}]
-    }
-    mock_resp.raise_for_status = MagicMock()
-    return mock_resp
+def _mock_llm_json_response(content: str) -> ChatCompletion:
+    """Create a ChatCompletion response that returns content for chat completions."""
+    return ChatCompletion(
+        id="mock-id",
+        object="chat.completion",
+        created=0,
+        model="mock-model",
+        choices=[
+            Choice(
+                index=0,
+                message=ChatCompletionMessage(role="assistant", content=content),
+                finish_reason="stop",
+            )
+        ],
+    )
 
 
 @pytest.fixture(autouse=True)
 def _set_env():
-    """Set environment variables for tests."""
+    """Set environment variables for tests, restoring originals on teardown."""
+    originals = {
+        "GROQ_API_KEY": os.environ.get("GROQ_API_KEY"),
+        "GROQ_CHAT_MODEL": os.environ.get("GROQ_CHAT_MODEL"),
+        "OPENROUTER_EMBED_MODEL": os.environ.get("OPENROUTER_EMBED_MODEL"),
+    }
     os.environ.setdefault("GROQ_API_KEY", "gsk_test_key")
     os.environ.setdefault("GROQ_CHAT_MODEL", "qwen/qwen3-32b")
     os.environ.setdefault("OPENROUTER_EMBED_MODEL", "nvidia/llama-nemotron-embed-vl-1b-v2:free")
     yield
+    for key, value in originals.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 @pytest.fixture
 def mock_llm_decision():
-    """Patch httpx client post to return a decision JSON."""
-    with patch.object(httpx.Client, "post") as mock_post:
-        mock_post.return_value = _mock_llm_json_response(
+    """Patch OpenAI chat.completions.create to return a decision JSON."""
+    with patch("openai.resources.chat.completions.Completions.create") as mock_create:
+        mock_create.return_value = _mock_llm_json_response(
             json.dumps({
                 "should_alert": True,
                 "severity": "warning",
@@ -75,19 +92,19 @@ def mock_llm_decision():
                 "context_note": "High churn detected",
             })
         )
-        yield mock_post
+        yield mock_create
 
 
 @pytest.fixture
 def mock_llm_narrative():
-    """Patch httpx client post to return a narrative text."""
-    with patch.object(httpx.Client, "post") as mock_post:
-        mock_post.return_value = _mock_llm_json_response(
+    """Patch OpenAI chat.completions.create to return a narrative text."""
+    with patch("openai.resources.chat.completions.Completions.create") as mock_create:
+        mock_create.return_value = _mock_llm_json_response(
             "This is a test narrative about a financial alert. "
             "The churn rate has increased significantly. "
             "Consider reaching out to at-risk customers this week."
         )
-        yield mock_post
+        yield mock_create
 
 
 @pytest.fixture(autouse=True)
@@ -174,7 +191,7 @@ class TestToolCalls:
         assert client1 is client2
 
     def test_reset_client_creates_new_client(self):
-        """Test reset_client creates a fresh httpx client."""
+        """Test reset_client creates a fresh OpenAI client."""
         client1 = get_llm_client()
         reset_client()
         client2 = get_llm_client()
@@ -1000,10 +1017,10 @@ class TestAgenticPipeline:
     """Test end-to-end agent pipelines."""
 
     @pytest.mark.asyncio
-    @patch.object(httpx.Client, "post")
-    async def test_finance_guardian_full_flow(self, mock_post):
+    @patch("openai.resources.chat.completions.Completions.create")
+    async def test_finance_guardian_full_flow(self, mock_create):
         """Test Finance Guardian Phase 1 -> 2 -> 3 full flow."""
-        mock_post.return_value = _mock_llm_json_response(json.dumps({
+        mock_create.return_value = _mock_llm_json_response(json.dumps({
             "should_alert": True,
             "severity": "warning",
             "primary_signal": "FG-04",
@@ -1030,10 +1047,10 @@ class TestAgenticPipeline:
                 assert len(state.narrative) > 0
 
     @pytest.mark.asyncio
-    @patch.object(httpx.Client, "post")
-    async def test_bi_analyst_full_flow(self, mock_post):
+    @patch("openai.resources.chat.completions.Completions.create")
+    async def test_bi_analyst_full_flow(self, mock_create):
         """Test BI Analyst Phase 1 -> 2 -> 3 full flow."""
-        mock_post.return_value = _mock_llm_json_response(json.dumps({
+        mock_create.return_value = _mock_llm_json_response(json.dumps({
             "should_alert": True,
             "severity": "warning",
             "primary_signal": "BG-03",
@@ -1052,10 +1069,10 @@ class TestAgenticPipeline:
                 assert len(state.narrative) > 0
 
     @pytest.mark.asyncio
-    @patch.object(httpx.Client, "post")
-    async def test_ops_watch_full_flow(self, mock_post):
+    @patch("openai.resources.chat.completions.Completions.create")
+    async def test_ops_watch_full_flow(self, mock_create):
         """Test Ops Watch Phase 1 -> 2 -> 3 full flow."""
-        mock_post.return_value = _mock_llm_json_response(json.dumps({
+        mock_create.return_value = _mock_llm_json_response(json.dumps({
             "should_alert": True,
             "severity": "info",
             "primary_signal": "OG-03",

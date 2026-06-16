@@ -22,7 +22,7 @@ log = structlog.get_logger(__name__)
 # ── FastAPI app ───────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Sarthi Agent Test Server",
+    title="TrackGuard Agent Test Server",
     description="Test endpoints for agentic AI capabilities",
     version="1.0.0",
 )
@@ -277,10 +277,10 @@ async def business_pipeline(payload: dict | None = None):
         ]
 
         # Phase 3: Predictive
-        from src.agents.anomaly.graph import Charaka
+        from src.agents.anomaly.graph import AnomalyDetector
 
-        ch = Charaka()
-        results["predictive"] = {"status": "simulated", "detector": "Charaka"}
+        ch = AnomalyDetector()
+        results["predictive"] = {"status": "simulated", "detector": "AnomalyDetector"}
 
         log.info("business.pipeline", tenant_id=tenant_id, patterns=fg.state.triggered_patterns)
         return results
@@ -396,12 +396,12 @@ async def predictive_forecast(payload: dict | None = None):
     """Test predictive guardian."""
     try:
         tenant_id = (payload or {}).get("tenant_id", "test-tenant-001")
-        from src.agents.anomaly.graph import Charaka
+        from src.agents.anomaly.graph import AnomalyDetector
 
-        charaka = Charaka()
+        detector = AnomalyDetector()
         return {
             "tenant_id": tenant_id,
-            "detector": "Charaka",
+            "detector": "AnomalyDetector",
             "forecast": {"status": "simulated", "confidence": 0.85},
         }
     except Exception as e:

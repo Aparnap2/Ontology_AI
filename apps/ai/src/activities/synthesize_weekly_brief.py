@@ -15,7 +15,7 @@ from src.llm.client import LLMClient
 log = logging.getLogger(__name__)
 
 WEEKLY_SYNTHESIS_PROMPT = """
-You are Sarthi — a founder's Chief of Staff.
+You are TrackGuard — a founder's Chief of Staff.
 Write the Monday morning brief for {founder_name} at {company_name}.
 
 RULES:
@@ -24,7 +24,7 @@ RULES:
 - Numbers first, then narrative
 - Maximum 300 words total
 - If the decision log has a relevant entry, reference it
-- End with [Ask Sarthi anything] as a Slack button, not text
+- End with [Ask TrackGuard anything] as a Slack button, not text
 
 DATA:
 Metrics: {metrics}
@@ -90,10 +90,10 @@ async def synthesize_weekly_brief(
         brief = response.get("text", "").strip()
         if not brief:
             # Fallback brief
-            brief = f"🎯 ONE THING: Review business metrics\n\nWeekly Brief for {founder_name} at {company_name}\n\nMetrics this week:\n{metrics_str}\n\n[Ask Sarthi anything]"
+            brief = f"🎯 ONE THING: Review business metrics\n\nWeekly Brief for {founder_name} at {company_name}\n\nMetrics this week:\n{metrics_str}\n\n[Ask TrackGuard anything]"
 
         return brief
 
     except Exception as e:
         log.error(f"Failed to synthesize weekly brief for tenant {tenant_id}: {e}")
-        return f"🎯 ONE THING: Check system status\n\nError generating weekly brief. Please contact support.\n\n[Ask Sarthi anything]"
+        return f"🎯 ONE THING: Check system status\n\nError generating weekly brief. Please contact support.\n\n[Ask TrackGuard anything]"

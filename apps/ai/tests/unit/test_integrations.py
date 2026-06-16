@@ -12,7 +12,7 @@ os.environ["TELEGRAM_API_BASE"]   = "http://localhost:8085"
 os.environ["TELEGRAM_BOT_TOKEN"]  = "123:TOKEN"
 os.environ["TELEGRAM_CHAT_ID"]    = "42"
 os.environ["DATABASE_URL"]        = \
-    "postgresql://sarthi:sarthi@localhost:5433/sarthi"
+    "postgresql://trackguard:trackguard@localhost:5433/trackguard"
 
 TENANT = "test-tenant-integration"
 

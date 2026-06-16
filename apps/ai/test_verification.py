@@ -59,7 +59,7 @@ def test_decay_job():
 
         # Read it back — weight must be 0.85, not 1.0
         qd = QdrantClient(host="localhost", port=6333)
-        result = qd.retrieve("sarthi_memory", ids=[point_id], with_payload=True)
+        result = qd.retrieve("trackguard_memory", ids=[point_id], with_payload=True)
 
         if result and result[0].payload:
             weight = result[0].payload.get("relevance_weight", 1.0)
@@ -187,8 +187,8 @@ def test_migration_verification():
         from qdrant_client import QdrantClient
 
         qd = QdrantClient(host="localhost", port=6333)
-        vectors, _ = qd.scroll(
-            "sarthi_memory",
+        vectors, _ =         qd.scroll(
+            "trackguard_memory",
             with_payload=True,
             limit=100
         )

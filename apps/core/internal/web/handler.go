@@ -508,7 +508,7 @@ func (h *Handler) GetLogsData(c *fiber.Ctx) error {
 	})
 }
 
-// ============== Sarthi Enhancements ==============
+// ============== TrackGuard Enhancements ==============
 
 // FinanceAlert represents a finance anomaly alert
 type FinanceAlert struct {
@@ -745,7 +745,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/api/telemetry/metrics", h.GetMetricsData)
 	app.Get("/api/telemetry/logs", h.GetLogsData)
 
-	// Sarthi Enhancements
+	// TrackGuard Enhancements
 	app.Get("/api/finance/alerts", h.GetFinanceAlerts)
 	app.Get("/api/bi/recent", h.GetRecentBIQueries)
 }

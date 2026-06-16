@@ -14,7 +14,7 @@ from temporalio import activity
 # Supports both env vars and defaults
 TELEGRAM_API_BASE = os.getenv("TELEGRAM_API_BASE", "http://localhost:8085")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "test-bot-token")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "sarthi-alerts")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "trackguard-alerts")
 
 
 @activity.defn(name="send_telegram_message")

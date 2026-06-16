@@ -1,5 +1,5 @@
 """
-Pydantic schemas for Sarthi v4.2 Phase 3 desk agents.
+Pydantic schemas for TrackGuard v4.2 Phase 3 desk agents.
 
 Export all desk result types for easy importing.
 """

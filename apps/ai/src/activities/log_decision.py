@@ -16,14 +16,14 @@ from psycopg2.extras import RealDictCursor
 from qdrant_client.models import PointStruct
 from temporalio import activity
 
-from src.config.database import get_sarthi_database_url
+from src.config.database import get_database_url
 from src.memory.qdrant_ops import _get_embedding
 from src.services.embeddings import get_embeddings_service
 
 log = logging.getLogger(__name__)
 
 # Database configuration
-DATABASE_URL = get_sarthi_database_url()
+DATABASE_URL = get_database_url()
 
 # Qdrant decisions collection
 DECISIONS_COLLECTION = "decisions"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// EventType represents the normalized event types in Sarthi v1.0.
+// EventType represents the normalized event types in TrackGuard v1.0.
 // These replace the v4.3.0-alpha SOP/Topic pattern.
 type EventType string
 

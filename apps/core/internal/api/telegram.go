@@ -223,7 +223,7 @@ func (h *TelegramHandler) emitEvent(eventType, contextID string) {
 	}
 
 	go func() {
-		if err := h.redpanda.Publish("sarthi.events.raw", event); err != nil {
+		if err := h.redpanda.Publish("trackguard.events.raw", event); err != nil {
 			h.logger.Error("failed to publish telegram event", err, "event_type", eventType)
 		} else {
 			h.logger.Info("telegram event published", "event_type", eventType, "context_id", contextID)
@@ -324,7 +324,7 @@ func (h *TelegramHandler) HandleWebhook(c *fiber.Ctx) error {
 			"text", update.Message.Text,
 		)
 
-		// TODO: Process message through Sarthi NLP pipeline
+		// TODO: Process message through TrackGuard NLP pipeline
 		// For now, just acknowledge
 		return c.SendStatus(fiber.StatusOK)
 	}

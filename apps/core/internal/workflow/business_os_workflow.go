@@ -350,7 +350,7 @@ func BusinessOSWorkflow(ctx workflow.Context, tenantID string) error {
 	}
 
 	// Get signal channel for incoming events
-	signalChan := workflow.GetSignalChannel(ctx, "sarthi.events")
+	signalChan := workflow.GetSignalChannel(ctx, "trackguard.events")
 
 	for {
 		// ── Guard: Continue-As-New before hitting Temporal history limits

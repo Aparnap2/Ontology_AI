@@ -1,5 +1,5 @@
 """
-Redis Streams Event Bus for Sarthi.
+Redis Streams Event Bus for TrackGuard.
 
 Provides lightweight ordered event streaming as a replacement for Redpanda.
 Uses Redis Streams with consumer groups for ordered, replayable event processing.
@@ -34,7 +34,7 @@ class EventBus:
             self._client = None
 
     def _stream_key(self, topic: str, tenant_id: str) -> str:
-        return f"sarthi:{tenant_id}:{topic}"
+        return f"trackguard:{tenant_id}:{topic}"
 
     async def _get_client(self) -> redis.Redis:
         """Get or create the Redis client."""

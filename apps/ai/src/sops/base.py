@@ -1,5 +1,5 @@
 """
-Base classes for Sarthi SOP Runtime.
+Base classes for TrackGuard SOP Runtime.
 
 All SOPs must inherit from BaseSOP and implement execute().
 """
@@ -82,7 +82,7 @@ class SOPResult(BaseModel):
 
 class BaseSOP(ABC):
     """
-    Abstract base class for all Sarthi SOPs.
+    Abstract base class for all TrackGuard SOPs.
 
     All SOPs must:
     1. Define sop_name class attribute

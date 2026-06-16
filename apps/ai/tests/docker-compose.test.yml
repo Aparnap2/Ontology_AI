@@ -5,7 +5,7 @@ services:
     build:
       context: ..
       dockerfile: tests/Dockerfile.test
-    container_name: sarthi-agent-test-server
+    container_name: trackguard-agent-test-server
     ports:
       - "8001:8001"
     environment:

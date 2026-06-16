@@ -1,4 +1,4 @@
--- Migration: Session Layer Tables for Sarthi V3.0
+-- Migration: Session Layer Tables for TrackGuard V3.0
 -- Created: 2026-04-27
 -- Purpose: Session management for tenant context and mission state tracking
 --

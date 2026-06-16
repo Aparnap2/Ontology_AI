@@ -14,7 +14,7 @@ from typing import Any
 
 
 @dataclass
-class CharakaAlert:
+class AnomalyAlert:
     """Alert produced by the Charaka cross-domain check."""
     should_alert: bool
     inconsistency_type: str | None = None
@@ -23,7 +23,7 @@ class CharakaAlert:
     severity: str = "info"
 
 
-class Charaka:
+class AnomalyDetector:
     """Cross-domain inconsistency detector.
 
     Checks across MissionState fields for contradictory signals:
@@ -33,7 +33,7 @@ class Charaka:
     4. Runway critical but founder focused elsewhere
     """
 
-    def check(self, mission_state: dict) -> CharakaAlert:
+    def check(self, mission_state: dict) -> AnomalyAlert:
         """Run cross-domain consistency checks.
 
         Check 1: burn_alert AND (no churn_risk_users AND no error_spike)
@@ -57,10 +57,10 @@ class Charaka:
                           mrr_trend, runway_days, founder_focus, etc.
 
         Returns:
-            CharakaAlert — should_alert=False if no inconsistencies found
+            AnomalyAlert — should_alert=False if no inconsistencies found
         """
         if not mission_state:
-            return CharakaAlert(should_alert=False)
+            return AnomalyAlert(should_alert=False)
 
         # Run all checks in order; return the first one found
         # (since each is an actionable inconsistency)
@@ -68,7 +68,7 @@ class Charaka:
         # Check 1: High burn without operational symptoms
         found, desc = self._check_burn_without_ops_impact(mission_state)
         if found:
-            return CharakaAlert(
+            return AnomalyAlert(
                 should_alert=True,
                 inconsistency_type="finance_ops_mismatch",
                 domains=["finance", "ops"],
@@ -79,7 +79,7 @@ class Charaka:
         # Check 2: Revenue growing but cash burning
         found, desc = self._check_growth_with_burn(mission_state)
         if found:
-            return CharakaAlert(
+            return AnomalyAlert(
                 should_alert=True,
                 inconsistency_type="bi_finance_conflict",
                 domains=["bi", "finance"],
@@ -90,7 +90,7 @@ class Charaka:
         # Check 3: Error spike without user impact
         found, desc = self._check_errors_with_normal_usage(mission_state)
         if found:
-            return CharakaAlert(
+            return AnomalyAlert(
                 should_alert=True,
                 inconsistency_type="ops_bi_divergence",
                 domains=["ops", "bi"],
@@ -101,7 +101,7 @@ class Charaka:
         # Check 4: Short runway but founder not focused on it
         found, desc = self._check_runway_mismatch(mission_state)
         if found:
-            return CharakaAlert(
+            return AnomalyAlert(
                 should_alert=True,
                 inconsistency_type="runway_founder_mismatch",
                 domains=["finance", "ops", "bi"],
@@ -109,7 +109,7 @@ class Charaka:
                 severity="critical",
             )
 
-        return CharakaAlert(should_alert=False)
+        return AnomalyAlert(should_alert=False)
 
     def _check_burn_without_ops_impact(self, ms: dict) -> tuple[bool, str]:
         """Check 1: High burn without operational symptoms.
@@ -193,7 +193,7 @@ class Charaka:
 def anomaly_graph(tenant_id: str) -> dict:
     """Backward-compatible stub — returns basic tenant info.
 
-    For full cross-domain anomaly detection, use Charaka.check().
+    For full cross-domain anomaly detection, use AnomalyDetector.check().
     """
     return {"tenant_id": tenant_id}
 

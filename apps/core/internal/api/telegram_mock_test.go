@@ -19,7 +19,7 @@ import (
 // against tg-mock (not real Telegram).
 //
 // Requires:
-//   - sarthi-tg-mock container running on :8081
+//   - trackguard-tg-mock container running on :8081
 //   - TELEGRAM_API_BASE=http://localhost:8081
 //   - TELEGRAM_BOT_TOKEN=987654321:ZYX-cba
 //   - TELEGRAM_TEST_CHAT_ID=111222333
@@ -42,7 +42,7 @@ func TestTelegramSendMessageViaMock(t *testing.T) {
 	handler.SetHTTPClient(&http.Client{Timeout: 5 * time.Second})
 
 	// Test plain message
-	err := handler.SendMessage("111222333", "Sarthi test message", nil)
+	err := handler.SendMessage("111222333", "TrackGuard test message", nil)
 	require.NoError(t, err)
 
 	// Test with inline keyboard

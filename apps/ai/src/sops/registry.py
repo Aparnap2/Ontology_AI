@@ -1,5 +1,5 @@
 """
-SOP Registry for Sarthi SOP Runtime.
+SOP Registry for TrackGuard SOP Runtime.
 
 All SOPs self-register via register() function.
 """

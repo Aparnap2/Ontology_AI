@@ -161,7 +161,7 @@ def no_data_fallback(state: PulseState) -> dict:
 
     return {
         "narrative": "No data available yet. Connect your Stripe account and bank account to start receiving pulse updates.",
-        "action_item": "Connect Stripe and your bank account in the Sarthi dashboard.",
+        "action_item": "Connect Stripe and your bank account in the TrackGuard dashboard.",
         "anomalies_detected": [],
         "runway_months": 0.0,
         "net_revenue_churn": 0.0,
@@ -509,7 +509,7 @@ def build_slack_message(state: PulseState) -> dict:
       - slack_blocks: Block Kit JSON for Slack message
 
     Format:
-      - Header: "Sarthi Pulse Update"
+      - Header: "TrackGuard Pulse Update"
       - Section: Narrative (3 sentences)
       - Section: Key metrics (MRR, Runway, Quick Ratio)
       - Section: Action item
@@ -537,7 +537,7 @@ def build_slack_message(state: PulseState) -> dict:
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "📊 Sarthi Pulse Update",
+                "text": "📊 TrackGuard Pulse Update",
             },
         })
 

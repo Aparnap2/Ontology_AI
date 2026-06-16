@@ -84,8 +84,8 @@ func main() {
 	w.RegisterActivity(workflow.PersistInternalOpsResult)
 	w.RegisterActivity(workflow.CreateHITLRecord)
 
-	// Register SarthiRouter and child workflows (Phase 5)
-	w.RegisterWorkflow(workflow.SarthiRouter)
+	// Register WorkflowRouter and child workflows (Phase 5)
+	w.RegisterWorkflow(workflow.WorkflowRouter)
 	w.RegisterWorkflow(workflow.RevenueWorkflow)
 	w.RegisterWorkflow(workflow.CSWorkflow)
 	w.RegisterWorkflow(workflow.PeopleWorkflow)

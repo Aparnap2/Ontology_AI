@@ -1,7 +1,7 @@
 """
-Session Context — #sarthi channel history.
+Session Context — #trackguard channel history.
 
-Per PRD Section 7: One Slack channel: #sarthi.
+Per PRD Section 7: One Slack channel: #trackguard.
 All agents and founder share this session.
 """
 from __future__ import annotations
@@ -14,20 +14,20 @@ from typing import Literal
 
 import asyncpg
 
-from src.config.database import get_sarthi_database_url
+from src.config.database import get_database_url
 
 log = logging.getLogger(__name__)
 
-DATABASE_URL = get_sarthi_database_url()
+DATABASE_URL = get_database_url()
 
 
 @dataclass
 class SessionMessage:
-    """A single message in the #sarthi session."""
+    """A single message in the #trackguard session."""
 
     id: str | None
     tenant_id: str
-    role: Literal["founder", "finance", "bi", "ops", "sarthi"]
+    role: Literal["founder", "finance", "bi", "ops", "trackguard"]
     content: str
     agent_name: str | None
     created_at: datetime
@@ -37,7 +37,7 @@ async def get_session_context(
     tenant_id: str,
     limit: int = 10,
 ) -> list[SessionMessage]:
-    """Get last N messages from #sarthi session.
+    """Get last N messages from #trackguard session.
 
     Per PRD Section 7: All agents read session context.
     Co-founder agent reads, employees write.
@@ -82,11 +82,11 @@ async def get_session_context(
 
 async def write_session_message(
     tenant_id: str,
-    role: Literal["founder", "finance", "bi", "ops", "sarthi"],
+    role: Literal["founder", "finance", "bi", "ops", "trackguard"],
     content: str,
     agent_name: str | None = None,
 ) -> bool:
-    """Write a message to the #sarthi session.
+    """Write a message to the #trackguard session.
 
     Per PRD Section 7: Every message the founder types is context every agent reads.
     Agents self-activate when their domain keyword is triggered.

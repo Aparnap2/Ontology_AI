@@ -86,7 +86,7 @@ def trigger_compression(tenant_id: str) -> dict:
     port = os.environ.get("QDRANT_PORT", "6333")
     client = QdrantClient(host=host, port=int(port))
     
-    collection_name = os.environ.get("QDRANT_COLLECTION", "sarthi_memory")
+    collection_name = os.environ.get("QDRANT_COLLECTION", "trackguard_memory")
     
     tenant_filter = {
         "must": [

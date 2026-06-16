@@ -26,7 +26,7 @@ dspy.configure(lm=_lm)
 
 class AnomalyExplainer(dspy.Signature):
     """
-    You are Sarthi. A metric has moved unexpectedly.
+    You are TrackGuard. A metric has moved unexpectedly.
     Explain what it means to the founder in plain English.
     Be specific: reference the numbers. Suggest one thing to check first.
     """
@@ -47,7 +47,7 @@ class AnomalyExplainer(dspy.Signature):
 
 class AnomalyActionGenerator(dspy.Signature):
     """
-    You are Sarthi. Given an anomaly explanation, generate ONE concrete
+    You are TrackGuard. Given an anomaly explanation, generate ONE concrete
     action for the founder to take. Not advice. An action.
     """
     explanation:      str = dspy.InputField(desc="Explanation of the anomaly")

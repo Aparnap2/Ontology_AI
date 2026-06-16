@@ -238,7 +238,7 @@ func errorHandler(c *fiber.Ctx, err error) error {
 }
 
 // handleSlackCommandProxy forwards Slack slash commands to Python via Redpanda.
-// This enables /sarthi decide and other slash commands.
+// This enables /tg decide and other slash commands.
 // Falls back to direct HTTP if Redpanda unavailable.
 func handleSlackCommandProxy(c *fiber.Ctx) error {
 	// Parse the Slack command payload
@@ -255,7 +255,7 @@ func handleSlackCommandProxy(c *fiber.Ctx) error {
 
 	// Try Redpanda first
 	if redpandaClient != nil {
-		err := redpandaClient.PublishEnvelope("sarthi.slack.events", envelope)
+		err := redpandaClient.PublishEnvelope("trackguard.slack.events", envelope)
 		if err == nil {
 			log.Printf("Published slack command to Redpanda")
 			return c.Status(fiber.StatusAccepted).JSON(map[string]string{

@@ -1,4 +1,4 @@
-"""Co-founder Agent for Sarthi V3.0.
+"""Co-founder Agent for TrackGuard V3.0.
 
 This module provides the manager layer that orchestrates Employee Agents:
 - router.py: routes messages to employee agents
@@ -14,8 +14,8 @@ from .router import Router, route_message
 from .reflector import Reflector, score_founder_response
 from .curator import Curator, update_playbook
 from .correlation import CorrelationAgent, detect_correlation
-from .joint_council import Mantriparishad, CouncilAlert
-from .arbiter import Nyayadish, ArbitrationResult
+from .joint_council import AlertCouncil, AlertCouncilResult
+from .arbiter import ConflictResolver, ArbitrationResult
 
 __all__ = [
     "Router",
@@ -26,8 +26,8 @@ __all__ = [
     "update_playbook",
     "CorrelationAgent",
     "detect_correlation",
-    "Mantriparishad",
-    "CouncilAlert",
-    "Nyayadish",
+    "AlertCouncil",
+    "AlertCouncilResult",
+    "ConflictResolver",
     "ArbitrationResult",
 ]

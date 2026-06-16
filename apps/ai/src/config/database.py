@@ -22,7 +22,3 @@ def get_database_url(default_db: str = "iterateswarm") -> str:
         f"postgresql://{os.environ.get('DB_USER', 'iterateswarm')}:{os.environ.get('DB_PASSWORD', 'iterateswarm')}@localhost:{os.environ.get('DB_PORT', '5432')}/{default_db}",
     )
 
-
-def get_sarthi_database_url() -> str:
-    """Get Sarthi-specific database URL (alias for consistency)."""
-    return get_database_url("iterateswarm")

@@ -1,7 +1,7 @@
 """
 Delivery Service — Coordinates decision delivery across channels.
 
-Delivers decision results from sarthi.decision.results topic to
+Delivers decision results from trackguard.decision.results topic to
 Slack/Telegram and manages the pending approval review queue.
 
 Key Features:
@@ -58,9 +58,9 @@ except Exception:
 
 # Redpanda configuration
 REDPANDA_URL = os.environ.get("REDPANDA_URL", "localhost:9092")
-CONSUMER_GROUP = "sarthi-delivery-service"
-DECISION_TOPIC = "sarthi.decision.results"
-DELIVERY_STATUS_TOPIC = "sarthi.delivery.status"
+CONSUMER_GROUP = "trackguard-delivery-service"
+DECISION_TOPIC = "trackguard.decision.results"
+DELIVERY_STATUS_TOPIC = "trackguard.delivery.status"
 
 
 class DeliveryService:
@@ -68,7 +68,7 @@ class DeliveryService:
     Main delivery service coordinating decision result delivery.
 
     Flow:
-    1. Subscribe to sarthi.decision.results Redpanda topic
+    1. Subscribe to trackguard.decision.results Redpanda topic
     2. For each decision result:
        a. Try Slack delivery first
        b. Fall back to Telegram if Slack fails

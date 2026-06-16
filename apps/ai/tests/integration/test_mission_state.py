@@ -16,7 +16,7 @@ import pytest
 # Test database configuration - uses separate test DB
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql://test:test@localhost:5432/test_sarthi"
+    "postgresql://test:test@localhost:5432/test_trackguard"
 )
 
 
@@ -51,7 +51,7 @@ async def test_pg_pool() -> AsyncGenerator[asyncpg.Pool, None]:
     except ConnectionRefusedError:
         pytest.skip("Postgres not available at TEST_DATABASE_URL")
     except asyncpg.InvalidCatalogNameError:
-        pytest.skip("Test database 'test_sarthi' does not exist")
+        pytest.skip("Test database 'test_trackguard' does not exist")
     except asyncpg.UndefinedTableError:
         pytest.skip("mission_states table not created yet")
 

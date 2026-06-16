@@ -29,7 +29,7 @@ class DeliveryChannel(str, Enum):
 
 
 class DecisionResultInput(BaseModel):
-    """Input schema for decision results from sarthi.decision.results topic."""
+    """Input schema for decision results from trackguard.decision.results topic."""
 
     tenant_id: str = Field(..., description="Tenant identifier")
     decision_id: str = Field(..., description="Unique decision identifier")

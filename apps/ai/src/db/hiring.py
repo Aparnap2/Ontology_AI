@@ -9,11 +9,11 @@ from typing import Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from src.config.database import get_sarthi_database_url
+from src.config.database import get_database_url
 
 log = logging.getLogger(__name__)
 
-DATABASE_URL = get_sarthi_database_url()
+DATABASE_URL = get_database_url()
 
 
 def get_db_connection():

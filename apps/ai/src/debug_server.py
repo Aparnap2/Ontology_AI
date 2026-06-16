@@ -1,4 +1,4 @@
-"""Debug HTTP server for Sarthi portfolio demo.
+"""Debug HTTP server for TrackGuard portfolio demo.
 
 Provides read-only endpoints for Playwright tests to query system state.
 Gated by DEMO_MODE=true environment variable.
@@ -25,7 +25,7 @@ TENANT_ID = os.environ.get("DEMO_TENANT_ID", "00000000-0000-0000-0000-0000000000
 # ── FastAPI app ───────────────────────────────────────────────────
 
 app = FastAPI(
-    title="Sarthi Debug Server",
+    title="TrackGuard Debug Server",
     description="Read-only debug endpoints for portfolio demo",
     version="2.0.0",
 )

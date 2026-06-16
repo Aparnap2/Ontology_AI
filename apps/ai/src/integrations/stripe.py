@@ -1,5 +1,5 @@
 """
-Stripe Integration Module for Sarthi MVP.
+Stripe Integration Module for TrackGuard MVP.
 
 Provides MRR (Monthly Recurring Revenue) data extraction from Stripe.
 Supports MOCK MODE for development/testing without real API keys.

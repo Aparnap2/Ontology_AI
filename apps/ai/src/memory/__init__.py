@@ -1,4 +1,4 @@
-"""Sarthi Memory Spine — 5-layer memory system.
+"""TrackGuard Memory Spine — 5-layer memory system.
 
 Per PRD Section 10:
 - L1: REDIS (working memory)

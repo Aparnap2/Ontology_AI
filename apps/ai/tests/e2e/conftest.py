@@ -1,5 +1,5 @@
 """
-E2E Test Fixtures for Sarthi v1.0.
+E2E Test Fixtures for TrackGuard v1.0.
 
 Provides fixtures for:
 - test_tenant: Creates tenant + 90d baseline data, cleans up after

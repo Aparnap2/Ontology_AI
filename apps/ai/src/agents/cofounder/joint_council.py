@@ -30,7 +30,7 @@ _DOMAIN_KEYWORDS: dict[str, set[str]] = {
 
 
 @dataclass
-class CouncilAlert:
+class AlertCouncilResult:
     """Synthesized output from the joint council."""
     should_synthesize: bool
     root_cause: str = ""
@@ -143,7 +143,7 @@ def _extract_recommended_action(outputs: list[dict], overall_severity: str) -> s
     return "Continue monitoring — no immediate action required"
 
 
-class Mantriparishad:
+class AlertCouncil:
     """Joint council for cross-domain alert synthesis.
 
     Per Kautilyan design:
@@ -156,7 +156,7 @@ class Mantriparishad:
         self,
         guardian_outputs: list[dict],
         mission_state: dict | None = None,
-    ) -> CouncilAlert:
+    ) -> AlertCouncilResult:
         """Determine if council synthesis is needed and produce unified alert.
 
         Rules:
@@ -175,7 +175,7 @@ class Mantriparishad:
             CouncilAlert with synthesis decision
         """
         if not guardian_outputs:
-            return CouncilAlert(should_synthesize=False)
+            return AlertCouncilResult(should_synthesize=False)
 
         # Rule 1: 2+ guardians firing → synthesize
         if len(guardian_outputs) >= 2:
@@ -193,7 +193,7 @@ class Mantriparishad:
             should_synthesize = False
 
         if not should_synthesize:
-            return CouncilAlert(should_synthesize=False)
+            return AlertCouncilResult(should_synthesize=False)
 
         # Build the synthesized alert
         severity = _infer_severity(guardian_outputs)
@@ -203,7 +203,7 @@ class Mantriparishad:
         # Confidence: 2+ guardians = high confidence, single critical = medium
         confidence = 0.85 if len(guardian_outputs) >= 2 else 0.65
 
-        return CouncilAlert(
+        return AlertCouncilResult(
             should_synthesize=True,
             root_cause=root_cause,
             severity=severity,

@@ -1,12 +1,12 @@
 """
-Temporal Worker for Sarthi AI Agents.
+Temporal Worker for TrackGuard AI Agents.
 
 Registers all workflows and activities with Temporal.
 
 Note: Activities communicate with memory-service and decision-engine via
 Redpanda events, NOT in-process Python imports.
 
-Task queue: SARTHI-MAIN-QUEUE
+Task queue: TRACKGUARD-MAIN-QUEUE
 """
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ import os
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-log = logging.getLogger("sarthi.worker")
+log = logging.getLogger("trackguard.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "SARTHI-MAIN-QUEUE")
+TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
 MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 
 

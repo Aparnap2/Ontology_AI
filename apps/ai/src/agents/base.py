@@ -1,5 +1,5 @@
 """
-Base Agent for Sarthi v1.0 - All 5 Python Agents.
+Base Agent for TrackGuard v1.0 - All 5 Python Agents.
 
 Provides common functionality:
 - AgentResult dataclass with validation
@@ -111,7 +111,7 @@ BANNED_JARGON = [
 @dataclass
 class AgentResult:
     """
-    Standard result structure for all Sarthi agents.
+    Standard result structure for all TrackGuard agents.
 
     Attributes:
         tenant_id: Tenant identifier
@@ -163,7 +163,7 @@ class AgentResult:
 
 class BaseAgent:
     """
-    Base class for all Sarthi v1.0 agents.
+    Base class for all TrackGuard v1.0 agents.
 
     Provides common methods for:
     - Qdrant memory writing

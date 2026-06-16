@@ -44,7 +44,7 @@ class TestWorkerRegistration:
         """Test that worker has correct task queue."""
         from src.worker import TASK_QUEUE
 
-        assert TASK_QUEUE == "SARTHI-MAIN-QUEUE"
+        assert TASK_QUEUE == "TRACKGUARD-MAIN-QUEUE"
 
     def test_pulse_workflow_importable(self):
         """Test that PulseWorkflow can be imported."""

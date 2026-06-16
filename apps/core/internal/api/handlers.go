@@ -899,7 +899,7 @@ func (h *Handler) HandleBIQuery(c *fiber.Ctx) error {
 		"query_type": body.QueryType,
 	}
 
-	_, err := h.temporalClient.StartWorkflow(c.Context(), workflowID, "sarthi-queue", input)
+	_, err := h.temporalClient.StartWorkflow(c.Context(), workflowID, "trackguard-queue", input)
 	if err != nil {
 		h.logger.Error("failed to start BI workflow", err, "query_id", queryID)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

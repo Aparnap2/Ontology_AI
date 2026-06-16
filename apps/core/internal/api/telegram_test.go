@@ -94,7 +94,7 @@ func TestTelegramSendMessage(t *testing.T) {
 				err := json.Unmarshal(body, &payload)
 				require.NoError(t, err)
 				assert.Equal(t, "123456", payload["chat_id"])
-				assert.Equal(t, "Hello from Sarthi", payload["text"])
+				assert.Equal(t, "Hello from TrackGuard", payload["text"])
 				assert.Equal(t, "Markdown", payload["parse_mode"])
 				assert.NotContains(t, payload, "reply_markup")
 				
@@ -105,7 +105,7 @@ func TestTelegramSendMessage(t *testing.T) {
 			},
 		})
 
-		err := handler.SendMessage("123456", "Hello from Sarthi", nil)
+		err := handler.SendMessage("123456", "Hello from TrackGuard", nil)
 		require.NoError(t, err)
 		assert.True(t, called, "HTTP client should have been called")
 	})

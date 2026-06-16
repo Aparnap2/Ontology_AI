@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
--- MIGRATION 001: Sarthi SOP Runtime Foundation
+-- MIGRATION 001: TrackGuard SOP Runtime Foundation
 -- APPEND ONLY — never modify existing tables
 -- Apply: psql $DATABASE_URL -f this_file.sql
 -- ══════════════════════════════════════════════════════════════════

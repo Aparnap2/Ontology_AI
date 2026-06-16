@@ -43,7 +43,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["service"] == "sarthi-core-mock"
+        assert data["service"] == "trackguard-core-mock"
         assert "time" in data
 
     def test_health_content_type(self, session: requests.Session) -> None:

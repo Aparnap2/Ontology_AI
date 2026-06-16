@@ -48,7 +48,7 @@ except Exception:
     pass
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "SARTHI-MAIN-QUEUE")
+TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
 
 
 class WorkflowServiceError(Exception):

@@ -1,11 +1,11 @@
-"""Session Layer for Sarthi V3.0.
+"""Session Layer for TrackGuard V3.0.
 
 This module provides session management capabilities including:
 - Mission state tracking (finance, BI, ops, cross-functional metrics)
 - Session context retrieval (recent messages)
 - Relevance gating (keyword-based routing)
 
-Per PRD Section 7: #sarthi channel as shared session.
+Per PRD Section 7: #trackguard channel as shared session.
 Per PRD Section 11: MissionState shared context object.
 Per PRD Section 7: Relevance gate (pure code, zero LLM).
 """

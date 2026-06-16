@@ -1,118 +1,92 @@
-# Sarthi — Digital Mantriparishad for Seed-Stage Founders
+# TrackGuard — Decision Intelligence for Seed-Stage Founders
 
-> An Operational Decision Intelligence system architected on Kautilyan statecraft principles.
+> An operational decision intelligence system architected with deterministic agents, real-time health monitoring, and multi-domain alerting.
 > Not a chatbot — a trusted multi-agent council that observes, analyzes, decides, and learns.
 
 [![Tests](https://img.shields.io/badge/tests-375%20passing-brightgreen)](#)
-[![Architecture](https://img.shields.io/badge/architecture-Kautilyan%20council-blue)](#)
+[![Architecture](https://img.shields.io/badge/architecture-Guardian%20council-blue)](#)
 [![Trust](https://img.shields.io/badge/trust-Profiled%20%2B%20Gated-orange)](#)
 [![MBA](https://img.shields.io/badge/MBA-Finance%20%2B%20Guardrails%20%2B%20Forecasts-red)](#)
 
 ---
 
-## The Architecture: A Digital Mantriparishad
+## The Architecture: A Digital Guardian Council
 
-Sarthi is modeled on the **Saptanga** (seven limbs of state) and **18 Tirthas** (chief officers) from Kautilya's Arthashastra. Each agent is a specialized minister with bounded authority, durable memory, and explicit trust governance.
+Each agent is a specialized decision-maker with bounded authority, durable memory, and explicit trust governance.
 
 ```text
-                    ┌──────────────────────┐
-                    │     SWAMI (Founder)   │
-                    │  Final authority for  │
-                    │  irreversible decisions│
-                    └──────┬───────────────┘
+                     ┌─────────────────────────┐
+                     │  FOUNDER (Feedback Loop) │
+                     │  Final authority for     │
+                     │  irreversible decisions  │
+                     └──────┬─────────────────┘
+                            │
+               ┌────────────┼────────────┐
+               │            │            │
+      ┌────────▼──┐  ┌─────▼──────┐  ┌──▼──────────┐
+      │ ALERT GATE│  │  COUNCIL   │  │ CONFLICT    │
+      │ 7-stage   │  │  AlertCouncil│  │ RESOLVER   │
+      │ quality   │  │  synthesis │  │ Agent       │
+      │ + business│  │  + priority│  │ Arbiter     │
+      │ guardrails│  │  + recommend│  │             │
+      └───────────┘  └─────┬──────┘  └─────────────┘
                            │
-              ┌────────────┼────────────┐
-              │            │            │
-     ┌────────▼──┐  ┌─────▼──────┐  ┌──▼─────────┐
-     │ PRATIHARA │  │  AMATYA    │  │  NYAYADISH │
-     │ 7-stage   │  │  Council   │  │  Arbitrator│
-     │ gatekeeper │  │  Mantri-   │  │  agent     │
-     │ + business │  │  parishad  │  │  conflicts │
-     │ guardrails │  │  synthesis │  │            │
-     └───────────┘  └─────┬──────┘  └────────────┘
-                          │
-         ┌────────────────┼────────────────┐
-         │                │                │
-  ┌──────▼─────┐  ┌──────▼──────┐  ┌──────▼──────┐
-  │  SAMAHARTA │  │    SUTA    │  │  NAGARIKA   │
-  │  Finance   │  │  BI Analyst│  │  Ops Watch  │
-  │  Guardian  │  │  (leading  │  │  (operational│
-  │  + Finance │  │  indicators)│  │  heartbeat) │
-  │  Rules Engine│  │            │  │            │
-  └──────┬─────┘  └──────┬──────┘  └──────┬──────┘
-         │                │                │
-         └────────────────┼────────────────┘
-                          │
-              ┌───────────▼───────────┐
-              │   BUSINESS PIPELINE   │
-              │  Finance Rules →      │
-              │  Guardrails → HITL →  │
-              │  MissionState → Slack │
-              └───────────┬───────────┘
-                          │
-              ┌───────────▼───────────┐
-              │   PREDICTIVE GUARDIAN │
-              │  Trend extrapolation  │
-              │  Runway projection    │
-              │  Churn acceleration   │
-              │  Threshold alerts     │
-              └───────────┬───────────┘
-                          │
-              ┌───────────▼───────────┐
-              │      CHARAKA         │
-              │  Wandering Spy —      │
-              │  cross-domain anomaly │
-              │  inconsistency check  │
-              └──────────────────────┘
-                          │
-              ┌───────────▼───────────┐
-              │     KOSHA / DANDA     │
-              │  Treasury + Army      │
-              │  MissionState + Alert │
-              │  Dispatch             │
-              └──────────────────────┘
-                          │
-              ┌───────────▼───────────┐
-              │        MITRA         │
-              │  Graphiti temporal   │
-              │  knowledge graph —   │
-              │  institutional memory│
-              └──────────────────────┘
+          ┌────────────────┼────────────────┐
+          │                │                │
+   ┌──────▼─────┐  ┌──────▼──────┐  ┌──────▼──────┐
+   │  FINANCE   │  │  BI ANALYST│  │  OPS WATCH  │
+   │  Guardian  │  │  (leading  │  │  (operational│
+   │  + Finance │  │  indicators)│  │  heartbeat) │
+   │  Rules Engine│  │            │  │            │
+   └──────┬─────┘  └──────┬──────┘  └──────┬──────┘
+          │                │                │
+          └────────────────┼────────────────┘
+                           │
+               ┌───────────▼───────────┐
+               │   BUSINESS PIPELINE   │
+               │  Finance Rules →      │
+               │  Guardrails → HITL →  │
+               │  MissionState → Slack │
+               └───────────┬───────────┘
+                           │
+               ┌───────────▼───────────┐
+               │   PREDICTIVE GUARDIAN │
+               │  Trend extrapolation  │
+               │  Runway projection    │
+               │  Churn acceleration   │
+               │  Threshold alerts     │
+               └───────────┬───────────┘
+                           │
+               ┌───────────▼───────────┐
+               │   ANOMALY DETECTOR    │
+               │  Cross-domain anomaly │
+               │  inconsistency check  │
+               │  — wandering scout    │
+               └──────────────────────┘
+                           │
+               ┌───────────▼───────────┐
+               │   MISSION STATE +     │
+               │   ALERT DISPATCH      │
+               │  Treasury (Kosha) +   │
+               │  Enforcement (Danda)  │
+               └──────────────────────┘
+                           │
+               ┌───────────▼───────────┐
+               │   KNOWLEDGE GRAPH     │
+               │  Graphiti temporal    │
+               │  institutional memory │
+               │  — connection (Mitra) │
+               └──────────────────────┘
 ```
 
-**New in V4: MBA+Kautilya Integration Layer.** Three new deterministic layers sit between the guardians and the founder:
+**New in V4: MBA Integration Layer.** Three new deterministic layers sit between the guardians and the founder:
 - **Finance Rules** — 17 detection functions + 7 MBA primitives (WACC, NPV, IRR, burn multiple, etc.)
 - **Guardrails Engine** — 7-stage policy evaluation (investor-facing, authority, reversibility, risk, privacy, approval tier, blocking)
 - **Predictive Guardian** — trend forecasting, runway depletion projection, churn acceleration detection
 
 ---
 
-## The 18 Tirthas: Kautilya's Officer Corps Mapped to Code
-
-| # | Tirtha | Function | Sarthi Component | File |
-|---|--------|----------|-----------------|------|
-| 1 | **Mantri** | Chief Minister — strategic deliberation | `CorrelationAgent` + `Mantriparishad` | `agents/cofounder/correlation.py`, `joint_council.py` |
-| 2 | **Purohita** | Ethical Counsel — trust governance | `TrustBattery` — degraded gate + guardrail fields | `services/trust_battery.py` |
-| 3 | **Samaharta** | Collector-General — revenue aggregation | `FinanceGuardian` + `FinanceRules` | `agents/finance/graph.py`, `business/finance_rules.py` |
-| 4 | **Sannidhata** | Treasury Keeper — guard financial truth | `MissionState` in PostgreSQL | `session/mission_state.py` |
-| 5 | **Senapati** | Commander — execute, don't deliberate | Business pipeline + decision dispatch | `orchestration/run_business_pipeline.py` |
-| 6 | **Durgapala** | Fort Governor — watch for internal breach | Rate limiter + circuit breaker pattern | `session/relevance_gate.py` |
-| 7 | **Nagarika** | City Superintendent — ops heartbeat | `OpsWatch` guardian | `agents/ops/graph.py` |
-| 8 | **Pratihara** | Gatekeeper — control access to founder | `AlertGate` — 7-stage quality + business guardrails | `services/alert_gate.py`, `business/guardrails.py` |
-| 9 | **Suta** | Charioteer — leading indicators | `BIAnalyst` guardian | `agents/bi/graph.py` |
-| 10 | **Gopa** | Village Accountant — raw data collection | Data ingestion pipeline | `memory/qdrant_ops.py` |
-| 11 | **Sthanika** | District Officer — mid-tier signal processor | Watchlist pattern engine | `guardian/watchlist.py` |
-| 12 | **Yukta** | Secretary — perfect recording, no deciding | `SessionMemoryWriter` + Langfuse traces | `session/memory_integration.py` |
-| 13 | **Akshapataladhyaksha** | Accountant-General — consolidated view | Dashboard / MissionState aggregator + HTMX panels | `session/mission_state.py`, `internal/web/business_handler.go` |
-| 14 | **Nyayadish** | Chief Justice — arbitrate agent conflicts | `Nyayadish` — agent conflict arbiter | `agents/cofounder/arbiter.py` |
-| 15 | **Rajuka** | Reward/Punishment — autonomous demotion | Trust Battery score decay | `services/trust_battery.py` |
-| 16 | **Dharmamahamatras** | Welfare Officers — founder override | `founder_disputed` ACE loop | `session/memory_integration.py` |
-| 17 | **Charaka** | Wandering Spy — cross-domain anomaly | `Charaka` — inconsistency detector | `agents/anomaly/graph.py` |
-| 18 | **Yuvaraja** | Crown Prince — institutional memory | Graphiti temporal knowledge graph | `memory/semantic.py` |
-
----
-
-## MBA+Kautilya Integration Layer
+## MBA Integration Layer
 
 ### Finance Rules (`business/finance_rules.py`)
 17 detection functions extracted from guardian watchlist lambdas + 7 MBA finance primitives. Pure Python, zero LLM calls.
@@ -181,16 +155,16 @@ Synchronous snapshot engine that queries ERPNext, HubSpot, and QuickBooks → as
 
 ## Core Components
 
-### Trust Battery (Purohita)
+### Trust Battery
 Every agent has a dynamic trust profile with score (0.0–1.0), route priority, degraded mode, and full event audit history. Degraded agents (trust < 0.4) are hard-blocked at the relevance gate. Extended in V4 with guardrail authority limits and auto-approve thresholds.
 
-### Session Layer (Mantriparishad)
+### Session Layer
 The `MissionState` is the single source of ground truth — shared context that every guardian reads and writes. Extended with 12 finance + guardrail fields in V4.
 
-### Joint Alert Council (Mantriparishad)
+### Joint Alert Council
 When 2+ guardians fire in the same session, the council synthesizes them into one alert with unified root cause, cross-domain severity, and a single recommended action. Prevents alert fatigue.
 
-### Alert Quality Gate (Pratihara)
+### Alert Quality Gate
 Every alert passes through 7 stages before reaching the founder:
 1. **Schema validation** — required fields, valid types
 2. **Trust check** — agent not degraded
@@ -200,15 +174,15 @@ Every alert passes through 7 stages before reaching the founder:
 6. **Risk assessment** — financial risk classification
 7. **Privacy check** — PII detection
 
-### Cross-Domain Spy (Charaka)
+### Anomaly Detector
 Roams across all MissionState fields looking for inconsistencies: burn alerts without operational symptoms, revenue growth with cash burn, short runways with misplaced founder focus.
 
-### Agent Arbiter (Nyayadish)
+### Conflict Resolver
 Resolves contradictions between guardians — severity mismatches (critical vs. info) and signal contradictions. Highest severity wins; majority override available.
 
 ---
 
-## What Sarthi Answers
+## What TrackGuard Answers
 
 Every alert or recommendation answers four questions:
 
@@ -306,7 +280,7 @@ apps/
   ai/                      # Python AI Worker
     src/
       agents/              # Guardian agents (finance, bi, ops, qa, investor)
-      business/            # MBA+Kautilya integration (NEW V4)
+      business/            # MBA integration (NEW V4)
         finance_rules.py   # 17 detections + 7 MBA primitives
         guardrails.py      # 7-stage policy engine
         envelope.py        # BusinessDecisionEnvelope
@@ -343,7 +317,7 @@ apps/
 
 ```bash
 # Start infrastructure
-docker start sarthi-postgres sarthi-neo4j sarthi-qdrant sarthi-redis
+docker start trackguard-postgres trackguard-neo4j trackguard-qdrant trackguard-redis
 
 # Run Python tests
 cd apps/ai && uv run pytest tests/unit/ -q

@@ -19,7 +19,7 @@ from typing import Any
 
 # Set test environment variables
 os.environ["TEMPORAL_HOST"] = "localhost:7233"
-os.environ["TEMPORAL_TASK_QUEUE"] = "SARTHI-MAIN-QUEUE"
+os.environ["TEMPORAL_TASK_QUEUE"] = "TRACKGUARD-MAIN-QUEUE"
 os.environ["REDPANDA_URL"] = "localhost:9092"
 
 
@@ -323,7 +323,7 @@ class TestWorkflowEventPublishing:
         publisher = WorkflowEventPublisher()
         
         # Test that topic constants are correct
-        assert MEMORY_QUERY_TOPIC == "sarthi.memory.query"
+        assert MEMORY_QUERY_TOPIC == "trackguard.memory.query"
         
         # Test that the class can be instantiated
         assert publisher is not None
@@ -339,10 +339,10 @@ class TestWorkflowEventPublishing:
         )
 
         # Verify topic names - these should be used for cross-service communication
-        assert MEMORY_QUERY_TOPIC == "sarthi.memory.query"
-        assert MEMORY_STORE_TOPIC == "sarthi.memory.store"
-        assert MEMORY_DECAY_TOPIC == "sarthi.memory.decay"
-        assert DECISION_REQUEST_TOPIC == "sarthi.decision.request"
+        assert MEMORY_QUERY_TOPIC == "trackguard.memory.query"
+        assert MEMORY_STORE_TOPIC == "trackguard.memory.store"
+        assert MEMORY_DECAY_TOPIC == "trackguard.memory.decay"
+        assert DECISION_REQUEST_TOPIC == "trackguard.decision.request"
         
         # Verify workflows use events, not imports - check the events module
         import src.services.workflow.events as events_module

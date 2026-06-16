@@ -1,4 +1,4 @@
-"""Database module for Sarthi AI."""
+"""Database module for TrackGuard AI."""
 import asyncio
 import logging
 import os

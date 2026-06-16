@@ -175,3 +175,6 @@ test-results/
 coverage/
 playwright/playwright-report/
 playwright/test-results/
+
+# Output directories
+graphify-out/

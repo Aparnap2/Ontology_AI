@@ -2,7 +2,7 @@
 Agentic Test Configuration - Real LLM + Real Docker + Langfuse
 
 Per the TDD strategy: Layer 3 tests prove the real system works.
-Provider priority: Groq (GROQ_API_KEY) → Ollama Cloud/local.
+Provider: Single source of truth from src.config.llm.
 """
 import os
 from datetime import datetime
@@ -16,23 +16,36 @@ _repo_root = Path(__file__).resolve().parents[4]
 load_dotenv(_repo_root / ".env")
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
+# Snapshot real credentials at import time.
+# test_agentic_ai.py overwrites GROQ_API_KEY with fake values in test methods
+# (lines 110, 185) and its _set_env fixture has no teardown to restore them.
+# If test_agentic_ai.py runs first (alphabetical), the env var is corrupted
+# before the session-scoped ollama_client fixture is created, causing ALL
+# real-LLM tests to fail with 401.
+_REAL_GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+_REAL_GROQ_CHAT_MODEL = os.environ.get(
+    "GROQ_CHAT_MODEL", os.environ.get("LLM_MODEL", "qwen/qwen3-32b")
+)
+_REAL_GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+_REAL_GROQ_REASONING_EFFORT = os.environ.get("GROQ_REASONING_EFFORT", "none")
 
-class _GroqChatAdapter:
-    """Ollama-compatible .chat() interface backed by Groq OpenAI API."""
 
-    def __init__(self) -> None:
-        from openai import OpenAI
+class _OllamaChatAdapter:
+    """Thin adapter wrapping OpenAI client in Ollama-compatible .chat() interface.
 
-        self._client = OpenAI(
-            base_url=os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
-            api_key=os.environ["GROQ_API_KEY"],
-        )
-        self._reasoning_effort = os.environ.get("GROQ_REASONING_EFFORT", "none")
+    Uses src.config.llm.get_llm_client() as the single source of truth
+    instead of creating its own client.
+    """
+
+    def __init__(self, client, model: str, reasoning_effort: str) -> None:
+        self._client = client
+        self._model = model
+        self._reasoning_effort = reasoning_effort
 
     def chat(self, model: str, messages: list[dict], options: dict | None = None):
         options = options or {}
         kwargs = {
-            "model": model,
+            "model": model or self._model,
             "messages": messages,
             "max_tokens": options.get("num_predict", 500),
             "temperature": options.get("temperature", 0.0),
@@ -46,27 +59,26 @@ class _GroqChatAdapter:
 
 @pytest.fixture(scope="session")
 def ollama_client():
-    """Real LLM client — Groq when GROQ_API_KEY is set, else Ollama."""
-    if os.environ.get("GROQ_API_KEY"):
-        return _GroqChatAdapter()
+    """Real LLM client — OpenAI client from src.config.llm.
 
-    from ollama import Client as OllamaClient
+    Uses the shared client singleton so all LLM calls go through one config.
+    """
+    from src.config.llm import get_llm_client
 
-    base_url = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com")
-    api_key = os.environ.get("OLLAMA_API_KEY", "")
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    return OllamaClient(host=base_url, headers=headers)
+    client = get_llm_client()
+    return _OllamaChatAdapter(
+        client=client,
+        model=_REAL_GROQ_CHAT_MODEL,
+        reasoning_effort=_REAL_GROQ_REASONING_EFFORT,
+    )
 
 
 @pytest.fixture(scope="session")
 def llm_model():
-    """Model name — Groq, LLM_MODEL, or Ollama fallback."""
-    if os.environ.get("GROQ_API_KEY"):
-        return os.environ.get(
-            "GROQ_CHAT_MODEL",
-            os.environ.get("LLM_MODEL", "qwen/qwen3-32b"),
-        )
-    return os.environ.get("OLLAMA_CHAT_MODEL", "qwen3-next:80b-cloud")
+    """Model name — from config module (Groq default)."""
+    from src.config.llm import get_chat_model
+
+    return get_chat_model()
 
 
 @pytest.fixture(scope="session")

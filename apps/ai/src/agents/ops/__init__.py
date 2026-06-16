@@ -1,4 +1,4 @@
-"""Ops Watch — operations monitoring agent for Sarthi."""
+"""Ops Watch — operations monitoring agent for TrackGuard."""
 from __future__ import annotations
 
 from src.agents.ops.graph import OpsWatchGraph, OpsWatchState

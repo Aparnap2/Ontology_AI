@@ -1,1 +1,1 @@
-"""LLM Evals Package for Sarthi v1.0."""
+"""LLM Evals Package for TrackGuard v1.0."""

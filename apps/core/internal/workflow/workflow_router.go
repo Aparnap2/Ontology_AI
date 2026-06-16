@@ -10,11 +10,11 @@ import (
 	"iterateswarm-core/internal/events"
 )
 
-// SarthiContinueAsNewThreshold is the number of events before triggering Continue-As-New in SarthiRouter
-const SarthiContinueAsNewThreshold = 1000
+// WorkflowRouterContinueAsNewThreshold is the number of events before triggering Continue-As-New in WorkflowRouter
+const WorkflowRouterContinueAsNewThreshold = 1000
 
-// SarthiRouterState tracks workflow state across Continue-As-New cycles
-type SarthiRouterState struct {
+// WorkflowRouterState tracks workflow state across Continue-As-New cycles
+type WorkflowRouterState struct {
 	TenantID        string          `json:"tenant_id"`
 	EventsProcessed int             `json:"events_processed"`
 	SeenKeys        map[string]bool `json:"seen_keys"`
@@ -24,7 +24,7 @@ type SarthiRouterState struct {
 type EventRoutingTable map[string][]string
 
 // GetRoutingTable returns the event routing configuration
-// This is the central routing logic for Sarthi v1.0
+// This is the central routing logic for TrackGuard v1.0
 func GetRoutingTable() EventRoutingTable {
 	return EventRoutingTable{
 		// ==================== REVENUE TRACKER ====================
@@ -104,11 +104,11 @@ func GetRoutingTable() EventRoutingTable {
 	}
 }
 
-// SarthiRouter is the parent router that spawns child workflows based on event type.
+// WorkflowRouter is the parent router that spawns child workflows based on event type.
 // It implements the router pattern with Continue-As-New at 1000 events to prevent
 // Temporal history size bloat.
-func SarthiRouter(ctx workflow.Context, tenantID string) error {
-	state := SarthiRouterState{
+func WorkflowRouter(ctx workflow.Context, tenantID string) error {
+	state := WorkflowRouterState{
 		TenantID:        tenantID,
 		EventsProcessed: 0,
 		SeenKeys:        make(map[string]bool),
@@ -117,18 +117,18 @@ func SarthiRouter(ctx workflow.Context, tenantID string) error {
 	routingTable := GetRoutingTable()
 
 	// Get signal channel for incoming events
-	signalChan := workflow.GetSignalChannel(ctx, "sarthi.events")
+	signalChan := workflow.GetSignalChannel(ctx, "trackguard.events")
 
 	for {
 		// Guard: Continue-As-New before hitting Temporal history limits
 		// This is critical for long-running workflows to prevent history size errors
-		if state.EventsProcessed >= SarthiContinueAsNewThreshold {
+		if state.EventsProcessed >= WorkflowRouterContinueAsNewThreshold {
 			workflow.GetLogger(ctx).Info(
 				"Triggering Continue-As-New",
 				"events_processed", state.EventsProcessed,
 				"tenant_id", state.TenantID,
 			)
-			return workflow.NewContinueAsNewError(ctx, SarthiRouter, state.TenantID)
+			return workflow.NewContinueAsNewError(ctx, WorkflowRouter, state.TenantID)
 		}
 
 		// Receive next event from signal channel

@@ -1,5 +1,5 @@
 """
-Sarthi Temporal Worker — MVP Pivot.
+TrackGuard Temporal Worker — MVP Pivot.
 
 Registers:
   Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow
@@ -7,7 +7,7 @@ Registers:
               run_investor_agent, run_qa_agent,
               send_slack_message
 
-Task queue: SARTHI-MAIN-QUEUE
+Task queue: TRACKGUARD-MAIN-QUEUE
 """
 from __future__ import annotations
 
@@ -35,10 +35,10 @@ from src.activities.send_slack_message import send_slack_message
 from src.activities.run_guardian_watchlist import run_guardian_watchlist
 from src.activities.memory_maintenance import decay_memory_weights, expire_old_memories, optimize_memory_performance
 
-log = logging.getLogger("sarthi.worker")
+log = logging.getLogger("trackguard.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "SARTHI-MAIN-QUEUE")
+TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
 MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 
 

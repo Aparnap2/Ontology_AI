@@ -1,4 +1,4 @@
--- Sarthi v4.2 Internal Ops Schema Extensions
+-- TrackGuard v4.2 Internal Ops Schema Extensions
 -- Migration 008: 6 Desks (Finance, People, Legal, Intelligence, IT, Admin)
 -- Append-only: No destructive changes to existing tables
 
@@ -107,11 +107,11 @@ CREATE INDEX IF NOT EXISTS idx_admin_events_type ON admin_events(event_type);
 -- Schema Documentation Comments
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-COMMENT ON TABLE finance_ops IS 'Sarthi v4.2 Internal Ops — Finance Desk (AR/AP, payroll)';
-COMMENT ON TABLE people_ops IS 'Sarthi v4.2 Internal Ops — People Desk (HR, onboarding)';
-COMMENT ON TABLE legal_ops IS 'Sarthi v4.2 Internal Ops — Legal Desk (contracts, compliance)';
-COMMENT ON TABLE it_assets IS 'Sarthi v4.2 Internal Ops — IT & Tools Desk (SaaS, cloud)';
-COMMENT ON TABLE admin_events IS 'Sarthi v4.2 Internal Ops — Admin Desk (meetings, SOPs)';
+COMMENT ON TABLE finance_ops IS 'TrackGuard v4.2 Internal Ops — Finance Desk (AR/AP, payroll)';
+COMMENT ON TABLE people_ops IS 'TrackGuard v4.2 Internal Ops — People Desk (HR, onboarding)';
+COMMENT ON TABLE legal_ops IS 'TrackGuard v4.2 Internal Ops — Legal Desk (contracts, compliance)';
+COMMENT ON TABLE it_assets IS 'TrackGuard v4.2 Internal Ops — IT & Tools Desk (SaaS, cloud)';
+COMMENT ON TABLE admin_events IS 'TrackGuard v4.2 Internal Ops — Admin Desk (meetings, SOPs)';
 
 -- Comment: This migration adds:
 -- - finance_ops: Track AR/AP reminders, payroll prep, reconciliation tasks

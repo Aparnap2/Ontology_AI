@@ -1,5 +1,5 @@
 """
-Events package for Sarthi."""
+Events package for TrackGuard."""
 
 from src.events.bus import (
     EventBus,

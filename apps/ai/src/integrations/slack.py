@@ -1,5 +1,5 @@
 """
-Slack Integration Module for Sarthi MVP.
+Slack Integration Module for TrackGuard MVP.
 
 Provides Slack message delivery via Incoming Webhooks.
 Falls back to Telegram mock if Slack webhook not configured.

@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from src.activities.synthesize_weekly_brief import synthesize_weekly_brief
 from src.activities.send_slack_message import send_slack_message
-from src.config.database import get_sarthi_database_url
+from src.config.database import get_database_url
 from src.events.bus import emit
 from src.db.db import get_db_connection
 
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 async def get_current_metrics_snapshot(tenant_id: str) -> dict[str, Any]:
     """Get current metrics snapshot from finance_snapshots table."""
     import psycopg2
-    DATABASE_URL = get_sarthi_database_url()
+    DATABASE_URL = get_database_url()
     
     try:
         conn = psycopg2.connect(DATABASE_URL)
@@ -57,7 +57,7 @@ async def get_current_metrics_snapshot(tenant_id: str) -> dict[str, Any]:
 async def get_recent_alerts(tenant_id: str, days: int = 7) -> list[dict[str, Any]]:
     """Get recent alerts from database."""
     import psycopg2
-    DATABASE_URL = get_sarthi_database_url()
+    DATABASE_URL = get_database_url()
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
@@ -88,7 +88,7 @@ async def get_recent_alerts(tenant_id: str, days: int = 7) -> list[dict[str, Any
 async def get_recent_investor_state(tenant_id: str, days: int = 14) -> dict[str, Any]:
     """Get recent investor state."""
     import psycopg2
-    DATABASE_URL = get_sarthi_database_url()
+    DATABASE_URL = get_database_url()
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
 
@@ -116,7 +116,7 @@ async def get_recent_decisions(tenant_id: str, days: int = 14) -> list[dict[str,
     import psycopg2
     from psycopg2 import errors as psycopg2_errors
     
-    DATABASE_URL = get_sarthi_database_url()
+    DATABASE_URL = get_database_url()
     try:
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()

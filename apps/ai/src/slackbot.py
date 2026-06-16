@@ -41,8 +41,8 @@ async def get_tenant_from_slack_team(team_id: str) -> str:
     return f"tenant-{team_id}"
 
 
-@app.command("/sarthi")
-async def handle_sarthi_command(ack, body, client):
+@app.command("/trackguard")
+async def handle_trackguard_command(ack, body, client):
     await ack()
 
     subcommand = body.get("text", "").strip().lower()
@@ -82,16 +82,16 @@ async def handle_sarthi_command(ack, body, client):
         await client.chat_postMessage(
             channel=user_id,
             text=(
-                "*Sarthi Commands:*\n"
-                "• `/sarthi decide` — Log a decision to institutional memory\n"
-                "• `/sarthi help` — Show this help\n\n"
-                "Or just mention me: `@Sarthi what's our runway?`"
+                "*TrackGuard Commands:*\n"
+                "• `/trackguard decide` — Log a decision to institutional memory\n"
+                "• `/trackguard help` — Show this help\n\n"
+                "Or just mention me: `@TrackGuard what's our runway?`"
             )
         )
     else:
         await client.chat_postMessage(
             channel=user_id,
-            text=f"Unknown command: `{subcommand}`. Try `/sarthi decide` or `/sarthi help`"
+            text=f"Unknown command: `{subcommand}`. Try `/trackguard decide` or `/trackguard help`"
         )
 
 
@@ -228,7 +228,7 @@ async def handle_log_decision(ack, body, client):
 
 @app.event("message")
 async def handle_channel_message(event, say):
-    """Handle #sarthi channel messages.
+    """Handle #trackguard channel messages.
 
     Per PRD V3.0 Step 5:
     message received -> write_session_message -> relevance gate -> agent routing -> memory
@@ -237,8 +237,8 @@ async def handle_channel_message(event, say):
         return
 
     channel_id = event.get("channel", "")
-    sarthi_channel = os.environ.get("SARTHI_CHANNEL_ID", "")
-    if sarthi_channel and channel_id != sarthi_channel:
+    trackguard_channel = os.environ.get("TRACKGUARD_CHANNEL_ID", "")
+    if trackguard_channel and channel_id != trackguard_channel:
         return
 
     text = event.get("text", "").strip()
@@ -302,7 +302,7 @@ async def handle_channel_message(event, say):
             log.debug("No agents triggered for message: %s", text[:50])
 
     except Exception as e:
-        log.error("Error processing #sarthi message: %s", e)
+        log.error("Error processing #trackguard message: %s", e)
 
 
 def _build_decision_modal():

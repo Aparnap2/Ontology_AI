@@ -1,7 +1,7 @@
 """
-Scheduler package for Sarthi."""
+Scheduler package for TrackGuard."""
 
-from src.scheduler.sarthi_scheduler import (
+from src.scheduler.trackguard_scheduler import (
     scheduler,
     register_tenant_schedules,
     unregister_tenant_schedules,

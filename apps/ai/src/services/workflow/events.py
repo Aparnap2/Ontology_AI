@@ -20,20 +20,20 @@ log = logging.getLogger(__name__)
 # =============================================================================
 
 # Memory service topics
-MEMORY_QUERY_TOPIC = "sarthi.memory.query"
-MEMORY_STORE_TOPIC = "sarthi.memory.store"
-MEMORY_RETRIEVE_TOPIC = "sarthi.memory.retrieve"
-MEMORY_COMPRESS_TOPIC = "sarthi.memory.compress"
-MEMORY_DECAY_TOPIC = "sarthi.memory.decay"
+MEMORY_QUERY_TOPIC = "trackguard.memory.query"
+MEMORY_STORE_TOPIC = "trackguard.memory.store"
+MEMORY_RETRIEVE_TOPIC = "trackguard.memory.retrieve"
+MEMORY_COMPRESS_TOPIC = "trackguard.memory.compress"
+MEMORY_DECAY_TOPIC = "trackguard.memory.decay"
 
 # Decision engine topics
-DECISION_REQUEST_TOPIC = "sarthi.decision.request"
-DECISION_RESULT_TOPIC = "sarthi.decision.result"
+DECISION_REQUEST_TOPIC = "trackguard.decision.request"
+DECISION_RESULT_TOPIC = "trackguard.decision.result"
 
 # Agent-to-agent topics
-AGENT_EVENT_TOPIC = "sarthi.agent.events"
-WORKFLOW_COMPLETE_TOPIC = "sarthi.workflow.complete"
-WORKFLOW_FAILED_TOPIC = "sarthi.workflow.failed"
+AGENT_EVENT_TOPIC = "trackguard.agent.events"
+WORKFLOW_COMPLETE_TOPIC = "trackguard.workflow.complete"
+WORKFLOW_FAILED_TOPIC = "trackguard.workflow.failed"
 
 
 # =============================================================================

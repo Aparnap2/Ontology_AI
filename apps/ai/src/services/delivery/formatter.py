@@ -100,7 +100,7 @@ def format_decision_blocks(decision: DecisionResultInput) -> list[dict[str, Any]
         "type": "context",
         "elements": [{
             "type": "plain_text",
-            "text": f"Sarthi Decision • {decision.occurred_at[:19].replace('T', ' ')}"
+            "text": f"TrackGuard Decision • {decision.occurred_at[:19].replace('T', ' ')}"
         }]
     })
 

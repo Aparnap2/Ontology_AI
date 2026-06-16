@@ -1,4 +1,4 @@
-"""Sarthi HITL — Human-in-the-Loop routing and confidence scoring."""
+"""TrackGuard HITL — Human-in-the-Loop routing and confidence scoring."""
 from src.hitl.manager import HITLManager
 from src.hitl.confidence import score_confidence
 

@@ -1,5 +1,5 @@
 """
-Sarthi v1.0 Agents — 4-Agent Core.
+TrackGuard v1.0 Agents — 4-Agent Core.
 
 Agents:
   - PulseAgent: Health monitoring, anomaly detection

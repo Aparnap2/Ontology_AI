@@ -28,7 +28,7 @@ class ArbitrationResult:
     confidence: float = 1.0
 
 
-class Nyayadish:
+class ConflictResolver:
     """Arbiter for inter-agent conflicts.
 
     Detects and resolves contradictions:

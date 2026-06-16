@@ -8,15 +8,15 @@ from __future__ import annotations
 from .graph import (
     anomaly_graph,
     build_anomaly_graph,
-    Charaka,
-    CharakaAlert,
+    AnomalyDetector,
+    AnomalyAlert,
 )
 from .state import AnomalyState
 
 __all__ = [
     "anomaly_graph",
     "build_anomaly_graph",
-    "Charaka",
-    "CharakaAlert",
+    "AnomalyDetector",
+    "AnomalyAlert",
     "AnomalyState",
 ]

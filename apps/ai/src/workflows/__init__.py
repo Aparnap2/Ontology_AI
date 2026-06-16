@@ -1,4 +1,4 @@
-"""Temporal Workflows for Sarthi AI Agents."""
+"""Temporal Workflows for TrackGuard AI Agents."""
 
 from src.workflows.pulse_workflow import PulseWorkflow
 from src.workflows.investor_workflow import InvestorWorkflow

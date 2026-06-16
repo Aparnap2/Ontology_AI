@@ -1,4 +1,4 @@
-"""Temporal Activities for Sarthi AI Agents."""
+"""Temporal Activities for TrackGuard AI Agents."""
 
 from src.activities.run_pulse_agent import run_pulse_agent
 from src.activities.run_anomaly_agent import run_anomaly_agent

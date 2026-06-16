@@ -52,7 +52,7 @@ func TestBusinessOSWorkflowSpawnsChildNotExecutesSOP(t *testing.T) {
 	}
 
 	// Signal the workflow with the event
-	env.SignalWorkflow("sarthi.events", envelope)
+	env.SignalWorkflow("trackguard.events", envelope)
 
 	// The workflow should process the event without errors
 	// It will complete with "deadline exceeded" when the test timeout fires, which is expected
@@ -91,7 +91,7 @@ func TestContinueAsNewAt5000Events(t *testing.T) {
 			TraceID:        "trace_test",
 			IdempotencyKey: fmt.Sprintf("razorpay:pay_%d:v1", i),
 		}
-		env.SignalWorkflow("sarthi.events", envelope)
+		env.SignalWorkflow("trackguard.events", envelope)
 	}
 
 	// Verify Continue-As-New was triggered
@@ -133,10 +133,10 @@ func TestDuplicateIdempotencyKeySkipped(t *testing.T) {
 	}
 
 	// First signal
-	env.SignalWorkflow("sarthi.events", envelope)
+	env.SignalWorkflow("trackguard.events", envelope)
 
 	// Second signal (should be skipped due to idempotency)
-	env.SignalWorkflow("sarthi.events", envelope)
+	env.SignalWorkflow("trackguard.events", envelope)
 
 	// The workflow should process events without errors
 	// Idempotency is tested by the workflow logic skipping duplicate keys

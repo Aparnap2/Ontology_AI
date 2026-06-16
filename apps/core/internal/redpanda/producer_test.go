@@ -8,7 +8,7 @@ import (
 )
 
 func TestProducer_PublishSlackEvent_WritesToCorrectTopic(t *testing.T) {
-	client, err := NewClient([]string{"localhost:9092"}, "sarthi.slack.events")
+	client, err := NewClient([]string{"localhost:9092"}, "trackguard.slack.events")
 	if err != nil {
 		t.Skip("Redpanda not available:", err)
 	}
@@ -22,14 +22,14 @@ func TestProducer_PublishSlackEvent_WritesToCorrectTopic(t *testing.T) {
 		OccurredAt: time.Now().UTC(),
 	}
 
-	err = client.PublishEnvelope("sarthi.slack.events", envelope)
+	err = client.PublishEnvelope("trackguard.slack.events", envelope)
 	if err != nil {
 		t.Fatalf("Failed to publish slack event: %v", err)
 	}
 }
 
 func TestProducer_PublishStripeEvent_WritesToCorrectTopic(t *testing.T) {
-	client, err := NewClient([]string{"localhost:9092"}, "sarthi.stripe.events")
+	client, err := NewClient([]string{"localhost:9092"}, "trackguard.stripe.events")
 	if err != nil {
 		t.Skip("Redpanda not available:", err)
 	}
@@ -43,7 +43,7 @@ func TestProducer_PublishStripeEvent_WritesToCorrectTopic(t *testing.T) {
 		OccurredAt: time.Now().UTC(),
 	}
 
-	err = client.PublishEnvelope("sarthi.stripe.events", envelope)
+	err = client.PublishEnvelope("trackguard.stripe.events", envelope)
 	if err != nil {
 		t.Fatalf("Failed to publish stripe event: %v", err)
 	}

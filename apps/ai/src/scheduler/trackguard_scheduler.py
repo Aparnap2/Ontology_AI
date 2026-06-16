@@ -1,5 +1,5 @@
 """
-APScheduler-based job scheduler for Sarthi.
+APScheduler-based job scheduler for TrackGuard.
 
 Replaces Temporal for simple schedule-driven jobs.
 """
@@ -14,7 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 log = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://sarthi:sarthi@localhost:5432/sarthi")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://trackguard:trackguard@localhost:5432/trackguard")
 
 jobstores = {
     "default": SQLAlchemyJobStore(url=DATABASE_URL),

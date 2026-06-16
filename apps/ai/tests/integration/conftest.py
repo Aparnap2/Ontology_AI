@@ -11,7 +11,7 @@ def mockoon_server() -> Generator[str, None, None]:
     process = None
     try:
         process = subprocess.Popen(
-            ["mockoon-cli", "start", "--data", "tests/mocks/sarthi-mocks.json", "--port", "3333"],
+            ["mockoon-cli", "start", "--data", "tests/mocks/trackguard-mocks.json", "--port", "3333"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
