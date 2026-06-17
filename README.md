@@ -3,7 +3,7 @@
 > An operational decision intelligence system architected with deterministic agents, real-time health monitoring, and multi-domain alerting.
 > Not a chatbot — a trusted multi-agent council that observes, analyzes, decides, and learns.
 
-[![Tests](https://img.shields.io/badge/tests-375%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-394%20passing-brightgreen)](#)
 [![Architecture](https://img.shields.io/badge/architecture-Guardian%20council-blue)](#)
 [![Trust](https://img.shields.io/badge/trust-Profiled%20%2B%20Gated-orange)](#)
 [![MBA](https://img.shields.io/badge/MBA-Finance%20%2B%20Guardrails%20%2B%20Forecasts-red)](#)
@@ -145,6 +145,16 @@ Synchronous snapshot engine that queries ERPNext, HubSpot, and QuickBooks → as
 
 **Testing:** 54 unit tests + 2 E2E tests against Mockoon containers (docker-compose.startup-guardian.yml). Mockoon fixtures with query-param routing for ERPNext doctypes. All monetary values in integer cents.
 
+### Deterministic Agentic Testing Suite
+287+ deterministic tests that verify agent behavior without LLM calls:
+- **Trajectory Tests** (87) — exact tool call order verification against 15 golden scenarios
+- **State Machine Tests** (17) — orchestrator transitions, health computation, connector failures
+- **Edge Case Tests** (47) — empty DB, boundary conditions, special characters, concurrent execution
+- **Behavioral Contracts** (68) — MUST ALWAYS/NEVER invariants (MissionStateV2 validity, no LLM in connectors, no secrets in logs)
+- **Mockoon Integration** (17) — real HTTP to Mockoon containers (ERPNext + QuickBooks), HubSpot SDK mocked
+
+All tests use `unittest.mock.patch` for LLM and external APIs. Mockoon containers provide deterministic fixture data. Zero real API calls.
+
 ### HTMX Dashboards (Go side)
 3 new admin panels in `apps/core/internal/web/`:
 - **Decision Queue** — pending business decisions with approve/reject buttons (auto-refresh 10s)
@@ -234,7 +244,7 @@ T+48h → Follow-up check: was action taken? Outcome measured?
 
 ---
 
-## Test Coverage (319+ Passing)
+## Test Coverage (394+ Passing)
 
 | Suite | Tests | Status |
 |-------|-------|--------|
@@ -259,6 +269,11 @@ T+48h → Follow-up check: was action taken? Outcome measured?
 | Startup Guardian Detector | 3 | ✅ |
 | Startup Guardian Orchestrator | 5 | ✅ |
 | Startup Guardian E2E | 2 | ✅ |
+| **Deterministic Trajectory** | **87** | ✅ |
+| **Deterministic State Machine** | **17** | ✅ |
+| **Deterministic Edge Cases** | **47** | ✅ |
+| **Deterministic Contracts** | **68** | ✅ |
+| **Mockoon Integration** | **17** | ✅ |
 | All Others | 100+ | ✅ |
 
 ---
@@ -322,18 +337,28 @@ docker start trackguard-postgres trackguard-neo4j trackguard-qdrant trackguard-r
 # Run Python tests
 cd apps/ai && uv run pytest tests/unit/ -q
 
+# Run deterministic tests (no Docker, no LLM)
+cd apps/ai && uv run pytest tests/deterministic/ -v
+
+# Run Mockoon integration tests (real Docker, no LLM)
+docker run -d --name sg-mock-erpnext -p 8099:8080 \
+  -v $(pwd)/apps/ai/tests/mockoon/erpnext.json:/data:ro mockoon/cli:latest -d /data -p 8080
+docker run -d --name sg-mock-hubspot -p 8098:8080 \
+  -v $(pwd)/apps/ai/tests/mockoon/hubspot.json:/data:ro mockoon/cli:latest -d /data -p 8080
+docker run -d --name sg-mock-quickbooks -p 8097:8080 \
+  -v $(pwd)/apps/ai/tests/mockoon/quickbooks.json:/data:ro mockoon/cli:latest -d /data -p 8080
+
+ERPNEXT_URL=http://localhost:8099 ERPNEXT_USER=test ERPNEXT_PASSWORD=test \
+QUICKBOOKS_CLIENT_ID=test QUICKBOOKS_ACCESS_TOKEN=test \
+QUICKBOOKS_COMPANY_ID=123146573628384 QUICKBOOKS_API_URL=http://localhost:8097 \
+HUBSPOT_ACCESS_TOKEN=test-token \
+  uv run pytest tests/integration/test_mockoon_pipeline.py -v
+
 # Run Go tests
 cd apps/core && go test ./internal/web/... -v
 
 # Run worker
 cd apps/ai && uv run python -m src.worker
-
-# Run Startup Guardian with Mockoon containers
-docker compose -f docker-compose.startup-guardian.yml up -d mock-erpnext mock-hubspot mock-quickbooks
-
-# Run Startup Guardian E2E tests
-ERPNEXT_URL=http://localhost:8099 ERPNEXT_USER=Administrator ERPNEXT_PASSWORD=admin \
-  cd apps/ai && uv run pytest tests/integration/test_startup_guardian_e2e.py -v
 
 # Run Startup Guardian CLI (mock mode, no containers needed)
 cd apps/ai && uv run python -m src.orchestration.run_startup_guardian_cli my-tenant
