@@ -3,6 +3,7 @@ package workflow
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 type Activities struct {
 	logger   *logging.Logger
 	aiClient *grpc.ClientConn
+	db       *sql.DB
 }
 
 // NewActivities creates a new Activities instance.
@@ -38,6 +40,12 @@ func NewActivities(aiClient *grpc.ClientConn) *Activities {
 		logger:   logging.NewLogger("workflow"),
 		aiClient: aiClient,
 	}
+}
+
+// SetDB sets the database connection for DLQ and persistence activities.
+// Optional — if not set, DLQ operations fall back to logging only.
+func (a *Activities) SetDB(db *sql.DB) {
+	a.db = db
 }
 
 // AnalyzeFeedbackInput is the input for the AnalyzeFeedback activity.
@@ -666,8 +674,27 @@ func (a *Activities) SendToDLQ(ctx context.Context, input SendToDLQInput) error 
 		"attempts", input.Attempts,
 	)
 
-	// TODO: Implement actual DLQ database insert
-	// This would insert into dead_letter_queue table
+	payload, err := json.Marshal(input.Payload)
+	if err != nil {
+		a.logger.Error("failed to marshal DLQ payload", err, "task_id", input.TaskID)
+		payload = []byte("{}")
+	}
+
+	if a.db != nil {
+		_, err := a.db.ExecContext(ctx,
+			`INSERT INTO dead_letter_queue (task_id, payload, error_msg, attempts)
+			 VALUES ($1, $2, $3, $4)`,
+			input.TaskID, payload, input.ErrorMsg, input.Attempts,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert into DLQ: %w", err)
+		}
+	} else {
+		// Database not configured — log for debugging (safe fallback)
+		a.logger.Info("DLQ (no DB): task_id=%s error=%s attempts=%d",
+			input.TaskID, input.ErrorMsg, input.Attempts)
+	}
+
 	a.logger.Info("task sent to DLQ", "task_id", input.TaskID)
 	return nil
 }

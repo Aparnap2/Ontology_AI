@@ -299,11 +299,9 @@ def get_erpnext_snapshot(tenant_id: str) -> Dict[str, Any]:
         logger.info("[MOCK MODE] Returning seed ERPNext data for tenant %s", tenant_id)
         return _add_metadata(_DEFAULT_SNAPSHOT, "erpnext_mock")
 
-    try:
-        client = ERPNextClient()
-    except Exception as e:
-        logger.error("Failed to create ERPNext client for tenant %s: %s", tenant_id, e)
-        return _add_metadata(_DEFAULT_SNAPSHOT, "erpnext_mock")
+    # In production, client creation failure is a configuration error —
+    # propagate it so the orchestrator sees the failure clearly.
+    client = ERPNextClient()
 
     support = _fetch_support_state(client)
     execution = _fetch_execution_state(client)

@@ -20,6 +20,7 @@ from temporalio.worker import Worker
 
 from src.activities import analyze_feedback
 from src.config import get_config
+from src.config.logging import setup_logging
 from src.grpc_server import serve as start_grpc_server, AgentServicer
 
 USE_SCHEDULER = os.environ.get("USE_APSCHEDULER", "false").lower() == "true"
@@ -85,7 +86,7 @@ async def bootstrap_scheduler():
 
 def main():
     args = parse_args()
-    structlog.configure()
+    setup_logging()
     log = structlog.get_logger()
     log.info("Starting IterateSwarm AI Service", mode=args.mode, use_scheduler=USE_SCHEDULER)
 

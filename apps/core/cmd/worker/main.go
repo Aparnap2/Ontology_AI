@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/lib/pq"
 	"go.temporal.io/sdk/worker"
 
 	"iterateswarm-core/internal/grpc"
@@ -43,6 +45,22 @@ func main() {
 	} else {
 		defer aiClient.Close()
 		log.Println("Connected to AI gRPC service")
+	}
+
+	// Initialize database connection for DLQ (optional — graceful fallback if unavailable)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL != "" {
+		db, dbErr := sql.Open("postgres", databaseURL)
+		if dbErr != nil {
+			log.Printf("Warning: Failed to connect to database: %v", dbErr)
+			log.Println("Worker will start, but DLQ writes will fall back to logging")
+		} else {
+			defer db.Close()
+			workflow.InitDLQDatabase(db)
+			log.Println("Connected to database for DLQ")
+		}
+	} else {
+		log.Println("DATABASE_URL not set — DLQ writes will fall back to logging")
 	}
 
 	// Create Temporal worker

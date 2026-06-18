@@ -3,6 +3,8 @@ from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass
 from typing import Optional
 
+from src.services.state_store import StateStore
+
 @dataclass
 class RateLimitResult:
     allowed: bool
@@ -10,11 +12,12 @@ class RateLimitResult:
     alerts_today: int = 0
     hours_until_retry: Optional[float] = None
 
-_alert_counts: dict[str, list[datetime]] = {}
-_blindspot_last_sent: dict[str, datetime] = {}
+_store = StateStore(prefix="ratelimit")
 
 MAX_ALERTS_PER_DAY = 3
 BLINDSPOT_COOLDOWN_HOURS = 48
+_DAILY_TTL = 86400  # 24 hours
+_BLINDSPOT_TTL = 172800  # 48 hours
 
 def can_send_alert(
     tenant_id: str,
@@ -23,30 +26,41 @@ def can_send_alert(
     severity: str = "warning"
 ) -> bool:
     """Check if alert can be sent (rate limiting)."""
-    key = f"{tenant_id}"
     now = datetime.now(timezone.utc)
 
-    if key not in _alert_counts:
-        _alert_counts[key] = []
+    # Load existing alert timestamps for this tenant
+    counts_key = f"counts:{tenant_id}"
+    raw_timestamps = _store.get(counts_key) or []
+    # Deserialize and filter to last 24h
+    timestamps = []
+    for ts_str in raw_timestamps:
+        try:
+            ts = datetime.fromisoformat(ts_str)
+            if now - ts < timedelta(hours=24):
+                timestamps.append(ts)
+        except (ValueError, TypeError):
+            continue
 
-    _alert_counts[key] = [
-        t for t in _alert_counts[key]
-        if now - t < timedelta(hours=24)
-    ]
-
-    if len(_alert_counts[key]) >= MAX_ALERTS_PER_DAY:
+    if len(timestamps) >= MAX_ALERTS_PER_DAY:
         return False
 
     if blindspot_id:
-        blindspot_key = f"{tenant_id}:{blindspot_id}"
-        if blindspot_key in _blindspot_last_sent:
-            last_sent = _blindspot_last_sent[blindspot_key]
-            if now - last_sent < timedelta(hours=BLINDSPOT_COOLDOWN_HOURS):
-                return False
+        blindspot_key = f"blindspot:{tenant_id}:{blindspot_id}"
+        last_sent_str = _store.get(blindspot_key)
+        if last_sent_str:
+            try:
+                last_sent = datetime.fromisoformat(last_sent_str)
+                if now - last_sent < timedelta(hours=BLINDSPOT_COOLDOWN_HOURS):
+                    return False
+            except (ValueError, TypeError):
+                pass
 
-    _alert_counts[key].append(now)
+    # Record this alert
+    timestamps.append(now)
+    _store.set(counts_key, [ts.isoformat() for ts in timestamps], ttl=_DAILY_TTL)
     if blindspot_id:
-        _blindspot_last_sent[f"{tenant_id}:{blindspot_id}"] = now
+        blindspot_key = f"blindspot:{tenant_id}:{blindspot_id}"
+        _store.set(blindspot_key, now.isoformat(), ttl=_BLINDSPOT_TTL)
 
     return True
 
@@ -56,17 +70,19 @@ def is_info_alert(severity: str) -> bool:
 
 def reset_rate_limiter():
     """Reset all rate limiter state (for testing)."""
-    global _alert_counts, _blindspot_last_sent
-    _alert_counts.clear()
-    _blindspot_last_sent.clear()
+    _store.clear_prefix()
 
 def get_alerts_today(tenant_id: str) -> int:
     """Get count of alerts sent today for tenant."""
-    key = f"{tenant_id}"
-    if key not in _alert_counts:
-        return 0
     now = datetime.now(timezone.utc)
-    return len([
-        t for t in _alert_counts[key]
-        if now - t < timedelta(hours=24)
-    ])
+    counts_key = f"counts:{tenant_id}"
+    raw_timestamps = _store.get(counts_key) or []
+    count = 0
+    for ts_str in raw_timestamps:
+        try:
+            ts = datetime.fromisoformat(ts_str)
+            if now - ts < timedelta(hours=24):
+                count += 1
+        except (ValueError, TypeError):
+            continue
+    return count

@@ -1,7 +1,9 @@
 """Trust Battery Service - Agent trust scoring and routing priority."""
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+from src.services.state_store import StateStore
 
 TRUST_EVENT_DELTA = {
     "acknowledge": 0.1,
@@ -38,18 +40,87 @@ class AgentTrustProfile:
 
 
 _profiles: dict[str, AgentTrustProfile] = {}
+_store = StateStore(prefix="trust")
 
 
 def _profile_key(tenant_id: str, agent_name: str) -> str:
     return f"{tenant_id}:{agent_name}"
 
 
+def _profile_to_dict(profile: AgentTrustProfile) -> dict:
+    """Serialize an AgentTrustProfile to a JSON-safe dict."""
+    return {
+        "agent_name": profile.agent_name,
+        "tenant_id": profile.tenant_id,
+        "success_rate_7d": profile.success_rate_7d,
+        "schema_parse_rate": profile.schema_parse_rate,
+        "founder_acceptance_rate": profile.founder_acceptance_rate,
+        "false_positive_rate": profile.false_positive_rate,
+        "avg_latency_ms": profile.avg_latency_ms,
+        "last_failure_at": profile.last_failure_at.isoformat() if profile.last_failure_at else None,
+        "trust_score": profile.trust_score,
+        "route_priority": profile.route_priority,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
+        "graphiti_strategy_id": profile.graphiti_strategy_id,
+        "authority_limit": profile.authority_limit,
+        "max_auto_approve_severity": profile.max_auto_approve_severity,
+        "investor_update_requires_approval": profile.investor_update_requires_approval,
+        "irreversible_decision_threshold": profile.irreversible_decision_threshold,
+    }
+
+
+def _profile_from_dict(data: dict) -> AgentTrustProfile:
+    """Deserialize a dict into an AgentTrustProfile."""
+    last_failure_at = None
+    if data.get("last_failure_at"):
+        last_failure_at = datetime.fromisoformat(data["last_failure_at"])
+    updated_at = None
+    if data.get("updated_at"):
+        updated_at = datetime.fromisoformat(data["updated_at"])
+    return AgentTrustProfile(
+        agent_name=data["agent_name"],
+        tenant_id=data["tenant_id"],
+        success_rate_7d=data.get("success_rate_7d", 0.8),
+        schema_parse_rate=data.get("schema_parse_rate", 0.9),
+        founder_acceptance_rate=data.get("founder_acceptance_rate", 0.85),
+        false_positive_rate=data.get("false_positive_rate", 0.05),
+        avg_latency_ms=data.get("avg_latency_ms", 1000),
+        last_failure_at=last_failure_at,
+        trust_score=data.get("trust_score", 0.75),
+        route_priority=data.get("route_priority", 1),
+        updated_at=updated_at,
+        graphiti_strategy_id=data.get("graphiti_strategy_id"),
+        authority_limit=data.get("authority_limit", "none"),
+        max_auto_approve_severity=data.get("max_auto_approve_severity", "info"),
+        investor_update_requires_approval=data.get("investor_update_requires_approval", False),
+        irreversible_decision_threshold=data.get("irreversible_decision_threshold", 0.8),
+    )
+
+
 def get_profile(tenant_id: str, agent_name: str) -> AgentTrustProfile:
-    """Get or create trust profile for agent."""
+    """Get or create trust profile for agent.
+
+    L1: in-memory cache (fast path)
+    L2: StateStore (Redis/in-memory fallback for persistence)
+    """
     key = _profile_key(tenant_id, agent_name)
-    if key not in _profiles:
-        _profiles[key] = AgentTrustProfile(agent_name=agent_name, tenant_id=tenant_id)
-    return _profiles[key]
+
+    # L1: check in-memory cache
+    if key in _profiles:
+        return _profiles[key]
+
+    # L2: try loading from StateStore
+    stored = _store.get(key)
+    if stored is not None:
+        profile = _profile_from_dict(stored)
+        _profiles[key] = profile
+        return profile
+
+    # Neither L1 nor L2 has it — create new
+    profile = AgentTrustProfile(agent_name=agent_name, tenant_id=tenant_id)
+    _profiles[key] = profile
+    _store.set(key, _profile_to_dict(profile))
+    return profile
 
 
 def update_trust_score(tenant_id: str, agent_name: str, event_type: str) -> AgentTrustProfile:
@@ -60,6 +131,9 @@ def update_trust_score(tenant_id: str, agent_name: str, event_type: str) -> Agen
     if event_type in ("dispute", "false_positive", "schema_parse_fail"):
         profile.last_failure_at = datetime.now()
     profile.route_priority = _compute_priority(profile.trust_score)
+    # Persist to StateStore
+    key = _profile_key(tenant_id, agent_name)
+    _store.set(key, _profile_to_dict(profile))
     return profile
 
 
@@ -93,6 +167,7 @@ def is_agent_degraded(tenant_id: str, agent_name: str) -> bool:
 def reset_profiles() -> None:
     """Reset all profiles (for testing)."""
     _profiles.clear()
+    _store.clear_prefix()
 
 
 # ── Guardrail policy field getters/setters (Phase 2) ────────────────────
@@ -111,6 +186,8 @@ def set_authority_limit(tenant_id: str, agent_name: str, limit: str) -> AgentTru
     """
     profile = get_profile(tenant_id, agent_name)
     profile.authority_limit = limit
+    key = _profile_key(tenant_id, agent_name)
+    _store.set(key, _profile_to_dict(profile))
     return profile
 
 
@@ -129,6 +206,8 @@ def set_max_auto_approve_severity(
     """
     profile = get_profile(tenant_id, agent_name)
     profile.max_auto_approve_severity = severity
+    key = _profile_key(tenant_id, agent_name)
+    _store.set(key, _profile_to_dict(profile))
     return profile
 
 

@@ -16,6 +16,8 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timedelta
 import httpx
 
+from .retry import circuit_breaker, retry_with_backoff
+
 logger = logging.getLogger(__name__)
 
 MOCK_MODE: bool = not bool(os.getenv("QUICKBOOKS_CLIENT_ID", "").strip())
@@ -56,7 +58,14 @@ def _calculate_dso(total_receivables_cents: int, paid_30d_cents: int) -> Optiona
     return round(total_receivables_cents / avg_daily_sales_cents, 1)
 
 
+@circuit_breaker("quickbooks")
 def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
+    """Get QuickBooks finance snapshot for a tenant.
+
+    In ``MOCK_MODE`` (credentials not set) returns seed data.  In production,
+    failures after retry are **raised** rather than silently replaced with
+    mock data — this ensures errors are visible to the orchestrator.
+    """
     if MOCK_MODE:
         logger.info("[MOCK MODE] Returning seed QuickBooks data for tenant %s", tenant_id)
         return _add_metadata(_MOCK_DATA, "quickbooks_mock")
@@ -67,92 +76,110 @@ def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
     api_url = os.getenv("QUICKBOOKS_API_URL", "http://localhost:8097")
 
     if not client_id or not access_token or not company_id:
-        logger.warning("QuickBooks credentials not fully configured for tenant %s, using mock", tenant_id)
+        logger.warning(
+            "QuickBooks credentials not fully configured for tenant %s, "
+            "returning mock data",
+            tenant_id,
+        )
         return _add_metadata(_MOCK_DATA, "quickbooks_mock")
 
-    try:
-        url = f"{api_url}/v3/company/{company_id}/query"
-        params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/json",
-            "Content-Type": "application/text",
-        }
+    url = f"{api_url}/v3/company/{company_id}/query"
+    params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+        "Content-Type": "application/text",
+    }
 
+    def _fetch_invoices() -> list:
+        """Single HTTP attempt — retried by ``retry_with_backoff``."""
         response = httpx.get(url, params=params, headers=headers, timeout=30.0)
         response.raise_for_status()
         data = response.json()
-
         query_response = data.get("QueryResponse", {}) or {}
-        invoices = query_response.get("Invoice", [])
+        return query_response.get("Invoice", [])
 
-        if not invoices:
-            return _add_metadata({
-                "finance_outstanding_invoices": 0,
-                "finance_total_outstanding_cents": 0,
-                "finance_overdue_invoices": 0,
-                "finance_total_overdue_cents": 0,
-                "finance_paid_invoices_30d_cents": 0,
-                "finance_unpaid_invoices_30d_cents": 0,
-                "finance_days_sales_outstanding": None,
-            }, "quickbooks")
+    # Retry on connection / timeout / 5xx; fail-fast on 4xx
+    invoices = retry_with_backoff(
+        _fetch_invoices,
+        max_attempts=3,
+        base_delay=1.0,
+        max_delay=30.0,
+        exceptions=(
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.HTTPStatusError,
+            OSError,
+        ),
+        retry_if=lambda e: (
+            not isinstance(e, httpx.HTTPStatusError)
+            or e.response.status_code >= 500
+        ),
+    )
 
-        now = datetime.utcnow()
-        thirty_days_ago = now - timedelta(days=30)
+    if not invoices:
+        return _add_metadata({
+            "finance_outstanding_invoices": 0,
+            "finance_total_outstanding_cents": 0,
+            "finance_overdue_invoices": 0,
+            "finance_total_overdue_cents": 0,
+            "finance_paid_invoices_30d_cents": 0,
+            "finance_unpaid_invoices_30d_cents": 0,
+            "finance_days_sales_outstanding": None,
+        }, "quickbooks")
 
-        outstanding_invoices = 0
-        total_outstanding_cents = 0
-        overdue_invoices = 0
-        total_overdue_cents = 0
-        paid_invoices_30d_cents = 0
-        unpaid_invoices_30d_cents = 0
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
 
-        for inv in invoices:
-            total_amt_cents = _parse_invoice_amount(inv.get("TotalAmt"))
-            balance_cents = _parse_invoice_amount(inv.get("Balance"))
-            due_date_str = inv.get("DueDate", "")
-            txn_date_str = inv.get("TxnDate", "")
+    outstanding_invoices = 0
+    total_outstanding_cents = 0
+    overdue_invoices = 0
+    total_overdue_cents = 0
+    paid_invoices_30d_cents = 0
+    unpaid_invoices_30d_cents = 0
 
-            due_date: Optional[datetime] = None
-            txn_date: Optional[datetime] = None
+    for inv in invoices:
+        total_amt_cents = _parse_invoice_amount(inv.get("TotalAmt"))
+        balance_cents = _parse_invoice_amount(inv.get("Balance"))
+        due_date_str = inv.get("DueDate", "")
+        txn_date_str = inv.get("TxnDate", "")
 
-            if due_date_str:
-                try:
-                    due_date = datetime.fromisoformat(due_date_str)
-                except (ValueError, TypeError):
-                    pass
+        due_date: Optional[datetime] = None
+        txn_date: Optional[datetime] = None
 
-            if txn_date_str:
-                try:
-                    txn_date = datetime.fromisoformat(txn_date_str)
-                except (ValueError, TypeError):
-                    pass
+        if due_date_str:
+            try:
+                due_date = datetime.fromisoformat(due_date_str)
+            except (ValueError, TypeError):
+                pass
 
-            if balance_cents > 0:
-                outstanding_invoices += 1
-                total_outstanding_cents += balance_cents
-                unpaid_invoices_30d_cents += balance_cents
-                if due_date and due_date < now:
-                    overdue_invoices += 1
-                    total_overdue_cents += balance_cents
+        if txn_date_str:
+            try:
+                txn_date = datetime.fromisoformat(txn_date_str)
+            except (ValueError, TypeError):
+                pass
 
-            if balance_cents == 0 and txn_date and txn_date >= thirty_days_ago:
-                paid_invoices_30d_cents += total_amt_cents
+        if balance_cents > 0:
+            outstanding_invoices += 1
+            total_outstanding_cents += balance_cents
+            unpaid_invoices_30d_cents += balance_cents
+            if due_date and due_date < now:
+                overdue_invoices += 1
+                total_overdue_cents += balance_cents
 
-        dso = _calculate_dso(total_outstanding_cents, paid_invoices_30d_cents)
+        if balance_cents == 0 and txn_date and txn_date >= thirty_days_ago:
+            paid_invoices_30d_cents += total_amt_cents
 
-        result = {
-            "finance_outstanding_invoices": outstanding_invoices,
-            "finance_total_outstanding_cents": total_outstanding_cents,
-            "finance_overdue_invoices": overdue_invoices,
-            "finance_total_overdue_cents": total_overdue_cents,
-            "finance_paid_invoices_30d_cents": paid_invoices_30d_cents,
-            "finance_unpaid_invoices_30d_cents": unpaid_invoices_30d_cents,
-            "finance_days_sales_outstanding": dso,
-        }
+    dso = _calculate_dso(total_outstanding_cents, paid_invoices_30d_cents)
 
-        return _add_metadata(result, "quickbooks")
+    result = {
+        "finance_outstanding_invoices": outstanding_invoices,
+        "finance_total_outstanding_cents": total_outstanding_cents,
+        "finance_overdue_invoices": overdue_invoices,
+        "finance_total_overdue_cents": total_overdue_cents,
+        "finance_paid_invoices_30d_cents": paid_invoices_30d_cents,
+        "finance_unpaid_invoices_30d_cents": unpaid_invoices_30d_cents,
+        "finance_days_sales_outstanding": dso,
+    }
 
-    except Exception as e:
-        logger.error("Error fetching QuickBooks data for tenant %s: %s", tenant_id, e)
-        return _add_metadata(_MOCK_DATA, "quickbooks_mock")
+    return _add_metadata(result, "quickbooks")

@@ -2,13 +2,26 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"iterateswarm-core/internal/events"
 )
+
+// dlqDB is a package-level database connection for Dead Letter Queue operations.
+// Initialized via InitDLQDatabase before starting the worker.
+var dlqDB *sql.DB
+
+// InitDLQDatabase sets the database connection used by SendToDLQActivity.
+// Must be called before starting the Temporal worker.
+func InitDLQDatabase(db *sql.DB) {
+	dlqDB = db
+}
 
 // WorkflowRouterContinueAsNewThreshold is the number of events before triggering Continue-As-New in WorkflowRouter
 const WorkflowRouterContinueAsNewThreshold = 1000
@@ -382,10 +395,48 @@ func ChiefOfStaffWorkflow(ctx workflow.Context, envelope events.EventEnvelope) e
 
 // SendToDLQActivity writes unknown/unroutable events to the dead letter queue.
 // This allows manual inspection and debugging of unexpected events.
+// Uses the dead_letter_events table (migration 001).
 func SendToDLQActivity(ctx context.Context, envelope events.EventEnvelope) error {
-	// TODO: Implement actual DLQ storage (PostgreSQL dead_letter_events table)
-	// For now, log the event for debugging
-	fmt.Printf("DLQ: Unknown event type=%q source=%q tenant=%q trace=%q\n",
+	// Build raw payload from envelope fields
+	payload, err := json.Marshal(map[string]interface{}{
+		"event_type":      envelope.EventType,
+		"source":          string(envelope.Source),
+		"tenant_id":       envelope.TenantID,
+		"payload_ref":     envelope.PayloadRef,
+		"payload_hash":    envelope.PayloadHash,
+		"trace_id":        envelope.TraceID,
+		"idempotency_key": envelope.IdempotencyKey,
+		"occurred_at":     envelope.OccurredAt,
+		"received_at":     envelope.ReceivedAt,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal DLQ payload: %w", err)
+	}
+
+	reason := fmt.Sprintf("Unknown event type: %s (source: %s, trace: %s)",
+		envelope.EventType, envelope.Source, envelope.TraceID)
+
+	if dlqDB != nil {
+		_, err := dlqDB.ExecContext(ctx,
+			`INSERT INTO dead_letter_events
+				(source, event_name, failure_reason, raw_payload)
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT DO NOTHING`,
+			string(envelope.Source),
+			envelope.EventType,
+			reason,
+			payload,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to insert into DLQ: %w", err)
+		}
+	} else {
+		// Database not configured — log for debugging (safe fallback)
+		log.Printf("DLQ (no DB): event_type=%q source=%q tenant=%q trace=%q reason=%q",
+			envelope.EventType, envelope.Source, envelope.TenantID, envelope.TraceID, reason)
+	}
+
+	log.Printf("Event sent to DLQ: type=%s source=%s tenant=%s trace=%s",
 		envelope.EventType, envelope.Source, envelope.TenantID, envelope.TraceID)
 	return nil
 }

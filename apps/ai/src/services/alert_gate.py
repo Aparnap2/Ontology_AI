@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from src.services.state_store import StateStore
+
 _DEDUP_WINDOW_MINUTES = 60
 
 _REQUIRED_FIELDS = {"should_alert", "severity", "primary_signal"}
@@ -55,7 +57,8 @@ class AlertGate:
 
     def __init__(self, tenant_id: str) -> None:
         self.tenant_id: str = tenant_id
-        self._recent_alerts: dict[str, datetime] = {}  # dedup_key → timestamp
+        self._dedup_store = StateStore(prefix=f"dedup:{tenant_id}")
+        self._recent_alerts: dict[str, datetime] = {}  # L1 in-memory cache
 
     def check(
         self,
@@ -115,7 +118,9 @@ class AlertGate:
 
         # All stages passed — register the dedup key
         dedup_key = self._make_dedup_key(agent_name, alert)
+        now_str = datetime.now().isoformat()
         self._recent_alerts[dedup_key] = datetime.now()
+        self._dedup_store.set(dedup_key, now_str, ttl=_DEDUP_WINDOW_MINUTES * 60)
 
         return GateResult(
             passed=True,
@@ -204,11 +209,23 @@ class AlertGate:
 
         Generate dedup key from agent + severity + primary_signal.
         If same key sent within the dedup window → BLOCK.
+
+        Checks L1 (in-memory cache) first, then L2 (StateStore).
         """
         dedup_key = self._make_dedup_key(agent_name, alert)
 
         now = datetime.now()
         last_sent = self._recent_alerts.get(dedup_key)
+
+        # L1 miss — try L2 (StateStore)
+        if last_sent is None:
+            stored = self._dedup_store.get(dedup_key)
+            if stored:
+                try:
+                    last_sent = datetime.fromisoformat(stored)
+                    self._recent_alerts[dedup_key] = last_sent
+                except (ValueError, TypeError):
+                    pass
 
         if last_sent is not None:
             elapsed = now - last_sent
@@ -335,3 +352,4 @@ class AlertGate:
     def reset_dedup(self) -> None:
         """Clear dedup cache (for testing)."""
         self._recent_alerts.clear()
+        self._dedup_store.clear_prefix()

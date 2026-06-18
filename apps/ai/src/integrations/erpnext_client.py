@@ -21,10 +21,13 @@ Methods:
 import json
 import logging
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
+
+from .retry import circuit_breaker, compute_backoff_delay
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +60,16 @@ class ERPNextClient:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    @circuit_breaker("erpnext")
     def _request(self, method: str, path: str,
                  params: Optional[dict] = None,
                  body: Optional[dict] = None) -> Any:
         """Execute an HTTP request and return the parsed JSON response.
+
+        Automatically retries transient failures (HTTP 5xx, connection errors,
+        timeouts) up to 3 times with jittered exponential backoff.  The
+        ``@circuit_breaker`` decorator trips after 5 consecutive failures
+        across all callers.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE).
@@ -97,25 +106,57 @@ class ERPNextClient:
             },
         )
 
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                return json.loads(r.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            raw = e.read().decode("utf-8", "ignore")
-            msg = f"HTTP {e.code}"
+        max_attempts = 4  # 1 initial + 3 retries
+
+        for attempt in range(max_attempts):
             try:
-                j = json.loads(raw)
-                sm = j.get("_server_messages")
-                if sm:
-                    parts = [json.loads(m).get("message", m) for m in json.loads(sm)]
-                    msg += ": " + "; ".join(str(p) for p in parts)
-                elif j.get("exception"):
-                    msg += ": " + j["exception"]
-                elif j.get("message"):
-                    msg += ": " + str(j["message"])
-            except Exception:
-                msg += ": " + raw[:300]
-            raise ERPNextError(msg) from None
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    return json.loads(r.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                # Retry on server errors (5xx); client errors (4xx) are permanent
+                if e.code >= 500 and attempt < max_attempts - 1:
+                    delay = compute_backoff_delay(attempt)
+                    logger.warning(
+                        "ERPNext server error %d on %s %s, retrying in %.1fs "
+                        "(attempt %d/%d)",
+                        e.code, method, path, delay, attempt + 1, max_attempts,
+                    )
+                    time.sleep(delay)
+                    continue
+
+                # Non-retryable HTTP error — parse Frappe error details
+                raw = e.read().decode("utf-8", "ignore")
+                msg = f"HTTP {e.code}"
+                try:
+                    j = json.loads(raw)
+                    sm = j.get("_server_messages")
+                    if sm:
+                        parts = [json.loads(m).get("message", m) for m in json.loads(sm)]
+                        msg += ": " + "; ".join(str(p) for p in parts)
+                    elif j.get("exception"):
+                        msg += ": " + j["exception"]
+                    elif j.get("message"):
+                        msg += ": " + str(j["message"])
+                except Exception:
+                    msg += ": " + raw[:300]
+                raise ERPNextError(msg) from None
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                # Transient connection / network error — retry
+                if attempt < max_attempts - 1:
+                    delay = compute_backoff_delay(attempt)
+                    logger.warning(
+                        "ERPNext connection error on %s %s: %s, retrying in %.1fs "
+                        "(attempt %d/%d)",
+                        method, path, e, delay, attempt + 1, max_attempts,
+                    )
+                    time.sleep(delay)
+                    continue
+                raise ERPNextError(
+                    f"Connection failed after {max_attempts} attempts: {e}"
+                ) from e
+
+        # Should be unreachable, but satisfies the type checker
+        raise ERPNextError("Request failed unexpectedly")
 
     # ------------------------------------------------------------------
     # Public API

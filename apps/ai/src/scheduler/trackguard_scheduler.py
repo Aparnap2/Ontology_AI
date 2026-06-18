@@ -38,6 +38,7 @@ def register_tenant_schedules(tenant_id: str) -> None:
     Register all scheduled jobs for a tenant.
 
     Jobs:
+    - startup_guardian: Every 6 hours (health check + Slack alert)
     - finance_guardian: Every 6 hours
     - bi_pulse: Daily at 8am
     - ops_watch: Every 4 hours
@@ -45,6 +46,14 @@ def register_tenant_schedules(tenant_id: str) -> None:
     - weekly_synthesis: Monday at 7:05am
     """
     log.info(f"Registering schedules for tenant: {tenant_id}")
+
+    scheduler.add_job(
+        run_startup_guardian_job,
+        trigger=IntervalTrigger(hours=6),
+        args=[tenant_id],
+        id=f"startup_guardian_{tenant_id}",
+        replace_existing=True,
+    )
 
     scheduler.add_job(
         run_finance_guardian,
@@ -86,12 +95,13 @@ def register_tenant_schedules(tenant_id: str) -> None:
         replace_existing=True,
     )
 
-    log.info(f"Registered 5 jobs for tenant: {tenant_id}")
+    log.info(f"Registered 6 jobs for tenant: {tenant_id}")
 
 
 def unregister_tenant_schedules(tenant_id: str) -> None:
     """Remove all scheduled jobs for a tenant."""
     job_ids = [
+        f"startup_guardian_{tenant_id}",
         f"finance_guardian_{tenant_id}",
         f"bi_pulse_{tenant_id}",
         f"ops_watch_{tenant_id}",
@@ -139,6 +149,13 @@ def is_running() -> bool:
 
 
 # Import orchestration functions at module level
+def run_startup_guardian_job(tenant_id: str) -> dict:
+    """Run startup guardian job."""
+    from src.orchestration.run_startup_guardian import run_startup_guardian as _run
+    import asyncio
+    return asyncio.run(_run(tenant_id))
+
+
 def run_finance_guardian(tenant_id: str) -> dict:
     """Run finance guardian job."""
     from src.orchestration.run_finance_guardian import run_finance_guardian as _run

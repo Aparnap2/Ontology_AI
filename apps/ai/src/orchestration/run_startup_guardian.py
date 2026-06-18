@@ -2,7 +2,7 @@
 Startup Guardian Orchestration — Startup Health Assessment Pipeline.
 
 Assembles the unified MissionStateV2 from multiple data connectors and
-computes cross-domain overall health.
+computes cross-domain overall health. Sends Slack alerts on CRITICAL/ATTENTION.
 """
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ import logging
 from typing import Any
 from uuid import uuid4
 
+from src.activities.send_slack_message import send_slack_message
+from src.events.bus import emit
 from src.guardian.assemblers import (
     assemble_execution_state,
     assemble_finance_state,
@@ -21,6 +23,7 @@ from src.guardian.assemblers import (
 from src.integrations.erpnext import get_erpnext_snapshot
 from src.integrations.hubspot import get_hubspot_snapshot
 from src.integrations.quickbooks import get_quickbooks_snapshot
+from src.services.dead_letter import send_to_dlq
 from src.states.schemas import (
     ExecutionHealth,
     FinancialHealth,
@@ -59,6 +62,37 @@ def _map_health(health: Any) -> SupportHealth:
     return _HEALTH_MAP.get(raw, SupportHealth.GOOD)
 
 
+def _format_health_emoji(health: SupportHealth) -> str:
+    return {
+        SupportHealth.CRITICAL: "🔴",
+        SupportHealth.ATTENTION: "🟡",
+        SupportHealth.GOOD: "🟢",
+    }.get(health, "⚪")
+
+
+def _build_alert_message(state: MissionStateV2) -> str:
+    """Build human-readable Slack alert from MissionStateV2."""
+    emoji = _format_health_emoji(state.overall_health)
+    lines = [
+        f"{emoji} *Startup Guardian — {state.overall_health.value.upper()}*",
+        f"Tenant: `{state.tenant_id}` | Run: `{state.run_id[:8]}`",
+        "",
+        "*Domain Health:*",
+        f"  • Support: {state.support.health.value}",
+        f"  • Execution: {state.execution.health.value}",
+        f"  • Team: {state.team.health.value}",
+        f"  • Finance: {state.finance.health.value}",
+        f"  • Revenue: {state.revenue.health.value}",
+    ]
+
+    failed = [k for k, v in state.connectors_ok.items() if not v]
+    if failed:
+        lines.append("")
+        lines.append(f"⚠️ *Failed connectors:* {', '.join(failed)}")
+
+    return "\n".join(lines)
+
+
 async def run_startup_guardian(tenant_id: str) -> dict[str, Any]:
     run_id = str(uuid4())
     state = MissionStateV2(tenant_id=tenant_id, run_id=run_id)
@@ -76,6 +110,12 @@ async def run_startup_guardian(tenant_id: str) -> dict[str, Any]:
         except Exception as exc:
             log.error("Connector %s failed for tenant %s: %s", name, tenant_id, exc)
             connectors_ok[name] = False
+            send_to_dlq(
+                source=name,
+                operation=f"get_{name}_snapshot",
+                error=str(exc),
+                tenant_id=tenant_id,
+            )
 
     if "erpnext" in snapshots:
         raw = snapshots["erpnext"]
@@ -109,5 +149,25 @@ async def run_startup_guardian(tenant_id: str) -> dict[str, Any]:
     state.raw_snapshots = snapshots
 
     log.info("Startup Guardian complete run_id=%s tenant=%s ok=%s", run_id, tenant_id, all(connectors_ok.values()))
+
+    # ── Alert delivery (non-blocking) ──────────────────────────────
+    if state.overall_health in (SupportHealth.CRITICAL, SupportHealth.ATTENTION):
+        try:
+            alert_text = _build_alert_message(state)
+            await send_slack_message(alert_text)
+            await emit("startup_guardian.alert_delivered", tenant_id, {
+                "run_id": run_id,
+                "overall_health": state.overall_health.value,
+                "connectors_ok": connectors_ok,
+            })
+        except Exception as exc:
+            log.warning("Failed to send Startup Guardian alert: %s", exc)
+
+    # Emit completion event
+    await emit("startup_guardian.completed", tenant_id, {
+        "run_id": run_id,
+        "overall_health": state.overall_health.value,
+        "connectors_ok": connectors_ok,
+    })
 
     return state.model_dump()
