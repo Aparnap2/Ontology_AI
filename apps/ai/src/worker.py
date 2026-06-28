@@ -37,6 +37,9 @@ from src.activities.run_qa_agent import run_qa_agent
 from src.activities.send_slack_message import send_slack_message
 from src.activities.run_guardian_watchlist import run_guardian_watchlist
 from src.activities.memory_maintenance import decay_memory_weights, expire_old_memories, optimize_memory_performance
+from src.workflows.finance_workflow import run_finance_guardian
+from src.workflows.data_workflow import run_bi_analyst
+from src.workflows.ops_workflow import run_ops_watch
 
 log = logging.getLogger("trackguard.worker")
 
@@ -74,6 +77,9 @@ async def create_worker() -> Worker:
             decay_memory_weights,
             expire_old_memories,
             optimize_memory_performance,
+            run_finance_guardian,
+            run_bi_analyst,
+            run_ops_watch,
         ],
         max_concurrent_activities=MAX_CONCURRENT,
     )
@@ -92,7 +98,7 @@ async def main() -> None:
 
     log.info("Worker started — listening on %s", TASK_QUEUE)
     log.info("Workflows: PulseWorkflow, InvestorWorkflow, QAWorkflow, SelfAnalysisWorkflow, EvalLoopWorkflow, CompressionWorkflow, WeightDecayWorkflow, MemoryMaintenanceWorkflow, FinanceWorkflow, DataWorkflow, OpsWorkflow")
-    log.info("Activities: 9 registered | Specialist agents: finance, data, ops")
+    log.info("Activities: 12 registered | Specialist agents: finance, data, ops")
 
     async with worker:
         await asyncio.Future()  # run forever

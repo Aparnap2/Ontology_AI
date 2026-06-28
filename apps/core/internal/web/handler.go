@@ -71,6 +71,7 @@ type Handler struct {
 	chatBroadcast chan fiber.Map
 	temporal      *temporal.Client
 	wg            sync.WaitGroup
+	sseHub        *SSEHub
 }
 
 // NewHandler creates a new web handler
@@ -90,6 +91,7 @@ func NewHandler(db *sql.DB, temporalClient *temporal.Client) *Handler {
 		db:            db,
 		chatBroadcast: make(chan fiber.Map, 100),
 		temporal:      temporalClient,
+		sseHub:        NewSSEHub(),
 	}
 }
 
@@ -127,7 +129,7 @@ func (h *Handler) HandleFeedback(c *fiber.Ctx) error {
 
 	// For now, return a simple success message
 	// TODO: Integrate with actual feedback processing
-	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Feedback received: ` + req.Content[:50] + `...</div>`)
+	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Feedback received: ` + safePreview(req.Content, 50) + `</div>`)
 }
 
 // HandleStats returns system stats for HTMX polling
@@ -1210,12 +1212,25 @@ func (h *Handler) APICommandApprovalAction(c *fiber.Ctx) error {
 	id := c.Params("id")
 	action := c.Params("action")
 
+	// Look up the Temporal workflow ID from the planned_actions table
+	workflowID := id // fallback to the URL param
+	if h.db != nil {
+		var temporalWorkflowID string
+		err := h.db.QueryRow(
+			`SELECT temporal_workflow_id FROM planned_actions WHERE id = $1`,
+			id,
+		).Scan(&temporalWorkflowID)
+		if err == nil && temporalWorkflowID != "" {
+			workflowID = temporalWorkflowID
+		}
+	}
+
 	// Signal Temporal workflow on approval to unblock HITL gate
 	if action == "approve" && h.temporal != nil && h.temporal.Client != nil {
 		sigCtx, sigCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer sigCancel()
-		if err := h.temporal.SignalWorkflow(sigCtx, id, "hitl-approval", true); err != nil {
-			log.Printf("ERROR: Failed to signal workflow %s for approval: %v", id, err)
+		if err := h.temporal.SignalWorkflow(sigCtx, workflowID, "hitl-approval", true); err != nil {
+			log.Printf("ERROR: Failed to signal workflow %s for approval: %v", workflowID, err)
 		}
 	}
 
@@ -1414,7 +1429,7 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 			}
 
 			handler.tryBroadcast("agent", r.displayName, answer)
-		}(h, workflowID, mentionTarget, route, input, c.Context())
+		}(h, workflowID, mentionTarget, route, input, context.Background())
 	}
 
 	// Return the user message bubble as HTML so HTMX can append it to #chat-messages.
@@ -1491,6 +1506,22 @@ func (h *Handler) tryBroadcast(sender, displayName, text string) {
 	default:
 		log.Printf("chatBroadcast channel full, dropping message from %s", sender)
 	}
+	// Also broadcast via SSEHub for fan-out support
+	if h.sseHub != nil {
+		h.sseHub.Broadcast("default", SSEEvent{
+			Type:    "chat",
+			Payload: fmt.Sprintf("%s|%s|%s|%s", sender, displayName, text, time.Now().Format("15:04:05")),
+		})
+	}
+}
+
+// safePreview safely truncates a string to max runes, appending "..." if truncated
+func safePreview(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max]) + "..."
 }
 
 // extractMentions finds @mentions in a message string
@@ -1542,6 +1573,10 @@ func (h *Handler) APICommandEvents(c *fiber.Ctx) error {
 // It sends HTML fragments instead of JSON so HTMX's SSE extension can
 // swap them directly into the DOM (via sse-swap="chat" + hx-swap="beforeend").
 func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
+	tenantID := c.Query("tenant_id", "default")
+	subID, ch := h.sseHub.Subscribe(tenantID)
+	defer h.sseHub.Unsubscribe(tenantID, subID)
+
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
@@ -1550,8 +1585,6 @@ func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer func() { recover() }()
 
-		// Initial connected event — JSON. HTMX SSE ignores events not named "chat",
-		// so this won't be swapped into the DOM. It's available for JS listeners.
 		fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"text\":\"Connected to chat\"}\n\n")
 		w.Flush()
 
@@ -1566,15 +1599,11 @@ func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 					return
 				}
 				w.Flush()
-			case msg := <-h.chatBroadcast:
-				sender, _ := msg["sender"].(string)
-				displayName, _ := msg["displayName"].(string)
-				text, _ := msg["text"].(string)
-				timeStr, _ := msg["time"].(string)
-
-				// Render HTML bubble and send as event: chat
-				html := h.renderChatBubble(sender, displayName, text, timeStr)
-				_, err := fmt.Fprintf(w, "event: chat\ndata: %s\n\n", html)
+			case msgBytes, ok := <-ch:
+				if !ok {
+					return
+				}
+				_, err := fmt.Fprintf(w, "%s", msgBytes)
 				if err != nil {
 					return
 				}
