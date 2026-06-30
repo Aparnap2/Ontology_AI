@@ -10,6 +10,7 @@ Schema matches 001_session_layer.sql (columns, not JSONB).
 """
 from __future__ import annotations
 
+import json
 import os
 import logging
 from dataclasses import dataclass
@@ -270,8 +271,8 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True,
             state.pending_decisions,
             state.last_updated_by,
             state.last_update_reason,
-            state.last_changed_fields,
-            state.active_agent_roles,
+            json.dumps(state.last_changed_fields) if state.last_changed_fields else '[]',
+            json.dumps(state.active_agent_roles) if state.active_agent_roles else '[]',
         )
         await conn.close()
         if generate_brief and not state.prepared_brief:
