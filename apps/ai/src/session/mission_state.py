@@ -93,6 +93,11 @@ class MissionState:
     pending_decisions: list[dict] | None = None    # JSONB array of pending founder decisions
     last_updated_by: str | None = None             # which agent/specialist last wrote to MissionState
 
+    # ── Explainability fields (Paperclip-inspired) ──────────────────
+    last_update_reason: str | None = None          # why this write happened
+    last_changed_fields: list[str] | None = None   # which fields were modified
+    active_agent_roles: list[str] | None = None    # derived from authority manifest
+
 
 async def get_mission_state(tenant_id: str) -> MissionState:
     """Get MissionState from database.
@@ -116,7 +121,8 @@ async def get_mission_state(tenant_id: str) -> MissionState:
                    npv_last_decision, wacc_estimate, last_approval_tier, last_reversible,
                    active_authority_limit, guardrail_override_reason, guardrail_risk_type,
                    guardrail_blocking, investor_facing_alert,
-                   prepared_brief, pending_decisions, last_updated_by
+                   prepared_brief, pending_decisions, last_updated_by,
+                   last_update_reason, last_changed_fields, active_agent_roles
             FROM mission_states
             WHERE tenant_id = $1
             ORDER BY timestamp DESC
@@ -157,6 +163,9 @@ async def get_mission_state(tenant_id: str) -> MissionState:
                 prepared_brief=row["prepared_brief"],
                 pending_decisions=row["pending_decisions"],
                 last_updated_by=row["last_updated_by"],
+                last_update_reason=row["last_update_reason"],
+                last_changed_fields=row["last_changed_fields"],
+                active_agent_roles=row["active_agent_roles"],
             )
     except Exception as e:
         log.warning(f"MissionState lookup failed for {tenant_id}: {e}")
@@ -164,7 +173,7 @@ async def get_mission_state(tenant_id: str) -> MissionState:
     return MissionState(tenant_id=tenant_id)
 
 
-async def update_mission_state(state: MissionState, generate_brief: bool = True) -> bool:
+async def update_mission_state(state: MissionState, generate_brief: bool = True, update_reason: str | None = None, changed_fields: list[str] | None = None) -> bool:
     """Update MissionState in database atomically.
 
     Per PRD Section 11: Updated atomically.
@@ -172,10 +181,15 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True)
     Args:
         state: MissionState to persist
         generate_brief: Whether to auto-generate prepared_brief if missing
+        update_reason: Why this write happened
+        changed_fields: Which fields were modified in this update
 
     Returns:
         True if successful, False otherwise
     """
+    if generate_brief:
+        state.last_update_reason = update_reason
+        state.last_changed_fields = changed_fields
     try:
         conn = await asyncpg.connect(DATABASE_URL)
         await conn.execute(
@@ -188,11 +202,12 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True)
                 npv_last_decision, wacc_estimate, last_approval_tier, last_reversible,
                 active_authority_limit, guardrail_override_reason, guardrail_risk_type,
                 guardrail_blocking, investor_facing_alert, created_at,
-                prepared_brief, pending_decisions, last_updated_by
+                prepared_brief, pending_decisions, last_updated_by,
+                last_update_reason, last_changed_fields, active_agent_roles
             )
             VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                     $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(),
-                    $26, $27, $28)
+                    $26, $27, $28, $29, $30, $31)
             ON CONFLICT (tenant_id) DO UPDATE SET
                 timestamp = NOW(),
                 runway_days = EXCLUDED.runway_days,
@@ -221,7 +236,10 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True)
                 investor_facing_alert = EXCLUDED.investor_facing_alert,
                 prepared_brief = EXCLUDED.prepared_brief,
                 pending_decisions = EXCLUDED.pending_decisions,
-                last_updated_by = EXCLUDED.last_updated_by
+                last_updated_by = EXCLUDED.last_updated_by,
+                last_update_reason = EXCLUDED.last_update_reason,
+                last_changed_fields = EXCLUDED.last_changed_fields,
+                active_agent_roles = EXCLUDED.active_agent_roles
             """,
             state.tenant_id,
             state.runway_days,
@@ -251,6 +269,9 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True)
             state.prepared_brief,
             state.pending_decisions,
             state.last_updated_by,
+            state.last_update_reason,
+            state.last_changed_fields,
+            state.active_agent_roles,
         )
         await conn.close()
         if generate_brief and not state.prepared_brief:

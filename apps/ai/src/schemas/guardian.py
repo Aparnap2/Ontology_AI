@@ -29,6 +29,22 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 
+class AlertLineage(BaseModel):
+    """Provenance chain for a Guardian alert — links pattern → data → mission.
+
+    All fields are code-generated, never LLM output. pattern_id and owner_agent
+    come from the watchlist/blindspot definition. source_metrics come from the
+    pattern definition (blindspot.id). mission_context comes from MissionState
+    fields. raise_timeline_risk is a human-readable escalation urgency string.
+    """
+    pattern_id: str
+    source_metrics: list[str]
+    mission_context: list[str]
+    raise_timeline_risk: str
+    suggested_tool_ids: list[str]
+    owner_agent: str
+
+
 class AlertDecision(BaseModel):
     """
     Output contract for Guardian's cognitive decision.
@@ -89,6 +105,7 @@ class GuardianMessage(BaseModel):
     urgency_horizon: Literal["today", "this_week", "this_month", "this_quarter"]
     one_action: str
     injected_numbers: list[str] = Field(default_factory=list)
+    lineage: AlertLineage
 
     @field_validator("insight")
     @classmethod

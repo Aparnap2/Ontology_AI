@@ -864,6 +864,7 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 	}
 	healthScore := 72
 	riskLevel := "MEDIUM"
+	var lastUpdateReason, lastChangedFields, activeAgentRoles sql.NullString
 
 	if h.db != nil {
 		var trustScore sql.NullInt32
@@ -887,13 +888,17 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 				COALESCE(founder_focus, ''),
 				COALESCE(burn_multiple, 0),
 				COALESCE(mrr, 0),
-				COALESCE(runway_days, 0)
+				COALESCE(runway_days, 0),
+				last_update_reason,
+				last_changed_fields::text,
+				active_agent_roles::text
 			FROM mission_state
 			ORDER BY updated_at DESC
 			LIMIT 1
 		`).Scan(&trustScore, &burnAlert, &burnSev, &mrrTrend,
 			&churnRate, &errorSpike, &activeAlerts, &founderFocus,
-			&burnMult, &mrr, &runwayDays)
+			&burnMult, &mrr, &runwayDays,
+			&lastUpdateReason, &lastChangedFields, &activeAgentRoles)
 		if err == nil {
 			if trustScore.Valid {
 				healthScore = int(trustScore.Int32)
@@ -957,6 +962,8 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 
 	return Render(c, "partials/command_mission_state", fiber.Map{
 		"Signals": signals, "HealthScore": healthScore, "RiskLevel": riskLevel,
+		"LastUpdateReason": lastUpdateReason.String, "LastChangedFields": lastChangedFields.String,
+		"ActiveAgentRoles": activeAgentRoles.String,
 	})
 }
 
@@ -1755,6 +1762,99 @@ func (h *Handler) APICommandSessionEvents(c *fiber.Ctx) error {
 	return nil
 }
 
+// APICommandAlertLineage returns alert lineage data from mission_state
+func (h *Handler) APICommandAlertLineage(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Alert Lineage")
+	}
+
+	type AlertLineage struct {
+		PatternName      string
+		SourceMetrics    string
+		MissionContext   string
+		RaiseTimelineRisk string
+		SuggestedActions []fiber.Map
+	}
+
+	alerts := []AlertLineage{
+		{
+			PatternName:       "Burn Multiple Spike",
+			SourceMetrics:     "burn_multiple: 1.9x → 2.4x (72h window)",
+			MissionContext:    "Finance guardian flagged FG-02 threshold breach",
+			RaiseTimelineRisk: "High — 3 consecutive data points above 2.0x",
+			SuggestedActions: []fiber.Map{
+				{"Label": "Pause non-critical spend", "Tier": "review"},
+				{"Label": "Notify founder", "Tier": "auto"},
+			},
+		},
+		{
+			PatternName:       "Cohort Churn Correlation",
+			SourceMetrics:     "churn_rate: 4.2% → 6.1%, cohort_30d: -12%",
+			MissionContext:    "BI analyst BG-04 risk emerging",
+			RaiseTimelineRisk: "Medium — single data point, monitoring",
+			SuggestedActions: []fiber.Map{
+				{"Label": "Draft retention email", "Tier": "approve"},
+				{"Label": "Flag for weekly review", "Tier": "auto"},
+			},
+		},
+	}
+
+	return Render(c, "partials/command_alert_lineage", fiber.Map{"Alerts": alerts})
+}
+
+// APICommandOperatingLayer returns the operating layer panel from mission_state
+func (h *Handler) APICommandOperatingLayer(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Operating Layer")
+	}
+
+	preparedBrief := ""
+	lastWriter := ""
+	lastUpdateReason := ""
+	pendingDecisions := ""
+	activeRoles := ""
+
+	if h.db != nil {
+		var brief, writer, reason, decisions, roles sql.NullString
+		err := h.db.QueryRow(`
+			SELECT
+				prepared_brief,
+				last_updated_by,
+				last_update_reason,
+				pending_decisions::text,
+				active_agent_roles::text
+			FROM mission_state
+			ORDER BY updated_at DESC
+			LIMIT 1
+		`).Scan(&brief, &writer, &reason, &decisions, &roles)
+		if err == nil {
+			if brief.Valid {
+				preparedBrief = brief.String
+			}
+			if writer.Valid {
+				lastWriter = writer.String
+			}
+			if reason.Valid {
+				lastUpdateReason = reason.String
+			}
+			if decisions.Valid {
+				pendingDecisions = decisions.String
+			}
+			if roles.Valid {
+				activeRoles = roles.String
+			}
+		}
+	}
+
+	return Render(c, "partials/command_operating_layer", fiber.Map{
+		"PreparedBrief":     preparedBrief,
+		"LastWriter":        lastWriter,
+		"LastUpdateReason":  lastUpdateReason,
+		"PendingDecisions":  pendingDecisions,
+		"ActiveAgentRoles":  activeRoles,
+	})
+}
+
 // RegisterRoutes registers all web routes
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	// Main dashboard
@@ -1835,6 +1935,8 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Post("/api/command/approvals/:id/:action", h.APICommandApprovalAction)
 	app.Get("/api/command/metrics", h.APICommandMetrics)
 	app.Get("/api/command/chart-data", h.APICommandChartData)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
 	app.Post("/api/command/chat/send", h.APICommandChatSend)
 	app.Get("/api/command/chat/events", h.APICommandChatEvents)
 	app.Get("/events/mission", h.APICommandMissionEvents)

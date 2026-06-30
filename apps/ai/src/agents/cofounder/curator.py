@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
+from pydantic import BaseModel
+
 from src.memory.semantic import SemanticMemory
 
 log = logging.getLogger(__name__)
@@ -286,13 +288,37 @@ class ConfidenceUpdateResult:
     error: str | None = None
 
 
+class StrategyDelta(BaseModel):
+    """Immutable audit record produced by every update_strategy_confidence call.
+
+    Written to /tmp/strategy_audit.jsonl as a fallback when PostgreSQL is
+    unavailable. The linked_alert_id is the strategy_key for lineage tracing.
+    """
+    tenant_id: str
+    domain: str
+    strategy_key: str
+    prior_confidence: float
+    new_confidence: float
+    evidence_count_delta: int
+    feedback_type: str
+    linked_alert_id: str
+
+
 def update_strategy_confidence(
     tenant_id: str,
     domain: str,
     feedback_type: str,
     score: float,
-) -> ConfidenceUpdateResult:
-    """Update Graphiti Strategy confidence score based on founder feedback."""
+    strategy_key: str = "",
+    linked_alert_id: str = "",
+    prior_confidence: float = 0.0,
+) -> tuple[ConfidenceUpdateResult, StrategyDelta]:
+    """Update Graphiti Strategy confidence score based on founder feedback.
+
+    Returns:
+        Tuple of (ConfidenceUpdateResult, StrategyDelta). The StrategyDelta
+        is always produced — even on failure — for audit lineage.
+    """
     score_map = {
         "acknowledged": 1.0,
         "acted_on": 1.5,
@@ -301,6 +327,18 @@ def update_strategy_confidence(
         "dismissed": -1.5,
     }
     delta = score_map.get(feedback_type, score)
+    new_confidence = prior_confidence + delta
+
+    delta_record = StrategyDelta(
+        tenant_id=tenant_id,
+        domain=domain,
+        strategy_key=strategy_key,
+        prior_confidence=prior_confidence,
+        new_confidence=new_confidence,
+        evidence_count_delta=1,
+        feedback_type=feedback_type,
+        linked_alert_id=linked_alert_id or strategy_key,
+    )
 
     try:
         from src.memory.semantic import SemanticMemory
@@ -317,13 +355,17 @@ def update_strategy_confidence(
             name=f"strategy_confidence:{domain}",
             body=playbook_entry,
         )
+
+        # Audit log: try PostgreSQL first, fall back to file append
+        _write_audit_log(delta_record)
+
         return ConfidenceUpdateResult(
             success=True,
             tenant_id=tenant_id,
             domain=domain,
             confidence_delta=delta,
-            new_confidence=delta,
-        )
+            new_confidence=new_confidence,
+        ), delta_record
     except Exception as e:
         return ConfidenceUpdateResult(
             success=False,
@@ -331,4 +373,72 @@ def update_strategy_confidence(
             domain=domain,
             confidence_delta=delta,
             error=str(e),
-        )
+        ), delta_record
+
+
+def _write_audit_log(delta: StrategyDelta) -> None:
+    """Append StrategyDelta to audit log. Tries PostgreSQL, falls back to file."""
+    try:
+        import asyncpg  # noqa: F401 — available if postgres is configured
+        import asyncio
+
+        async def _pg_write() -> None:
+            conn = await asyncpg.connect()
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS strategy_deltas (
+                    id SERIAL PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    strategy_key TEXT NOT NULL,
+                    prior_confidence DOUBLE PRECISION NOT NULL,
+                    new_confidence DOUBLE PRECISION NOT NULL,
+                    evidence_count_delta INTEGER NOT NULL,
+                    feedback_type TEXT NOT NULL,
+                    linked_alert_id TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+            """)
+            await conn.execute(
+                """
+                INSERT INTO strategy_deltas
+                    (tenant_id, domain, strategy_key, prior_confidence,
+                     new_confidence, evidence_count_delta, feedback_type,
+                     linked_alert_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                """,
+                delta.tenant_id,
+                delta.domain,
+                delta.strategy_key,
+                delta.prior_confidence,
+                delta.new_confidence,
+                delta.evidence_count_delta,
+                delta.feedback_type,
+                delta.linked_alert_id,
+            )
+            await conn.close()
+
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(asyncio.run, _pg_write).result(timeout=5)
+            else:
+                asyncio.run(_pg_write())
+        except Exception:
+            raise  # re-raise to trigger fallback
+
+    except ImportError:
+        # PostgreSQL not available — write to JSONL file
+        _file_audit_write(delta)
+
+
+def _file_audit_write(delta: StrategyDelta) -> None:
+    """Fallback: append StrategyDelta as JSON line to /tmp/strategy_audit.jsonl."""
+    import os
+
+    audit_path = "/tmp/strategy_audit.jsonl"
+    line = delta.model_dump_json() + "\n"
+    with open(audit_path, "a") as f:
+        f.write(line)
+    log.info(f"[Audit] Wrote strategy delta to {audit_path}: {delta.domain}/{delta.strategy_key}")

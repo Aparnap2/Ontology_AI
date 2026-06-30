@@ -471,3 +471,116 @@ func TestCommandMissionStateUpdate_NoDBNotCrash(t *testing.T) {
 		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
 	}
 }
+
+// ── Alert Lineage ────────────────────────────────────────────────
+
+func TestAPICommandAlertLineage_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+
+	req := httptest.NewRequest("GET", "/api/command/alert-lineage", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Alert Lineage", "Burn Multiple Spike", "auto", "review"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandAlertLineage_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+
+	req := httptest.NewRequest("GET", "/api/command/alert-lineage", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Alert Lineage" {
+		t.Errorf("FAIL: Expected 'Alert Lineage', got: %q", bodyStr)
+	}
+}
+
+// ── Operating Layer ──────────────────────────────────────────────
+
+func TestAPICommandOperatingLayer_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Operating Layer", "Prepared Brief", "Last Update", "Pending Decisions", "Active Agent Roles"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandOperatingLayer_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Operating Layer" {
+		t.Errorf("FAIL: Expected 'Operating Layer', got: %q", bodyStr)
+	}
+}
+
+func TestAPICommandOperatingLayer_NoDBNotCrash(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
