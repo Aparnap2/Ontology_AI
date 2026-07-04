@@ -99,6 +99,9 @@ class MissionState:
     last_changed_fields: list[str] | None = None   # which fields were modified
     active_agent_roles: list[str] | None = None    # derived from authority manifest
 
+    # ── Policy state ─────────────────────────────────────────────────
+    policy_state: dict | None = None               # last PolicyDecision dict for dashboard display
+
 
 async def get_mission_state(tenant_id: str) -> MissionState:
     """Get MissionState from database.
@@ -123,7 +126,8 @@ async def get_mission_state(tenant_id: str) -> MissionState:
                    active_authority_limit, guardrail_override_reason, guardrail_risk_type,
                    guardrail_blocking, investor_facing_alert,
                    prepared_brief, pending_decisions, last_updated_by,
-                   last_update_reason, last_changed_fields, active_agent_roles
+                   last_update_reason, last_changed_fields, active_agent_roles,
+                   policy_state
             FROM mission_states
             WHERE tenant_id = $1
             ORDER BY timestamp DESC
@@ -167,6 +171,7 @@ async def get_mission_state(tenant_id: str) -> MissionState:
                 last_update_reason=row["last_update_reason"],
                 last_changed_fields=row["last_changed_fields"],
                 active_agent_roles=row["active_agent_roles"],
+                policy_state=row["policy_state"],
             )
     except Exception as e:
         log.warning(f"MissionState lookup failed for {tenant_id}: {e}")
@@ -204,11 +209,12 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True,
                 active_authority_limit, guardrail_override_reason, guardrail_risk_type,
                 guardrail_blocking, investor_facing_alert, created_at,
                 prepared_brief, pending_decisions, last_updated_by,
-                last_update_reason, last_changed_fields, active_agent_roles
+                last_update_reason, last_changed_fields, active_agent_roles,
+                policy_state
             )
             VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                     $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(),
-                    $26, $27, $28, $29, $30, $31)
+                    $26, $27, $28, $29, $30, $31, $32)
             ON CONFLICT (tenant_id) DO UPDATE SET
                 timestamp = NOW(),
                 runway_days = EXCLUDED.runway_days,
@@ -240,7 +246,8 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True,
                 last_updated_by = EXCLUDED.last_updated_by,
                 last_update_reason = EXCLUDED.last_update_reason,
                 last_changed_fields = EXCLUDED.last_changed_fields,
-                active_agent_roles = EXCLUDED.active_agent_roles
+                active_agent_roles = EXCLUDED.active_agent_roles,
+                policy_state = EXCLUDED.policy_state
             """,
             state.tenant_id,
             state.runway_days,
@@ -273,6 +280,7 @@ async def update_mission_state(state: MissionState, generate_brief: bool = True,
             state.last_update_reason,
             json.dumps(state.last_changed_fields) if state.last_changed_fields else '[]',
             json.dumps(state.active_agent_roles) if state.active_agent_roles else '[]',
+            json.dumps(state.policy_state) if state.policy_state else None,
         )
         await conn.close()
         if generate_brief and not state.prepared_brief:

@@ -19,6 +19,9 @@ class AgentAuthority(BaseModel):
     escalation_tier: Literal["auto", "review", "approve", "blocked"]
     triggers: list[str]
     writes_mission_fields: list[str]
+    allowed_models: list[str] = ["gpt-4o-mini"]
+    external_facing: bool = False
+    data_classification: str = "internal"
 
 
 AUTHORITY_MANIFEST: list[AgentAuthority] = [
@@ -33,6 +36,9 @@ AUTHORITY_MANIFEST: list[AgentAuthority] = [
         escalation_tier="approve",
         triggers=["manual", "schedule"],
         writes_mission_fields=["founder_focus", "active_alerts", "prepared_brief"],
+        allowed_models=["gpt-4o"],
+        external_facing=True,
+        data_classification="external_investor",
     ),
     AgentAuthority(
         agent_name="Sarthi · Finance",
@@ -45,6 +51,9 @@ AUTHORITY_MANIFEST: list[AgentAuthority] = [
         escalation_tier="review",
         triggers=["FG-01", "FG-02", "FG-03", "FG-04", "FG-05", "FG-06"],
         writes_mission_fields=["runway_days", "burn_alert", "burn_severity", "burn_multiple"],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
     ),
     AgentAuthority(
         agent_name="Sarthi · Data",
@@ -57,6 +66,9 @@ AUTHORITY_MANIFEST: list[AgentAuthority] = [
         escalation_tier="auto",
         triggers=["BG-01", "BG-02", "BG-03", "BG-04", "BG-05", "BG-06"],
         writes_mission_fields=["mrr_trend", "churn_rate"],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
     ),
     AgentAuthority(
         agent_name="Sarthi · Ops",
@@ -69,6 +81,9 @@ AUTHORITY_MANIFEST: list[AgentAuthority] = [
         escalation_tier="auto",
         triggers=["OG-01", "OG-02", "OG-03", "OG-04", "OG-05"],
         writes_mission_fields=["churn_risk_users", "top_feature_ask", "error_spike"],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
     ),
     AgentAuthority(
         agent_name="Correlation Agent",
@@ -81,6 +96,9 @@ AUTHORITY_MANIFEST: list[AgentAuthority] = [
         escalation_tier="review",
         triggers=["cross-domain"],
         writes_mission_fields=["active_alerts"],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
     ),
 ]
 
