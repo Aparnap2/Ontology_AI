@@ -1,0 +1,244 @@
+services:
+  # ===========================================
+  # PostgreSQL - Database (SHOWCASE profile)
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sarthi-showcase-postgres
+    environment:
+      POSTGRES_USER: iterateswarm
+      POSTGRES_PASSWORD: iterateswarm
+      POSTGRES_DB: iterateswarm
+    ports:
+      - "5433:5432"
+    volumes:
+      - sarthi-showcase-postgres-data:/var/lib/postgresql/data
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iterateswarm -d iterateswarm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Redis - Caching & Session Store (SHOWCASE profile)
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: sarthi-showcase-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===========================================
+  # Temporal - Workflow Orchestration
+  # ===========================================
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: sarthi-showcase-temporal
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=iterateswarm
+      - POSTGRES_PWD=iterateswarm
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/development.yaml
+      - ENABLE_ES=false
+      - LOG_LEVEL=info
+      - TEMPORAL_UI_PORT=8080
+      - BIND_ON_IP=0.0.0.0
+    ports:
+      - "7233:7233"   # gRPC API
+      - "8088:8080"   # Temporal UI (via auto-setup)
+    volumes:
+      - ./config/temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "tctl cluster health | grep -q SERVING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Temporal UI - Workflow Dashboard
+  # ===========================================
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: sarthi-showcase-temporal-ui
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:8089
+    ports:
+      - "8089:8080"
+    depends_on:
+      - temporal
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================
+  # Redpanda - Kafka-compatible Event Streaming
+  # ===========================================
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.1
+    container_name: sarthi-showcase-redpanda
+    command:
+      - redpanda
+      - start
+      - --node-id=0
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092,EXTERNAL://localhost:9094
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=redpanda:8082
+      - --schema-registry-addr=0.0.0.0:8081
+      - --rpc-addr=0.0.0.0:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --overprovisioned
+      - --unsafe-bypass-fsync=true
+    ports:
+      - "9092:9092"   # Kafka API
+      - "8081:8081"   # Schema Registry
+      - "9644:9644"   # Admin API
+    volumes:
+      - sarthi-showcase-redpanda-data:/var/lib/redpanda/data
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9644/v1/status/ready"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ===========================================
+  # Qdrant - Vector Database
+  # ===========================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: sarthi-showcase-qdrant
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - sarthi-showcase-qdrant-data:/var/lib/qdrant
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # MinIO - S3-compatible Object Storage
+  # ===========================================
+  minio:
+    image: minio/minio:latest
+    container_name: sarthi-showcase-minio
+    ports:
+      - "9000:9000"    # S3 API
+      - "9001:9001"    # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: minio server /data --console-address ":9001"
+    volumes:
+      - sarthi-showcase-minio-data:/data
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Langfuse - LLM Observability (Web)
+  # ===========================================
+  langfuse:
+    image: langfuse/langfuse:3.173
+    container_name: sarthi-showcase-langfuse
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://iterateswarm:iterateswarm@postgres:5432/iterateswarm
+      NEXTAUTH_SECRET: dev-secret-do-not-use-in-prod
+      NEXTAUTH_URL: http://localhost:4000
+      SALT: dev-salt-do-not-use-in-prod
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Langfuse Worker - Async Queue Processor
+  # ===========================================
+  langfuse-worker:
+    image: langfuse/langfuse:3.173
+    container_name: sarthi-showcase-langfuse-worker
+    command: langfuse-worker
+    environment:
+      DATABASE_URL: postgresql://iterateswarm:iterateswarm@postgres:5432/iterateswarm
+      NEXTAUTH_SECRET: dev-secret-do-not-use-in-prod
+      NEXTAUTH_URL: http://localhost:4000
+      SALT: dev-salt-do-not-use-in-prod
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iterateswarm-net
+
+  # ===========================================
+  # Jaeger - Distributed Tracing
+  # ===========================================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: sarthi-showcase-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose -O /dev/null http://localhost:16686/api/services 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sarthi-showcase-postgres-data:
+    driver: local
+  sarthi-showcase-redpanda-data:
+    driver: local
+  sarthi-showcase-qdrant-data:
+    driver: local
+  sarthi-showcase-minio-data:
+    driver: local
+
+networks:
+  iterateswarm-net:
+    driver: bridge

@@ -1,0 +1,47 @@
+services:
+  # ===========================================
+  # PostgreSQL - Database (DEV profile)
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: sarthi-dev-postgres
+    environment:
+      POSTGRES_USER: iterateswarm
+      POSTGRES_PASSWORD: iterateswarm
+      POSTGRES_DB: iterateswarm
+    ports:
+      - "5433:5432"
+    volumes:
+      - sarthi-dev-postgres-data:/var/lib/postgresql/data
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iterateswarm -d iterateswarm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Redis - Caching & Session Store (DEV profile)
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: sarthi-dev-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - iterateswarm-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  sarthi-dev-postgres-data:
+    driver: local
+
+networks:
+  iterateswarm-net:
+    driver: bridge
