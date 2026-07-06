@@ -149,6 +149,14 @@ class TestGuardianMessageSchema:
         "urgency_horizon": "today",
         "one_action": "Review monthly expenses",
         "injected_numbers": ["110"],
+        "lineage": {
+            "pattern_id": "FG-04",
+            "source_metrics": ["cash_runway_days"],
+            "mission_context": ["runway > 90 days threshold"],
+            "raise_timeline_risk": "medium",
+            "suggested_tool_ids": ["cash_runway_details"],
+            "owner_agent": "guardian",
+        },
     }
 
     def test_valid_construction(self):

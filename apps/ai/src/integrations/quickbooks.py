@@ -83,20 +83,21 @@ def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
         )
         return _add_metadata(_MOCK_DATA, "quickbooks_mock")
 
-    url = f"{api_url}/v3/company/{company_id}/query"
-    params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Accept": "application/json",
-        "Content-Type": "application/text",
-    }
+    try:
+        url = f"{api_url}/v3/company/{company_id}/query"
+        params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/text",
+        }
 
-    def _fetch_invoices() -> list:
-        """Single HTTP attempt — retried by ``retry_with_backoff``."""
-        response = httpx.get(url, params=params, headers=headers, timeout=30.0)
-        response.raise_for_status()
-        data = response.json()
-        query_response = data.get("QueryResponse", {}) or {}
+        def _fetch_invoices() -> list:
+            """Single HTTP attempt — retried by ``retry_with_backoff``."""
+            response = httpx.get(url, params=params, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            query_response = data.get("QueryResponse", {}) or {}
         invoices = query_response.get("Invoice", [])
 
         if not invoices:

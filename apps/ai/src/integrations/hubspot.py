@@ -115,8 +115,6 @@ def get_hubspot_snapshot(tenant_id: str) -> Dict[str, Any]:
                             won_deals_30d_cents += amount_cents
                     except (ValueError, TypeError):
                         won_deals_30d_cents += amount_cents
-                except (ValueError, TypeError):
-                    won_deals_30d_cents += amount_cents
             else:
                 won_deals_30d_cents += amount_cents
 

@@ -178,3 +178,6 @@ playwright/test-results/
 
 # Output directories
 graphify-out/
+
+# actionlint binary
+bin/actionlint

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Pre-push hook: blocks direct pushes to main/master, runs actionlint.
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    echo "ERROR: Direct push to $BRANCH is forbidden. Create a PR."
+    exit 1
+fi
+
+if command -v actionlint > /dev/null 2>&1; then
+    echo "-> actionlint..."
+    actionlint 2>&1 || { echo "FAILED: actionlint"; exit 1; }
+fi
+
+echo "Pre-push: All gates passed"
