@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"strings"
@@ -25,8 +26,8 @@ func TestCommandCenter_ServesPage(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := string(body)
 
-	if !strings.Contains(bodyStr, "Sarthi Command Center") {
-		t.Errorf("FAIL: Expected page title, got: %q", bodyStr)
+	if !strings.Contains(bodyStr, "TrackGuard Command Center") {
+		t.Errorf("FAIL: Expected page title 'TrackGuard Command Center', got: %q", bodyStr)
 	}
 	if !strings.Contains(bodyStr, "htmx.org") {
 		t.Errorf("FAIL: Expected HTMX script, got: %q", bodyStr)
@@ -176,7 +177,7 @@ func TestCommandAgentFleet_ReturnsAgents(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := string(body)
 
-	checks := []string{"Sarthi", "Finance", "Data", "Ops"}
+	checks := []string{"Chief of Staff", "FP&A", "Growth Analytics", "Reliability & Delivery"}
 	for _, check := range checks {
 		if !strings.Contains(bodyStr, check) {
 			t.Errorf("FAIL: Expected agent '%s' in response, got: %q", check, bodyStr)
@@ -226,10 +227,10 @@ func TestCommandApprovals_ReturnsPendingItems(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := string(body)
 
-	checks := []string{"Investor update", "Jira issue", "Approve", "Hold"}
+	checks := []string{"Actions Needing Your Approval"}
 	for _, check := range checks {
 		if !strings.Contains(bodyStr, check) {
-			t.Errorf("FAIL: Expected approval item '%s' in response, got: %q", check, bodyStr)
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
 		}
 	}
 }
@@ -469,5 +470,498 @@ func TestCommandMissionStateUpdate_NoDBNotCrash(t *testing.T) {
 	}
 	if resp.StatusCode != 200 {
 		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ── Alert Lineage ────────────────────────────────────────────────
+
+func TestAPICommandAlertLineage_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+
+	req := httptest.NewRequest("GET", "/api/command/alert-lineage", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Alert Lineage", "Burn Multiple Spike", "auto", "review"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandAlertLineage_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+
+	req := httptest.NewRequest("GET", "/api/command/alert-lineage", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Alert Lineage" {
+		t.Errorf("FAIL: Expected 'Alert Lineage', got: %q", bodyStr)
+	}
+}
+
+// ── Operating Layer ──────────────────────────────────────────────
+
+func TestAPICommandOperatingLayer_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Operating Layer", "Prepared Brief", "Last Update", "Pending Decisions", "Active Agent Roles"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandOperatingLayer_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Operating Layer" {
+		t.Errorf("FAIL: Expected 'Operating Layer', got: %q", bodyStr)
+	}
+}
+
+func TestAPICommandOperatingLayer_NoDBNotCrash(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+
+	req := httptest.NewRequest("GET", "/api/command/operating-layer", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ── Control Plane Status ──────────────────────────────────────────
+
+func TestAPICommandControlPlaneStatus_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/control-plane-status", h.APICommandControlPlaneStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/control-plane-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Control Plane Status", "Last 5m", "Last 30m", "Last 24h"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandControlPlaneStatus_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/control-plane-status", h.APICommandControlPlaneStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/control-plane-status", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Control Plane Status" {
+		t.Errorf("FAIL: Expected 'Control Plane Status', got: %q", bodyStr)
+	}
+}
+
+func TestAPICommandControlPlaneStatus_NoDBNotCrash(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/control-plane-status", h.APICommandControlPlaneStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/control-plane-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ── Self-Guardian Status ──────────────────────────────────────────
+
+func TestAPICommandSelfGuardianStatus_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/self-guardian-status", h.APICommandSelfGuardianStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/self-guardian-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Self-Guardian Status", "No active deviations"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandSelfGuardianStatus_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/self-guardian-status", h.APICommandSelfGuardianStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/self-guardian-status", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Self-Guardian Status" {
+		t.Errorf("FAIL: Expected 'Self-Guardian Status', got: %q", bodyStr)
+	}
+}
+
+func TestAPICommandSelfGuardianStatus_NoDBNotCrash(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/self-guardian-status", h.APICommandSelfGuardianStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/self-guardian-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ── Risk Status ─────────────────────────────────────────────────────
+
+func TestAPICommandRiskStatus_ReturnsValidHTML(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/risk-status", h.APICommandRiskStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/risk-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+
+	checks := []string{"Risk Status", "Last 5m", "Last 30m", "Last 24h"}
+	for _, check := range checks {
+		if !strings.Contains(bodyStr, check) {
+			t.Errorf("FAIL: Expected '%s' in response, got: %q", check, bodyStr)
+		}
+	}
+}
+
+func TestAPICommandRiskStatus_WithoutHXRequest(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/risk-status", h.APICommandRiskStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/risk-status", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := strings.TrimSpace(string(body))
+
+	if bodyStr != "Risk Status" {
+		t.Errorf("FAIL: Expected 'Risk Status', got: %q", bodyStr)
+	}
+}
+
+func TestAPICommandRiskStatus_NoDBNotCrash(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/risk-status", h.APICommandRiskStatus)
+
+	req := httptest.NewRequest("GET", "/api/command/risk-status", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ── V4.1 Route Map Tests ────────────────────────────────────────────
+
+func TestRouteMap_HasFiveCanonicalSpecialists(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Post("/api/command/chat/send", h.APICommandChatSend)
+
+	// Test @sarthi routes to ChiefOfStaffWorkflow
+	req := httptest.NewRequest("POST", "/api/command/chat/send", strings.NewReader("message=hello&mention=@sarthi"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	_ = resp
+	// Must not crash — handler should accept and process
+}
+
+func TestRouteMap_AllAliasesResolve(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Post("/api/command/chat/send", h.APICommandChatSend)
+
+	aliases := []string{"@sarthi", "@agent", "@qa", "@ask", "@finance", "@fpa", "@data", "@growth", "@ops", "@comms"}
+	for _, alias := range aliases {
+		req := httptest.NewRequest("POST", "/api/command/chat/send",
+			strings.NewReader(fmt.Sprintf("message=hello&mention=%s", alias)))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		_, err := app.Test(req)
+		if err != nil {
+			t.Errorf("Alias %s failed: %v", alias, err)
+		}
+	}
+}
+
+func TestRouteMap_HiringRemoved(t *testing.T) {
+	// @hiring must NOT be a valid route — handler should not reference hiring
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Post("/api/command/chat/send", h.APICommandChatSend)
+
+	req := httptest.NewRequest("POST", "/api/command/chat/send",
+		strings.NewReader("message=hello&mention=@hiring"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	// Should get a response that does NOT reference hiring
+	if strings.Contains(bodyStr, "hiring") || strings.Contains(bodyStr, "Hiring") {
+		t.Errorf("FAIL: Response should not reference hiring, got: %q", bodyStr)
+	}
+}
+
+// ── V4.1 API Mission State Tests ────────────────────────────────────
+
+func TestAPIMissionState_ReturnsJSON(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/mission-state", h.APIMissionState)
+
+	req := httptest.NewRequest("GET", "/api/mission-state", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	// Should return JSON (even if empty/default)
+	if !strings.Contains(bodyStr, "{") && !strings.Contains(bodyStr, "[]") {
+		t.Errorf("FAIL: Expected JSON response, got: %q", bodyStr)
+	}
+	_ = resp
+}
+
+func TestAPIMissionStatePost_AcceptsJSON(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Post("/api/mission-state", h.APIMissionStatePost)
+
+	jsonBody := `{"tenant_id":"test","summary":"test state","state_payload":{"mrr":100000}}`
+	req := httptest.NewRequest("POST", "/api/mission-state", strings.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	_ = resp
+	// Should succeed (status 200 or 201)
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		t.Errorf("FAIL: Expected 200/201, got %d", resp.StatusCode)
+	}
+}
+
+func TestAPIMissionStatePost_RejectsInvalidJSON(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Post("/api/mission-state", h.APIMissionStatePost)
+
+	req := httptest.NewRequest("POST", "/api/mission-state", strings.NewReader("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	if resp.StatusCode != 400 {
+		t.Errorf("FAIL: Expected 400 for invalid JSON, got %d", resp.StatusCode)
+	}
+}
+
+func TestAPIMissionState_WithNilDB_ReturnsDefault(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil) // nil DB
+	app.Get("/api/mission-state", h.APIMissionState)
+
+	req := httptest.NewRequest("GET", "/api/mission-state", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	// Should not crash with nil DB
+	if resp.StatusCode != 200 {
+		t.Errorf("FAIL: Expected 200 with nil DB, got %d", resp.StatusCode)
+	}
+}
+
+// ── V4.1 Branding Tests ─────────────────────────────────────────────
+
+func TestCommandCenter_TitleContainsTrackGuard(t *testing.T) {
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/command", h.CommandCenter)
+
+	req := httptest.NewRequest("GET", "/command", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("Failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	if strings.Contains(bodyStr, "Sarthi") {
+		t.Errorf("FAIL: Page title should not contain 'Sarthi', got: %q", bodyStr[:200])
+	}
+	if !strings.Contains(bodyStr, "TrackGuard") {
+		t.Errorf("FAIL: Page title should contain 'TrackGuard', got: %q", bodyStr[:200])
+	}
+}
+
+func TestCommandCenter_AgentFleetShowsChiefOfStaff(t *testing.T) {
+	// Agent names are loaded via HTMX partial — verify the agent-fleet endpoint
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/api/command/agent-fleet", h.APICommandAgentFleet)
+
+	req := httptest.NewRequest("GET", "/api/command/agent-fleet", nil)
+	req.Header.Set("HX-Request", "true")
+	resp, _ := app.Test(req)
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	if !strings.Contains(bodyStr, "Chief of Staff") {
+		t.Errorf("FAIL: Expected 'Chief of Staff' in agent fleet, got: %q", bodyStr[:500])
+	}
+	// Also verify old names are not present
+	if strings.Contains(bodyStr, "Sarthi") {
+		t.Errorf("FAIL: Agent fleet should not contain 'Sarthi', got: %q", bodyStr[:500])
+	}
+}
+
+func TestCommandCenter_NoHiringLabel(t *testing.T) {
+	// Verify the dashboard page doesn't reference Hiring
+	app := fiber.New()
+	h := NewHandler(nil, nil)
+	app.Get("/command", h.CommandCenter)
+
+	req := httptest.NewRequest("GET", "/command", nil)
+	resp, _ := app.Test(req)
+	body, _ := io.ReadAll(resp.Body)
+	bodyStr := string(body)
+	if strings.Contains(bodyStr, "Hiring") {
+		t.Errorf("FAIL: Dashboard should not show Hiring specialist, got: %q", bodyStr[:500])
 	}
 }

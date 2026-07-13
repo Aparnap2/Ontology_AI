@@ -14,6 +14,13 @@ class TestRelevanceGate:
     Per PRD Section 7: Agent responds only if keyword_hit OR (active_alert AND question).
     """
 
+    def setup_method(self):
+        """Reset module-level cache and trust state to avoid cross-test pollution."""
+        from src.services.trust_battery import reset_profiles
+        reset_profiles()
+        import src.session.relevance_gate as rg
+        rg._trust_battery = None
+
     def test_finance_keywords_trigger(self):
         """Finance keywords should trigger finance domain."""
         from src.session.relevance_gate import evaluate_relevance, DOMAIN_KEYWORDS
@@ -119,6 +126,13 @@ class TestRouter:
     Per PRD Section 7: Routes messages to Employee Agents.
     Per PRD Section 220-224: Option C authority.
     """
+
+    def setup_method(self):
+        """Reset module-level cache and trust state to avoid cross-test pollution."""
+        from src.services.trust_battery import reset_profiles
+        reset_profiles()
+        import src.session.relevance_gate as rg
+        rg._trust_battery = None
 
     @pytest.mark.asyncio
     async def test_route_finance_message(self):

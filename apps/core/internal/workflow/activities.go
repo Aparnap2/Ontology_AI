@@ -48,6 +48,14 @@ func (a *Activities) SetDB(db *sql.DB) {
 	a.db = db
 }
 
+// SetAIClient sets the gRPC client connection for Python AI service integration.
+// Optional — if not set, activities that need Python AI will fail gracefully.
+// Future desk ops (Finance, People, Legal, etc.) will use this connection
+// instead of creating their own per-call connections.
+func (a *Activities) SetAIClient(client *grpc.ClientConn) {
+	a.aiClient = client
+}
+
 // AnalyzeFeedbackInput is the input for the AnalyzeFeedback activity.
 type AnalyzeFeedbackInput struct {
 	Text      string
@@ -482,6 +490,9 @@ type AgentResult struct {
 }
 
 // StartSwarm calls the Python gRPC server to execute the multi-agent swarm.
+// TODO: Refactor to use a.aiClient (the stored *grpc.ClientConn) instead of
+// creating a new per-call connection, once the Python AI service integration
+// pattern is stable.
 func (a *Activities) StartSwarm(ctx context.Context, input StartSwarmInput) (*StartSwarmOutput, error) {
 	startTime := time.Now()
 	a.logger.Info("starting multi-agent swarm",
@@ -588,9 +599,17 @@ func (a *Activities) StartSwarm(ctx context.Context, input StartSwarmInput) (*St
 // =============================================================================
 
 // globalActivities is a singleton instance for standalone activity functions
+// Initialise aiClient via InitAIClient() before starting the worker
+// if Python AI service integration is desired.
 var globalActivities = &Activities{
-	logger:   logging.NewLogger("workflow"),
-	aiClient: nil, // AI client not needed for Go-based agents
+	logger: logging.NewLogger("workflow"),
+}
+
+// InitAIClient sets the gRPC client connection on the global activities singleton.
+// Must be called before registering standalone activities if Python AI integration
+// is needed. Mirror of InitDLQDatabase pattern.
+func InitAIClient(client *grpc.ClientConn) {
+	globalActivities.aiClient = client
 }
 
 // AnalyzeFeedback is a standalone activity function for workflow use
@@ -744,7 +763,6 @@ func (a *Activities) RouteInternalEvent(ctx context.Context, input RouteInternal
 		"leave_request":       DeskPeople,
 		"appraisal_due":       DeskPeople,
 		"offboarding":         DeskPeople,
-		"hiring_request":      DeskPeople,
 		"interview_scheduled": DeskPeople,
 
 		// Legal Desk events
@@ -804,10 +822,9 @@ func determineHITLLevel(eventType string, payload map[string]interface{}) HITLCl
 		"regulatory_filing": true,
 	}
 
-	// MEDIUM: Payroll, hiring, anomalies
+	// MEDIUM: Payroll, anomalies
 	mediumEvents := map[string]bool{
 		"payroll_due":     true,
-		"hiring_request":  true,
 		"revenue_anomaly": true,
 		"churn_detected":  true,
 		"invoice_overdue": true,
@@ -1025,9 +1042,17 @@ type ProcessAdminOpsOutput struct {
 }
 
 // callPythonDeskAgent calls Python desk agent via gRPC.
-// TODO: Implement when proto is updated with ProcessDeskEvent method
+// TODO: Implement when proto is updated with ProcessDeskEvent method.
+// Use a.aiClient to create the typed client (aiv1.NewDeskServiceClient(a.aiClient))
+// instead of creating a new connection per call.
 func (a *Activities) callPythonDeskAgent(ctx context.Context, deskType string, input interface{}) (map[string]interface{}, error) {
 	// Stub implementation - returns mock result
+	// When implemented, use:
+	//   if a.aiClient == nil {
+	//       return nil, fmt.Errorf("AI gRPC client not configured")
+	//   }
+	//   deskClient := aiv1.NewDeskServiceClient(a.aiClient)
+	//   resp, err := deskClient.ProcessDeskEvent(ctx, req)
 	return map[string]interface{}{
 		"status":  "processed",
 		"desk":    deskType,
@@ -1225,13 +1250,13 @@ func (a *Activities) GetInvestorRelationshipHealth(ctx context.Context, input Ge
 
 // SynthesizeWeeklyBriefInput is input for synthesizing weekly brief.
 type SynthesizeWeeklyBriefInput struct {
-	TenantID           string                   `json:"tenant_id"`
-	Alerts             []map[string]interface{} `json:"alerts"`
-	Decisions          []map[string]interface{} `json:"decisions"`
-	Metrics            map[string]interface{}   `json:"metrics"`
-	InvestorStatus     map[string]interface{}   `json:"investor_status"`
-	FounderName        string                   `json:"founder_name"`
-	CompanyName        string                   `json:"company_name"`
+	TenantID       string                   `json:"tenant_id"`
+	Alerts         []map[string]interface{} `json:"alerts"`
+	Decisions      []map[string]interface{} `json:"decisions"`
+	Metrics        map[string]interface{}   `json:"metrics"`
+	InvestorStatus map[string]interface{}   `json:"investor_status"`
+	FounderName    string                   `json:"founder_name"`
+	CompanyName    string                   `json:"company_name"`
 }
 
 // SynthesizeWeeklyBriefOutput is output from synthesizing weekly brief.

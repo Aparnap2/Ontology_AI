@@ -45,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_mission_states_tenant
 CREATE INDEX IF NOT EXISTS idx_mission_states_timestamp
     ON mission_states(timestamp DESC);
 
--- session_messages: #sarthi channel history
+-- session_messages: channel history
 -- Per PRD Section 7: All agents read, employees write
 CREATE TABLE IF NOT EXISTS session_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

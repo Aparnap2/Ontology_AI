@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════
-# SARTHI v1.0 — PRODUCTION DOCKER COMPOSE
+# TrackGuard — PRODUCTION DOCKER COMPOSE
 # Temporal PostgreSQL backend + Langfuse observability
 # ═══════════════════════════════════════════════════════════════
 
@@ -85,7 +85,7 @@ services:
       timeout: 10s
       retries: 5
 
-  # ── Sarthi Go API server ──────────────────────────────────────
+  # ── TrackGuard Go API server ──────────────────────────────────
   sarthi-api:
     build:
       context: apps/core
@@ -113,7 +113,7 @@ services:
       timeout: 10s
       retries: 5
 
-  # ── Sarthi Python AI worker ───────────────────────────────────
+  # ── TrackGuard Python AI worker ───────────────────────────────
   sarthi-worker:
     build:
       context: apps/ai

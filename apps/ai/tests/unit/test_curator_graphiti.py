@@ -1,23 +1,32 @@
 """Tests for Curator → Graphiti write - TDD Red phase."""
 import pytest
+from unittest.mock import patch, MagicMock
 
 
 class TestCuratorGraphitiWrite:
     """Curator updates Graphiti Strategy confidence scores from feedback."""
 
-    def test_acknowledge_increments_strategy_confidence(self):
+    @patch("src.agents.cofounder.curator._write_audit_log")
+    @patch("src.memory.semantic.SemanticMemory")
+    def test_acknowledge_increments_strategy_confidence(self, MockSM, mock_audit):
         """Acknowledged feedback should increment strategy confidence by +1.0."""
         from src.agents.cofounder.curator import update_strategy_confidence
 
-        result = update_strategy_confidence("test-001", "finance", "acknowledged", 1.0)
+        mock_mem = MagicMock()
+        MockSM.return_value = mock_mem
+        result, delta = update_strategy_confidence("test-001", "finance", "acknowledged", 1.0)
         assert result.success is True
         assert result.confidence_delta == 1.0
 
-    def test_dispute_decrements_strategy_confidence(self):
+    @patch("src.agents.cofounder.curator._write_audit_log")
+    @patch("src.memory.semantic.SemanticMemory")
+    def test_dispute_decrements_strategy_confidence(self, MockSM, mock_audit):
         """Disputed feedback should decrement strategy confidence by -1.0."""
         from src.agents.cofounder.curator import update_strategy_confidence
 
-        result = update_strategy_confidence("test-001", "finance", "disputed", -1.0)
+        mock_mem = MagicMock()
+        MockSM.return_value = mock_mem
+        result, delta = update_strategy_confidence("test-001", "finance", "disputed", -1.0)
         assert result.success is True
         assert result.confidence_delta == -1.0
 
