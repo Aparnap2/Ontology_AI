@@ -1,17 +1,133 @@
-# OntologyAI — Palantir-Style Ontology for Small Businesses
+# OntologyAI
 
-> OntologyAI builds a live Ontology of a small business from its existing tools, and lets AI specialists query and act on it — with every consequential action gated by human approval.
+> **A ChatOps platform where founders chat with specialist AI agents.** OntologyAI builds a live, governed *Ontology* of a small business from its existing tools — and lets domain specialists (FP&A, Growth, Reliability, Comms, Chief of Staff) query and act on it, with every consequential action gated by human approval.
 
-[![Tests](https://img.shields.io/badge/tests-901%20passing-brightgreen)](#)
-[![Architecture](https://img.shields.io/badge/architecture-SSE%20%2B%20Specialist-blue)](#)
-[![Go](https://img.shields.io/badge/Go-1.24-blue?logo=go)](#)
-[![Python](https://img.shields.io/badge/Python-3.13-green?logo=python)](#)
+[![Build](https://img.shields.io/badge/build-clean-brightgreen)](#getting-started)
+[![Tests](https://img.shields.io/badge/tests-901%20passing%20%2F%2026%20skipped-brightgreen)](#test-coverage)
+[![Go](https://img.shields.io/badge/Go-1.24-blue?logo=go&logoColor=white)](https://go.dev)
+[![Python](https://img.shields.io/badge/Python-3.13-green?logo=python&logoColor=white)](https://www.python.org)
 
 ---
 
-## V4.2 Ontology Layer
+## Table of Contents
 
-OntologyAI V4.2 adds a **semantic Ontology layer** on top of the existing `MissionState` and PostgreSQL store — a schema/semantic extension, not a rewrite. It is fully implemented and TDD-verified (**42 tests passing**: 23 schema + 12 adapter + 7 governance).
+- [What problem does it solve?](#what-problem-does-it-solve)
+- [Feature Highlights](#feature-highlights)
+- [Architecture](#architecture)
+- [Request / Response Flow](#request--response-flow)
+- [Ontology Layer](#ontology-layer)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Architecture Decision Records](#architecture-decision-records)
+- [History / Migration](#history--migration)
+- [Contributing & Conventions](#contributing--conventions)
+
+---
+
+## What problem does it solve?
+
+Founders live in a dozen disconnected tools (Stripe, HubSpot, Slack, incident trackers) and a flood of dashboards they never open. **OntologyAI collapses that into a single chat surface:**
+
+- You type `@finance What's our burn this month?` and a domain specialist answers — grounded in your real business state.
+- Every specialist reads from and writes through one shared, typed **Ontology** (customers, deals, revenue, incidents, messages, planned actions).
+- Any action with real-world blast radius (cancel a subscription, send a customer message, change an incident severity) is **blocked behind human approval** — nothing consequential happens silently.
+
+The result: signal-to-action in seconds, with guardrails that scale from copilot to semi-autonomous operator.
+
+---
+
+## Feature Highlights
+
+- **Five canonical specialist agents** — chat `@mention` routing maps aliases to `ChiefOfStaff`, `FPA`, `GrowthAnalytics`, `Reliability`, and `Comms` workflows via an O(1) map lookup.
+- **V4.2 Ontology layer** — 6 strict Pydantic v2 Object Types + a `LINK_TYPES` registry, with a tolerant `MissionState → Ontology` adapter.
+- **Governed writes** — a `@governed_write` blast-radius gate (`OBJECT_WRITE_POLICY`) routes consequential mutations through a `PlannedAction` that requires human approval.
+- **Human-in-the-loop (HITL)** — Temporal signals (`SignalWorkflow("hitl-approval")`) unblock `AwaitWithTimeout` gates so approval buttons actually drive workflow execution.
+- **Real-time streaming** — HTMX `hx-ext="sse"` + Fiber `SetBodyStreamWriter`, with an `SSEHub` that does per-subscriber, event-type-filtered fan-out.
+- **MissionState write path** — the Python AI worker persists operational state via `POST /api/mission-state` → PostgreSQL, which the Go dashboard renders server-side.
+- **Authority manifest** — 5 agents declare role, permissions, and tool allowlists; the trust battery and alert gate enforce boundaries.
+
+---
+
+## Architecture
+
+Founders reach OntologyAI through chat (Slack / Telegram / Web). The Go Core accepts the message, routes the `@mention` in O(1), and dispatches a Temporal workflow. A Python AI worker runs the LangGraph/DSPy agent against an LLM provider, streams the answer back over SSE, and — for consequential writes — proposes a `PlannedAction` that a human approves.
+
+```mermaid
+flowchart TD
+    U["Founder — Slack / Telegram / Web"] --> CORE["Go Core (Fiber HTTP + HTMX + SSE)"]
+    CORE --> ROUTER["@mention Router — O(1) map lookup"]
+    ROUTER --> W1["ChiefOfStaffWorkflow  (@sarthi)"]
+    ROUTER --> W2["FPAWorkflow  (@finance)"]
+    ROUTER --> W3["GrowthAnalyticsWorkflow  (@data)"]
+    ROUTER --> W4["ReliabilityWorkflow  (@ops)"]
+    ROUTER --> W5["CommsWorkflow  (@comms)"]
+    W1 --> PY["Python AI Worker (LangGraph / DSPy)"]
+    W2 --> PY
+    W3 --> PY
+    W4 --> PY
+    W5 --> PY
+    PY --> LLM["LLM Providers (Azure AI Foundry / Groq / Ollama / OpenAI)"]
+    PY --> ONTO["Ontology Layer (adapter + governance)"]
+    ONTO --> MS["MissionState"]
+    MS -->|"POST /api/mission-state"| PG[("PostgreSQL")]
+    PY -->|"POST /api/mission-state"| PG
+    PG -->|"GET /api/mission-state"| CORE
+```
+
+**Key components**
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Go Core** (`apps/core/`) | Fiber HTTP server, HTMX templates, SSE streaming, `@mention` routing, Temporal client. |
+| **Temporal** | Orchestrates the 5 canonical specialist workflows; hosts HITL `AwaitWithTimeout` gates. |
+| **Python AI Worker** (`apps/ai/`) | LangGraph/DSPy agents per domain; builds the Ontology; proposes governed writes. |
+| **LLM providers** | OpenAI-compatible SDK → Azure AI Foundry, Groq, Ollama, OpenAI (auto-detected). |
+| **PostgreSQL** | MissionState store; the dashboard's single source of truth. |
+| **Qdrant + Graphiti** | Vector/semantic memory for agents. |
+
+---
+
+## Request / Response Flow
+
+A typical `@mention` query — from the founder's message to a streamed answer, with the optional HITL approval branch:
+
+```mermaid
+sequenceDiagram
+    actor Founder
+    participant Core as Go Core (Fiber)
+    participant Router as @mention Router
+    participant Temp as Temporal
+    participant Agent as Python AI Worker
+    participant LLM as LLM Provider
+    participant UI as HTMX UI (SSE)
+    participant Human as Founder (HITL)
+
+    Founder->>Core: POST /api/command/chat/send "@finance Q3 revenue?"
+    Core->>Router: extract @mention
+    Router-->>Core: FPAWorkflow (O(1) map)
+    Core->>UI: SSE event:chat (user bubble)
+    Core->>Temp: ExecuteWorkflow("FPAWorkflow", input)
+    Temp->>Agent: dispatch activity
+    Agent->>LLM: query
+    LLM-->>Agent: result
+    Agent-->>Temp: SpecialistResponse
+    Temp-->>Core: run.Get(ctx)
+    Core->>UI: SSE event:chat (answer bubble)
+    alt requires HITL approval
+        Core->>UI: SSE event:hitl (approval request)
+        Human->>Core: POST /api/command/approvals/:id/approve
+        Core->>Temp: SignalWorkflow("hitl-approval", true)
+        Temp-->>Core: workflow resumes
+    end
+```
+
+The dispatch runs in a goroutine with a 5-minute context timeout and a non-blocking `tryBroadcast()` (`select { case ch <- msg: default: log }`) so the UI shows a "🤔 Thinking…" bubble immediately and never blocks the HTTP handler.
+
+---
+
+## Ontology Layer
+
+The V4.2 Ontology is a **schema/semantic extension** on top of `MissionState` and PostgreSQL — not a rewrite. It is fully implemented and TDD-verified (**42 tests passing**: 23 schema + 12 adapter + 7 governance).
 
 | Component | File | What it does |
 |-----------|------|--------------|
@@ -20,264 +136,74 @@ OntologyAI V4.2 adds a **semantic Ontology layer** on top of the existing `Missi
 | **MissionState → Ontology Adapter** | `apps/ai/src/ontology/adapter.py` | `mission_state_to_ontology(state) -> dict[str, list[BaseModel]]` — tolerant per-field mapping of a `MissionState` payload into typed ontology buckets. |
 | **Governed Writes** | `apps/ai/src/ontology/governance.py` | `@governed_write` decorator enforcing the `OBJECT_WRITE_POLICY` blast-radius gate; emits a `PlannedAction` and blocks above threshold. Reference wrappers: `governed_fpa_cancel`, `governed_growth_flag`, `governed_reliability_incident_update`, `governed_comms_send`. |
 
-The Ontology is the single shared model every specialist reads from and writes through — with every consequential write gated by human approval.
+### Object Types & Links
 
-## Architecture: Five Canonical Specialists
-
-Browser connects via HTMX SSE. Go dispatches to Temporal in goroutines. Five Python specialist agents handle each domain.
-
-```
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                              Browser (HTMX + SSE)                                     │
-│  ┌───────────────────┐  ┌──────────────────┐  ┌──────────────────┐                    │
-│  │ command_chat.html  │  │ command_approvals│  │ command_operating│                    │
-│  │ hx-ext="sse"       │  │ Approve / Hold   │  │ -layer.html      │                    │
-│  │ sse-connect="/api/ │  │ → Temporal Signal│  │ Prepared Brief   │                    │
-│  │  command/chat/     │  └────────┬─────────┘  │ Pending Decisions│                    │
-│  │  events"           │           │              │ Active Roles     │                    │
-│  └────────┬───────────┘           │              └────────┬─────────┘                   │
-│           │ SSE event:chat        │ POST approve/hold     │ SSE event:mission          │
-└───────────┼───────────────────────┼───────────────────────┼─────────────────────────────┘
-            │                       │                       │
-            ▼                       ▼                       ▼
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                         Go Core (Fiber v2)                                            │
-│  Handler struct: SSEHub (typed fan-out), temporal.Client, WaitGroup                  │
-│  specialistRoutes map: @mention → workflow + displayName                             │
-│  goroutine dispatch + tryBroadcast() for SSE push                                    │
-│  API Routes: chat/events, chat/send, approvals/:id/approve,                         │
-│              alert-lineage, operating-layer, mission-state, dashboard/*              │
-└──────────────────────────────────────────────────────────────────────────────────────┘
-              │ Temporal                         │ SQL / POST
-              ▼                                  ▼
-┌──────────────────────────────┐    ┌──────────────────────────────────────────────┐
-│  Temporal Server              │    │  PostgreSQL                                    │
-│  Task Queue:                  │    │  Tables: mission_states, planned_actions,     │
-│  TRACKGUARD-MAIN-QUEUE        │    │  chat_messages, agent_traces                  │
-│  Workflows: ChiefOfStaff,     │    │                                                │
-│  FPA, GrowthAnalytics,        │    └──────────────────────────────────────────────┘
-│  Reliability, Comms           │
-│  Signals: "hitl-approval"     │
-└───────┬──────────────────────┘
-        │ Temporal activity dispatch
-        ▼
-┌──────────────────────────────────────────────────────────────────────────────────────┐
-│                    Python AI Worker (Temporal SDK + LangGraph)                         │
-│  LangGraph Agent Graphs: FinanceGraph, DataGraph, OpsGraph, CommsGraph                │
-│  LLM Provider: Azure AI Foundry / Groq / Ollama (auto-detected)                       │
-│  Structured Output: Pydantic v2 SpecialistResponse schema with Literal constraints     │
-│  5 canonical specialists enforced via Literal types                                    │
-└──────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Chat Flow: @mention → Specialist Workflow → SSE Result
-
-```
-User types "@finance Q3 revenue?" → HTMX POST /api/command/chat/send
-  → Go Handler extracts @mentions → matches in specialistRoutes map
-  → Broadcasts user bubble via SSE (immediate)
-  → go func() with sync.WaitGroup:
-      → tryBroadcast() → "🤔 Thinking..." → SSE
-      → Temporal ExecuteWorkflow("FPAWorkflow", input)
-      → Python workflow → LangGraph agent → LLM result
-      → run.Get(ctx, &result) → renderChatBubble() → tryBroadcast() → SSE
+```mermaid
+classDiagram
+    class Customer {
+        +str id
+        +str name
+        +float mrr
+        +float health_score
+        +datetime last_contact_at
+    }
+    class Deal {
+        +str id
+        +str stage
+        +float value
+        +float close_probability
+        +str owner
+    }
+    class RevenueMetric {
+        +str period
+        +float mrr
+        +float burn
+        +int runway_days
+    }
+    class Incident {
+        +str id
+        +str severity
+        +datetime opened_at
+        +datetime resolved_at
+        +str root_cause
+    }
+    class Message {
+        +str id
+        +str channel
+        +str thread_id
+        +str sentiment
+        +str drafted_by
+    }
+    class PlannedAction {
+        +str id
+        +str type
+        +Literal blast_radius
+        +str status
+        +str requested_by
+    }
+    Incident "many" --> "many" Customer : incident_affects_customer
+    Deal "many" --> "one" Customer : deal_belongs_to_customer
+    Message "many" --> "one" Deal : message_relates_to_deal
+    PlannedAction "many" --> "*" : action_targets_object
 ```
 
-### Specialist Route Map
+### `mission_state_to_ontology`
 
-```go
-var specialistRoutes = map[string]specialistRoute{
-    "@sarthi":  {"ChiefOfStaffWorkflow", "Chief of Staff"},
-    "@agent":   {"ChiefOfStaffWorkflow", "Chief of Staff"},
-    "@qa":      {"ChiefOfStaffWorkflow", "Chief of Staff"},
-    "@ask":     {"ChiefOfStaffWorkflow", "Chief of Staff"},
-    "@finance": {"FPAWorkflow", "FP&A"},
-    "@fpa":     {"FPAWorkflow", "FP&A"},
-    "@data":    {"GrowthAnalyticsWorkflow", "Growth Analytics"},
-    "@growth":  {"GrowthAnalyticsWorkflow", "Growth Analytics"},
-    "@ops":     {"ReliabilityWorkflow", "Reliability & Delivery"},
-    "@comms":   {"CommsWorkflow", "Communications"},
-}
-```
-- O(1) map lookup, 10 aliases → 5 canonical workflows.
-- Backward compat aliases maintained: `@sarthi`, `@agent`, `@qa`, `@ask` all route to ChiefOfStaff.
-- V3 legacy aliases (`qa_workflow` → `ChiefOfStaffWorkflow`, `finance_workflow` → `FPAWorkflow`, etc.) preserved as re-exports with deprecation warnings.
+`mission_state_to_ontology(state)` normalizes a flat `MissionState` dict (or any object dumpable to a dict) into six typed lists — one per Object Type. It is **tolerant**: unknown/legacy keys are ignored, invalid items are skipped, and a `RevenueMetric` can be *derived* from flat finance scalars (`mrr`, `burn`, `runway_days`) when no explicit list is supplied. The input is never mutated and the function never raises on partial payloads.
 
-### Key Decisions
+### `@governed_write`
 
-| Decision | Benefit |
-|----------|---------|
-| **Five canonical specialists** | Chief of Staff, FP&A, Growth Analytics, Reliability & Delivery, Communications — exactly 5, no Hiring |
-| **SpecialistResponse Literal schema** | Pydantic enforces valid specialist names and workflow names at the type level |
-| **Backward-compat workflow re-exports** | `QAWorkflow`, `FinanceWorkflow`, `DataWorkflow`, `OpsWorkflow` → new canonical names with deprecation |
-| **OntologyAI branding** | All page titles, display names, and documentation use "OntologyAI" (rebrand from "Sarthi"; see Migration Notes) |
-| **API Mission State endpoints** | `GET /api/mission-state` and `POST /api/mission-state` for machine-readable JSON (Python AI ↔ Go Core) |
+The `@governed_write` decorator enforces human-in-the-loop approval for consequential ontology writes. Two independent gates trigger a required `PlannedAction`:
 
----
+1. **Explicit flag** — the property is `requires_approval=True` in `OBJECT_WRITE_POLICY`.
+2. **Blast-radius threshold** — the effective blast radius is at/above the configured threshold (default `"medium"`; `"low"` writes proceed).
 
-## Operating Layer
-
-### Agent Authority Manifest
-5 specialist agents + 1 correlation agent defined in `apps/ai/src/agents/authority_manifest.py`:
-
-| Agent | Domain | Escalation Tier | Allowed Tools |
-|-------|--------|-----------------|---------------|
-| **Chief of Staff** | cofounder | approve | draft_investor_update |
-| **FP&A** | finance | review | pause_failed_payment_retry |
-| **Growth Analytics** | bi | auto | draft_investor_update |
-| **Reliability & Delivery** | ops | auto | flag_churn_risk_customer, schedule_customer_checkin |
-| **Communications** | ops | auto | draft_investor_update |
-| **Correlation Agent** | correlation | review | (none — alert-only) |
-
-### SpecialistResponse Schema
-All 5 canonical specialist responses validated via Pydantic `Literal`:
+When a `PlannedAction` is required, the decorator **blocks** the underlying write and returns the `PlannedAction` for the caller to submit for approval — mirroring the Temporal `AwaitWithTimeout` HITL pattern used elsewhere in the system. If no `PlannedAction` can be produced, it raises `GovernanceError`.
 
 ```python
-class SpecialistResponse(BaseModel, strict=True):
-    specialist: Literal[
-        "Chief of Staff", "FP&A", "Growth Analytics",
-        "Reliability & Delivery", "Communications"
-    ]
-    workflow_name: Literal[
-        "ChiefOfStaffWorkflow", "FPAWorkflow",
-        "GrowthAnalyticsWorkflow", "ReliabilityWorkflow", "CommsWorkflow"
-    ]
-    summary: str
-    detailed_response: str
-    requires_hitl: bool = False
-    planned_action_id: Optional[str] = None
-    mission_state_patch: Optional[dict] = None
-    citations: list[str] = []
-    followups: list[str] = []
+@governed_write(object_type="Customer", property_name="mrr", requested_by="FP&A")
+def governed_fpa_cancel(customer_id: str, reason: str, **kwargs): ...
 ```
-
-### Alert Lineage
-Every `GuardianMessage` carries an `AlertLineage` schema (`apps/ai/src/schemas/guardian.py`):
-- `pattern_id`, `source_metrics`, `mission_context`, `raise_timeline_risk`, `suggested_tool_ids`, `owner_agent`
-
-### MissionState Explainability
-Fields via migration 005:
-- `last_update_reason` — why this write happened
-- `last_changed_fields` — which fields were modified (JSONB)
-- `active_agent_roles` — derived from authority manifest (JSONB)
-
-### Brief Generator
-`apps/ai/src/session/brief_generator.py` — `generate_prepared_brief()`:
-- 2-sentence LLM summary auto-triggered on MissionState write
-- Persists to `prepared_brief` field
-
-### StrategyDelta Audit Trail
-`apps/ai/src/agents/cofounder/curator.py` — structured audit log for curator confidence updates.
-
----
-
-## Command Center Dashboard
-
-15+ HTMX-driven screens:
-
-| Dashboard Panel | Route | Auto-refresh |
-|----------------|-------|-------------|
-| **Chat Panel** | `POST /api/command/chat/send` + SSE `GET /api/command/chat/events` | SSE push (instant) |
-| **Approvals Queue** | `GET /api/command/approvals` + `POST approve/:id` | Poll + Signal |
-| **Mission State** | `GET /api/command/mission-state` | On load |
-| **Status Bar** | `GET /api/command/status` | 10s |
-| **KPI Cards** | `GET /api/command/kpis` | 15s |
-| **Watchlist** | `GET /api/command/watchlist` | 30s |
-| **Timeline** | `GET /api/command/timeline` | 15s |
-| **Agent Fleet** | `GET /api/command/agent-fleet` | 30s |
-| **Chart Data** | `GET /api/command/chart-data` (JSON) | On demand |
-| **Dashboard Heartbeat** | `GET /api/command/events` (SSE) | Push |
-| **Alert Lineage** | `GET /api/command/alert-lineage` | On load |
-| **Operating Layer** | `GET /api/command/operating-layer` | On load |
-| **Mission SSE** | `GET /api/command/mission/events` (SSE) | Push |
-| **HITL SSE** | `GET /api/command/hitl/events` (SSE) | Push |
-| **Session SSE** | `GET /api/command/session/events` (SSE) | Push |
-
----
-
-## Core Components
-
-### Specialist Agent System
-5 workflow types dispatched from the Go core via Temporal:
-- **Chief of Staff (@sarthi/@agent/@qa/@ask)** — General Q&A, founder strategic thinking partner
-- **FP&A (@finance/@fpa)** — MRR/burn analysis, anomaly detection via FinanceGraph
-- **Growth Analytics (@data/@growth)** — Query, transform, aggregate via DataGraph
-- **Reliability & Delivery (@ops)** — Deploy, monitor, alert via OpsGraph
-- **Communications (@comms)** — Draft, summarize, tailor stakeholder communications via CommsGraph
-
-### HITL with Temporal Signals
-- AI proposes action → `planned_actions` row created with `status=pending`
-- Temporal workflow reaches `AwaitWithTimeout("hitl-approval", 48h)`
-- User clicks Approve → POST → `SignalWorkflow(ctx, id, "hitl-approval", true)`
-- Workflow unblocks, execution continues
-
-### Tool Calling Surface (ToolRegistry)
-4 tool functions defined as `ToolDef` entries in a global `TOOL_REGISTRY`, wired to HITL manager:
-
-| Tool | Tier | Trigger | Action |
-|------|------|---------|--------|
-| `pause_failed_payment_retry` | review | FG-05 (3+ failed payments) | Pause Stripe retry (real API + MOCK_MODE) |
-| `draft_investor_update` | approve | Schedule | Load MissionState + LLM draft email |
-| `schedule_customer_checkin` | auto | FG-03, BG-04 | Slack chat_postMessage via SlackClient |
-| `flag_churn_risk_customer` | auto | BG-06, BG-04 | Update churn_risk_users in MissionState |
-
-Tools auto-register via `register_tool(ToolDef(...))` on import. `get_tools_for_tier()` and `get_tools_for_patterns()` enable pattern-driven tool suggestion.
-
-### ACE Reflector Loop (Slack Integration)
-- `SlackClient` extended with `SocketModeClient` (WebSocket, no Bolt)
-- Button interactions routed in `slack_buttons.py` (5 action types)
-- ACE loop: button click → `score_from_button()` (Reflector) → `update_strategy_confidence()` (Curator)
-
-### MissionState Write Path
-- **Python AI** compiles operational state (MRR, burn, health, signals)
-- **POST** to `/api/mission-state` → **PostgreSQL** (`mission_states` table)
-- **GET** → Go templates → HTML (dashboard)
-- Fields: `prepared_brief`, `pending_decisions`, `last_updated_by`
-- Explainability: `last_update_reason`, `last_changed_fields`, `active_agent_roles`
-- Auto-generated brief: `generate_prepared_brief()` on every MissionState write
-
-### SSE Chat System
-- HTMX `hx-ext="sse"` declaratively subscribes to SSE stream
-- Server sends `event: chat` with HTML fragments as data payload
-- **SSEHub** (`sse_hub.go`): Event-type filtered fan-out hub with per-subscriber channels (buffer 64)
-  - `Subscribe(tenantID, eventTypes...)` — typed subscriptions (chat, mission, hitl, session)
-  - `Broadcast(tenantID, SSEEvent)` — delivers only to matching subscribers
-
-### Goroutine Safety Patterns
-- `sync.WaitGroup` for graceful shutdown tracking of in-flight workflow dispatches
-- Context cancellation via `c.Context().Done()` in SSE handlers
-- 5-minute context timeout merged from request context for workflow dispatch
-- `select { case ch <- msg: default: log }` prevents goroutine pile-up
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Go Core** | Go 1.24 + Fiber v2 + sqlc + HTMX |
-| **Python AI** | Python 3.13 + Temporal SDK + LangGraph + DSPy |
-| **Workflow Engine** | Temporal (1.39 SDK) |
-| **LLM** | Azure AI Foundry / Groq / Ollama (auto-detected via OpenAI SDK) |
-| **Structured Output** | Pydantic v2 (strict mode) with Literal constraints |
-| **Relational DB** | PostgreSQL (MissionState, chat, approvals, traces) |
-| **Vector Store** | Qdrant (agent memory, semantic search) |
-| **Cache** | Redis (session state, working memory) |
-| **Observability** | Langfuse v4 (LLM tracing) |
-| **Config** | Env-only via pydantic-settings — zero hardcoded secrets |
-
----
-
-## Test Coverage (901 Passing — Go Build Clean)
-
-| Suite | Tests | Status |
-|-------|-------|--------|
-| Python Unit Tests | 901 | ✅ All passing (26 skipped) |
-| Go HTMX Web Handlers | 74+ | ✅ All passing |
-| Go Build | Clean | ✅ Binary compiles successfully |
-| E2E Smoke Test | 9/9 | ✅ Real Docker + real LLM (Groq) |
-| DB Tests | 🟡 Skip | Requires PostgreSQL container |
-| Webhook Tests | 🟡 Skip | Requires Redpanda container |
 
 ---
 
@@ -285,32 +211,31 @@ Tools auto-register via `register_tool(ToolDef(...))` on import. `get_tools_for_
 
 ```
 apps/
-  core/              # Go Modular Monolith
+  core/                     # Go Modular Monolith
     cmd/
-      server/        # HTTP server entrypoint
-      worker/        # Temporal worker entrypoint
+      server/               # HTTP server entrypoint
+      worker/               # Temporal worker entrypoint
+      consumer/             # Event consumer entrypoint
     internal/
-      web/           # HTTP handlers (Fiber + HTMX + SSE)
-        handler.go       # All endpoints, @mention routing (10 aliases, 5 workflows)
-        sse.go           # SSE handler with DB polling
-        command_center_test.go  # 74+ tests including V4.2 branding/routing/mission-state
+      web/                  # HTTP handlers (Fiber + HTMX + SSE)
+        handler.go          # All endpoints, @mention routing (O(1) map, 10 aliases → 5 workflows)
+        sse.go              # SSE handler (SetBodyStreamWriter + SSEHub)
+        command_center_test.go
         templates/
-          command_center.html       # Main dashboard
-          partials/                 # HTMX partials (13+ panels)
-      agents/        # Go agent definitions
-      config/        # LLM configuration
-      db/            # sqlc generated code
-      database/      # Connection utilities
-      temporal/      # Temporal client (SignalWorkflow, ExecuteWorkflow)
-      workflow/      # Temporal workflows & stubs
-    sqlc.yaml        # sqlc configuration
-  ai/                # Python AI Worker
+          command_center.html
+          partials/         # HTMX partials (chat, approvals, mission-state, ...)
+      agents/               # Go agent definitions
+      config/               # LLM configuration
+      db/                   # sqlc generated code
+      database/             # Connection utilities
+      temporal/             # Temporal client (SignalWorkflow, ExecuteWorkflow)
+      workflow/             # Temporal workflows & stubs
+    sqlc.yaml               # sqlc configuration
+  ai/                       # Python AI Worker
     src/
-      agents/
-        comms/       # V4.1 — CommsGraph (real implementation)
-        base/        # Abstract agent class, tool framework
-        tools/       # ToolRegistry + 4 ToolDef implementations
-      workflows/
+      ontology/             # V4.2 — Object Types, Link Types, Adapter, Governance
+      agents/               # Agent definitions (base, finance, data, ops, comms, ...)
+      workflows/            # Temporal workflow definitions
         chief_of_staff_workflow.py   # @workflow.defn(name="ChiefOfStaffWorkflow")
         fpa_workflow.py              # @workflow.defn(name="FPAWorkflow")
         growth_analytics_workflow.py # @workflow.defn(name="GrowthAnalyticsWorkflow")
@@ -320,64 +245,157 @@ apps/
         finance_workflow.py          # Backward-compat → FPAWorkflow
         data_workflow.py             # Backward-compat → GrowthAnalyticsWorkflow
         ops_workflow.py              # Backward-compat → ReliabilityWorkflow
-      schemas/
-        specialist_response.py       # V4.1 — 9-field schema with Literal constraints
-      worker.py                     # Registers all 12 workflows, 13 activities
-    tests/           # 994+ passing
+      schemas/              # Pydantic models (SpecialistResponse, guardian, ...)
+      session/              # MissionState, relevance gate
+      guardian/             # Watchlist, detector, assemblers
+      memory/               # Graphiti, Qdrant, spine
+      integrations/         # Stripe, Plaid, Slack, ERPNext, HubSpot, QuickBooks
+      services/             # Trust battery, alert gate
+      worker.py             # Registers all workflows + activities
+    tests/                  # Pytest suite (901 passing / 26 skipped)
+    pyproject.toml          # Python dependencies
 ```
 
 ---
 
-## Quick Start
+## Getting Started
+
+### Prerequisites
+
+- **Docker** (Temporal, Qdrant, PostgreSQL)
+- **Go 1.24**
+- **Python 3.13** with [`uv`](https://github.com/astral-sh/uv)
+
+### Quickstart
 
 ```bash
-# Start infrastructure
-docker start ontology_ai-postgres ontology_ai-qdrant ontology_ai-redis
+# 1. Start infrastructure (Temporal, Qdrant, PostgreSQL)
+make up
 
-# Run Python tests
-cd apps/ai && uv run pytest tests/ -v
-
-# Run Go web handler tests
-cd apps/core && go test ./internal/web/... -v
-
-# Start Python Temporal worker
-cd apps/ai && uv run python -m src.worker
-
-# Start Go server
+# 2. Run the Go server (HTTP + HTMX + SSE)
 cd apps/core && go run cmd/server/main.go
 
-# Verify SSE chat works
-# Open http://localhost:8080/command
-# Type "@finance What's my current burn?" → see "🤔 Thinking..." → see answer
+# 3. Run the Go Temporal worker (in a second terminal)
+cd apps/core && go run cmd/worker/main.go
+
+# 4. Install Python deps and run the Python Temporal worker (third terminal)
+cd apps/ai && uv sync
+cd apps/ai && uv run python -m src.worker
+
+# 5. Open the command center
+#    http://localhost:8080/command
+#    Type "@finance What's my current burn?" → see "🤔 Thinking..." → see the answer
 ```
+
+### Run the tests
+
+```bash
+# Go — all packages
+cd apps/core && go test ./...
+
+# Go — web handlers only
+cd apps/core && go test ./internal/web/... -v
+
+# Python — full suite (901 passing / 26 skipped)
+cd apps/ai && uv run pytest tests/ -v
+
+# Python — ontology TDD suites (42 tests)
+cd apps/ai && uv run pytest tests/test_ontology_schema.py tests/test_ontology_adapter.py tests/test_ontology_governance.py -v
+```
+
+### Environment variables (LLM providers)
+
+The system uses the official OpenAI-compatible SDK, auto-detecting the configured provider:
+
+| Provider | Variables |
+|----------|-----------|
+| **Azure AI Foundry** | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` |
+| **Groq** | `GROQ_API_KEY` |
+| **OpenAI** | `OPENAI_API_KEY` |
+| **Ollama** (local) | `OLLAMA_BASE_URL`, `OLLAMA_API_KEY` |
+
+Secrets live in a local `.env` file (never committed). See `internal/config/llm.go` for auto-detection logic.
 
 ---
 
-## Migration Notes (TrackGuard / Sarthi → OntologyAI)
+## Architecture Decision Records
+
+These ADRs capture the load-bearing architectural decisions. Each follows an RFC 2119-style **Status / Context / Decision / Consequences** structure.
+
+### ADR-001: Rebrand TrackGuard / Sarthi → OntologyAI
+
+- **Status:** Accepted
+- **Context:** The product was known as *TrackGuard* / *Sarthi*. As the scope expanded from alert-tracking to a full business Ontology with governed specialist agents, the old name no longer reflected the product. A rebrand risked breaking existing deployments, chat aliases, migration filenames, and Docker/container names that external tooling depended on.
+- **Decision:** Rebrand the product to **OntologyAI** across all user-facing surfaces (page titles, display names, documentation). To preserve compatibility we **MUST** keep:
+  - the `@sarthi` chat alias (and `@agent`, `@qa`, `@ask`) routing to `ChiefOfStaffWorkflow`;
+  - SQL migration filenames and Docker service/container names (e.g. `iterateswarm-api`);
+  - the Temporal task queue constant `TRACKGUARD-MAIN-QUEUE`.
+  Internal Pydantic `Sarthi*` types were fully renamed to `OntologyAI*` with zero dangling references.
+- **Consequences:**
+  - *Positive:* A name that matches the product's actual scope; clean, consistent branding for newcomers.
+  - *Negative:* Two names coexist in the codebase (product = OntologyAI; some infra identifiers retain the legacy name), which must be documented to avoid confusion (see [History / Migration](#history--migration)).
+
+### ADR-002: Five frozen canonical specialist workflows with O(1) `@mention` map routing
+
+- **Status:** Accepted
+- **Context:** Earlier versions used a growing `if/else if` chain for `@mention` routing, and a 6-specialist roster that included Hiring. Adding a specialist required editing routing code, and the chain was O(n). The roster needed to be frozen to a stable, well-understood set.
+- **Decision:** Freeze **five** canonical workflows — `ChiefOfStaffWorkflow`, `FPAWorkflow`, `GrowthAnalyticsWorkflow`, `ReliabilityWorkflow`, `CommsWorkflow` — and replace the `if/else` chain with a declarative `map[string]specialistRoute` providing O(1) lookup. Adding a specialist is now **one map entry + one Python workflow class**; no handler changes. The Hiring specialist was removed from the canonical set.
+- **Consequences:**
+  - *Positive:* O(1) routing; new specialists are data-driven; the roster is stable and documented.
+  - *Negative:* Workflow type strings are not compile-time checked — a typo fails at runtime. Mitigated by a test that verifies every route's workflow name matches a registered Temporal workflow.
+
+### ADR-003: Governed-write blast-radius gate for ontology mutations
+
+- **Status:** Accepted
+- **Context:** Specialists can propose writes with real-world impact (cancel a subscription, change an incident severity, send a customer message). Unbounded autonomous writes are unsafe for a founder-facing product. The system already used Temporal `AwaitWithTimeout` HITL gates for planned actions; ontology mutations needed the same guarantee at the data layer.
+- **Decision:** Introduce `@governed_write` plus an `OBJECT_WRITE_POLICY` registry. A write is blocked and routed through a `PlannedAction` (requiring human approval) when either (a) the property is `requires_approval=True`, or (b) its effective blast radius is at/above a configurable threshold (default `"medium"`; `"low"` writes proceed). The decorator mirrors the Temporal HITL pattern: it returns the `PlannedAction` and intentionally does **not** execute the underlying write. Four reference wrappers demonstrate the contract per specialist (`governed_fpa_cancel`, `governed_growth_flag`, `governed_reliability_incident_update`, `governed_comms_send`).
+- **Consequences:**
+  - *Positive:* Consequential writes are never silent; a single, overridable policy source governs blast radius; the contract is unit-testable in isolation.
+  - *Negative:* Every governed write adds a round-trip (propose → approve → execute); the policy source must be kept in sync with the actual specialist actions.
+
+### ADR-004: SSE + HTMX `SetBodyStreamWriter` for streaming chat
+
+- **Status:** Accepted
+- **Context:** The original client used raw JavaScript `EventSource` with client-side DOM construction for every chat bubble — duplicating template logic and adding ~40 lines of reconnect/parse JS. Synchronous `run.Get()` in the HTTP handler also blocked responses for up to 60s.
+- **Decision:** Stream chat over Server-Sent Events using Fiber's `SetBodyStreamWriter` with a `*bufio.Writer`, and let HTMX's `hx-ext="sse"` manage the connection lifecycle declaratively (`sse-connect` / `sse-swap` / `hx-swap`). The server renders chat bubbles as HTML fragments (`renderChatBubble()`) and pushes them as named SSE events (`event: chat`); all user/LLM text is `html.EscapeString()`-escaped. An `SSEHub` provides event-type-filtered, per-subscriber fan-out (buffered 64).
+- **Consequences:**
+  - *Positive:* ~40 fewer lines of JS; auto-reconnect built in; single source of truth for HTML; XSS-safe; immediate "Thinking…" feedback via non-blocking `tryBroadcast()`.
+  - *Negative:* HTML fragments over SSE inflate bandwidth vs JSON; harder to integrate non-HTMX clients; error handling moves into goroutine closures (log-based monitoring required).
+
+---
+
+## History / Migration
 
 > The product was rebranded to **OntologyAI**. The notes below record what changed so the old names are not mistaken for current branding.
 
-- **Branding**: "TrackGuard" / "Sarthi" → "OntologyAI" across all page titles, display names, and documentation.
-- **Chat alias preserved**: `@sarthi` still routes to `ChiefOfStaffWorkflow` for backward compatibility (along with `@agent`, `@qa`, `@ask`).
-- **Schema types renamed**: internal Pydantic `Sarthi*` types renamed to `OntologyAI*` — complete rename, zero dangling `Sarthi` references in code (no backward-compat alias).
-- **Scheduler renamed**: `trackguard_scheduler.py` → `ontology_ai_scheduler.py`.
-- **Not renamed (backward compat)**: SQL migration filenames (e.g. `008_sarthi_internal_ops.sql`) and Docker service/container names (e.g. `iterateswarm-api`) keep their names — only header comments / comments were updated. The Temporal task queue constant `TRACKGUARD-MAIN-QUEUE` is also retained.
-- **Specialist roster**: 6 specialists → 5 canonical specialists (Hiring removed).
-- **Workflow renames**: QAWorkflow → ChiefOfStaffWorkflow, FinanceWorkflow → FPAWorkflow, DataWorkflow → GrowthAnalyticsWorkflow, OpsWorkflow → ReliabilityWorkflow.
-- **SpecialistResponse**: New Pydantic schema enforces valid specialist names and workflow names via Literal types.
-- **API endpoints**: `GET /api/mission-state` and `POST /api/mission-state` added for Python AI ↔ Go Core integration.
+- **Branding:** "TrackGuard" / "Sarthi" → "OntologyAI" across all page titles, display names, and documentation.
+- **Chat alias preserved:** `@sarthi` still routes to `ChiefOfStaffWorkflow` for backward compatibility (along with `@agent`, `@qa`, `@ask`).
+- **Schema types renamed:** internal Pydantic `Sarthi*` types renamed to `OntologyAI*` — complete rename, zero dangling `Sarthi` references in code.
+- **Not renamed (backward compat):** SQL migration filenames (e.g. `008_sarthi_internal_ops.sql`) and Docker service/container names (e.g. `iterateswarm-api`) keep their names. The Temporal task queue constant **`TRACKGUARD-MAIN-QUEUE`** is also retained.
+- **Specialist roster:** 6 specialists → 5 canonical specialists (Hiring removed).
+- **Workflow renames:** `QAWorkflow` → `ChiefOfStaffWorkflow`, `FinanceWorkflow` → `FPAWorkflow`, `DataWorkflow` → `GrowthAnalyticsWorkflow`, `OpsWorkflow` → `ReliabilityWorkflow`. Backward-compat re-exports (`qa_workflow.py`, `finance_workflow.py`, `data_workflow.py`, `ops_workflow.py`) are preserved with deprecation warnings.
+- **API endpoints:** `GET /api/mission-state` and `POST /api/mission-state` added for Python AI ↔ Go Core integration.
 
 ---
 
-## Development Principles
+## Contributing & Conventions
 
-1. **Decision latency** — every feature must shorten the time between signal and action
-2. **SSE-first** — push over pull; real-time streams over polling
-3. **Exception quality** — high trust beats high volume; reduce false positives
-4. **Founder cognition** — fewer, sharper, more actionable messages
-5. **Trust gradually** — copilot → workflow assistant → semi-autonomous → autonomous
-6. **No hardcoded secrets** — env-only configuration, centralized in `config/database.py`
-7. **Composition over inheritance** — new packages import and nest existing schemas, never modify them
-8. **Deterministic core** — finance, guardrails, and forecasting are pure Python with zero LLM calls
-9. **Explainability** — every MissionState write carries reason, changed fields, and active agent roles
-10. **Authority boundaries** — agents declare permissions in authority_manifest; tools check allowlists
+- **Feature branches:** `git checkout -b feature/description` — never commit directly to `main`.
+- **Conventional Commits:** `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`.
+- **Never commit to `main`.** Open a PR from your feature branch.
+- **Secrets:** use a local `.env` file; never commit secrets.
+- **Agent guidelines:** full coding standards, build/test commands, and the specialist route-map pattern live in [`AGENTS.md`](./AGENTS.md) at the repo root.
+- **Database:** use `sqlc` for type-safe SQL; regenerate generated code after schema changes.
+
+---
+
+## Test Coverage
+
+| Suite | Tests | Status |
+|-------|-------|--------|
+| Python Unit Tests | 901 passing / 26 skipped / 0 failed | ✅ |
+| Ontology TDD (schema + adapter + governance) | 42 (23 + 12 + 7) | ✅ |
+| Go HTMX Web Handlers | 74+ | ✅ |
+| Go Build | Clean | ✅ Binary compiles |
+| E2E Smoke Test | 9/9 | ✅ Real Docker + real LLM |
+| DB Tests | — | 🟡 Skip (requires PostgreSQL container) |
