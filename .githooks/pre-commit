@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-commit hook: runs Go quality checks on staged Go files.
+
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.go$' || true)
+if [ -z "$STAGED_GO" ]; then
+    exit 0
+fi
+
+APPS_CORE=$(git rev-parse --show-toplevel)/apps/core
+
+# go fmt
+echo "-> go fmt..."
+UNFORMATTED=$(cd "$APPS_CORE" && gofmt -l $STAGED_GO 2>/dev/null)
+if [ -n "$UNFORMATTED" ]; then
+    echo "FAILED: The following files are not gofmt'd:"
+    echo "$UNFORMATTED"
+    exit 1
+fi
+
+# go vet (on whole package to avoid missing cross-file issues)
+echo "-> go vet..."
+(cd "$APPS_CORE" && go vet ./internal/... 2>&1) || {
+    echo "FAILED: go vet found issues"
+    exit 1
+}
+
+echo "Pre-commit: All Go gates passed"
