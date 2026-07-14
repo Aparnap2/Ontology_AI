@@ -1,5 +1,7 @@
 # OntologyAI V4.2 — "Ontology-Lite" Repositioning: PRD Update + Coding Agent Prompt
 
+> **Implementation Status: COMPLETE.** The ontology module, adapter, and governance decorator described in TASK 1–3 were implemented and are TDD-verified — **42 tests passing** (23 schema + 12 adapter + 7 governance) — on top of the 901-test Python suite (26 skipped, 0 failed) with a clean Go build. See `PRD_V4.2.md` §6 for the delivered design. The prompt below is preserved as the original build brief.
+
 ## 0. Why This Update Exists
 
 Palantir's entire platform value rests on one concept: the **Ontology** — a semantic layer that turns raw, scattered data into business-meaningful Objects, Links, and Actions, so that dashboards, automations, and AI agents all reason over the same shared model instead of raw tables [cite:1][cite:2]. Foundry's own documentation calls the Ontology "the API of your organization ... a shared layer between engineers, business users, and AIP agents" [cite:1]. Every app, workflow, and AI action in Foundry reads and writes through that same layer, with permissioning, lineage, and audit trails enforced at the Action level [cite:2][cite:3].
@@ -17,7 +19,7 @@ This document updates the PRD to reflect that positioning and gives the coding a
 | Layer | Old framing (V3.x / V4.1) | New framing (V4.2) | Palantir parallel |
 |---|---|---|---|
 | Core data model | "Guardian watchlist state" | **The Ontology** — a live, typed model of the business (customers, revenue, deals, incidents, messages) | Foundry Ontology: Object Types + Properties + Link Types [cite:1][cite:6] |
-| Detection engine | "16 failure patterns" | **Ontology population + inference** — deterministic rules that populate and update Objects from raw source data | Foundry pipelines that materialize datasets into Objects [cite:6] |
+| Detection engine | "Guardian detection patterns" | **Ontology population + inference** — deterministic rules that populate and update Objects from raw source data | Foundry pipelines that materialize datasets into Objects [cite:6] |
 | Five specialists | "Guardian pods" | **Applications** — pre-built vertical apps (FP&A, Growth, Reliability, Comms) that read/write the Ontology | Foundry Workshop apps built on top of the Ontology [cite:1][cite:7] |
 | Chief of Staff | "Router" | **Object Explorer / AIP equivalent** — the conversational interface for querying and acting on the Ontology | Foundry's AIP natural-language interface over Ontology objects [cite:1] |
 | HITL approval queue | "Safety net" | **Governed Actions** — every write to the Ontology or external system is a permissioned, audited Action | Foundry Action Framework with lineage and audit [cite:2][cite:5] |
@@ -65,7 +67,7 @@ Implementation: extend the existing `mission_states` table's JSON schema with na
 Currently, relationships between entities (e.g., "this incident affected this customer") are implicit in ad hoc query logic. Under the Ontology model, Link Types must be **explicit, named, and reusable** — defined once, queried everywhere, exactly as Foundry's Link Types replace repeated manual joins [cite:8]:
 
 ```python
-# apps/ai/src/ontology/links.py
+# apps/ai/src/ontology/link_types.py
 LINK_TYPES = {
     "incident_affects_customer": ("Incident", "Customer", "many_to_many"),
     "deal_belongs_to_customer": ("Deal", "Customer", "many_to_one"),

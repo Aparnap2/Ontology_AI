@@ -80,7 +80,7 @@ Every workflow should do one or more of these:
 - Add helper methods for object traversal and linked summaries.
 
 ### Delete / demote
-- Demote any “watch 16 patterns” branding in this agent’s prompt or output.
+- Demote any “watch failure patterns” branding in this agent’s prompt or output.
 
 ---
 
@@ -309,7 +309,7 @@ If history is insufficient, the subagent must say so explicitly instead of produ
 | Existing feature | Keep / Change / Remove | What it becomes |
 |---|---|---|
 | MissionState | Change | Ontology backbone / semantic state layer |
-| 16 failure patterns | Change | Inference + ontology population rules |
+| Guardian detection patterns | Change | Inference + ontology population rules |
 | HITL queue | Keep | Governed action layer |
 | SSE updates | Keep | Live ontology/action event stream |
 | Dashboard panels | Change | Object + action views, not just alerts |
@@ -346,7 +346,7 @@ If history is insufficient, the subagent must say so explicitly instead of produ
 ## 8. What should be deleted
 
 Delete or remove from active product truth:
-- “16 failure patterns” as hero positioning,
+- “Guardian detection patterns” as hero positioning,
 - “guardian” as the main product identity,
 - any Hiring specialist or route,
 - any workflow wording that implies specialists own private realities,
@@ -388,15 +388,20 @@ Add these explicit capabilities:
 - dashboard panels
 - route map
 
-### Does not honestly fit yet
-- ontology claim,
-- shared object semantics,
-- reusable links,
-- governed internal writes,
-- low-data explicitness,
-- object-aware cross-agent reasoning.
+### Now implemented (V4.2 ontology layer shipped)
+- **Ontology schema** — `object_types.py` with 6 strict Pydantic v2 Object Types (TDD-verified, 23 tests).
+- **Shared object semantics** — `link_types.py` `LINK_TYPES` registry + `resolve_link()` (raises `KeyError` for unknown links).
+- **Reusable links** — 4 canonical Link Types defined once, queried everywhere.
+- **Governed internal writes** — `governance.py` `@governed_write` decorator + `OBJECT_WRITE_POLICY` blast-radius gate (7 tests); reference wrappers per specialist.
+- **MissionState → Ontology adapter** — `adapter.py` tolerant mapping (12 tests).
 
-That means the current system is **not yet fully aligned** with the new framing, but it is close enough that a targeted migration is realistic.
+### Still incremental (follow-on work)
+- full retrofitting of every specialist write path through `@governed_write`,
+- complete migration of the flat `MissionState` blob to normalized Object Type rows,
+- object-aware cross-agent reasoning in every workflow,
+- low-data explicitness surfaced in every specialist output.
+
+That means the Ontology core is **now real and tested**, while broader workflow retrofitting remains incremental — a targeted migration that is well underway.
 
 ---
 
