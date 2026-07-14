@@ -1,4 +1,4 @@
-# Sarthi — Product Requirements Document
+# OntologyAI — Product Requirements Document
 ## AI Coordination Layer for Solo Founders | Version 4.0
 
 **Last Updated:** June 28, 2026
@@ -47,17 +47,17 @@
 
 ## 1. Executive Summary
 
-# Sarthi V4.0 — AI Coordination Layer for SaaS Founders
+# OntologyAI V4.0 — AI Coordination Layer for SaaS Founders
 
 **Version:** 4.0 (Complete)
 **Status:** ✅ V4.0 Complete — Chat/SSE/Specialist Evolution
 **Test Coverage:** 319 Python + 52 Go web handlers passing, Go build clean
 
-**Product Truth:** Sarthi is an **AI coordination layer** — not a dashboard maker, not a chatbot, not an automated CFO. It is the connective tissue between what a founder asks and what actually happens. Every decision routes through a deterministic Go core, dispatches to domain-specific Python specialist agents via Temporal, and delivers results via server-rendered SSE streaming.
+**Product Truth:** OntologyAI is an **AI coordination layer** — not a dashboard maker, not a chatbot, not an automated CFO. It is the connective tissue between what a founder asks and what actually happens. Every decision routes through a deterministic Go core, dispatches to domain-specific Python specialist agents via Temporal, and delivers results via server-rendered SSE streaming.
 
 **An assistant waits to be asked. A specialist knows its domain. A coordination layer routes to the right specialist without the founder needing to know who does what.**
 
-**What Sarthi V4.0 delivers:**
+**What OntologyAI V4.0 delivers:**
 1. **SSE Chat Interface** — HTMX `hx-ext="sse"` with server-rendered chat bubbles. No WebSocket, no client-side templating. ~40 fewer lines of JS.
 2. **Goroutine-based Workflow Dispatch** — Temporal `ExecuteWorkflow` runs in background goroutine. Immediate "🤔 Thinking..." via non-blocking `tryBroadcast()`. No more 60s HTTP timeouts.
 3. **Specialist Agents** — 6 domain-specific agents (Finance, Data, Ops, Comms, Hiring, QA) each with LangGraph graph + Temporal workflow. O(1) map-based routing.
@@ -150,7 +150,7 @@ Agent proposes action → INSERT planned_actions (status=pending)
   → Workflow unblocks, continues execution
 ```
 
-> Full architecture decisions documented in [ADR-001: Sarthi v4.0 Architecture Evolution](../.opencode/context/adr/001-sarthi-v4-architecture-evolution.md)
+> Full architecture decisions documented in [ADR-001: OntologyAI v4.0 Architecture Evolution](../.opencode/context/adr/001-sarthi-v4-architecture-evolution.md)
 
 ---
 
@@ -343,7 +343,7 @@ External Event (payment / expense / NL query)
 
 ## 8. Chief of Staff Features (V3.0 Legacy)
 
-Sarthi V3.0 adds **Chief of Staff capabilities** — proactive support for founder operations beyond passive monitoring.
+OntologyAI V3.0 adds **Chief of Staff capabilities** — proactive support for founder operations beyond passive monitoring.
 
 ### 7.1 Decision Journal
 
@@ -374,7 +374,7 @@ CREATE TABLE decisions (
 | ChiefOfStaffWorkflow | Temporal workflow triggered on TIME_TICK_WEEKLY |
 | Data Sources | Metrics + Alerts (7 days) + Decisions (7 days) + Investor Status |
 | LLM Synthesis | WEEKLY_SYNTHESIS_PROMPT generates 300-word brief |
-| Delivery | Slack message with "Ask Sarthi anything" button |
+| Delivery | Slack message with "Ask OntologyAI anything" button |
 
 **Brief Format:**
 - 🎯 ONE THING — single most important thing this week
@@ -474,7 +474,7 @@ CREATE TABLE candidates (
 
 ## 9. Guardian Watchlist (17 Patterns — V2.0 Legacy)
 
-Sarthi watches continuously for 17 seed-stage failure patterns across three domains. No founder needs to know to ask — Sarthi detects before they know to look.
+OntologyAI watches continuously for 17 seed-stage failure patterns across three domains. No founder needs to know to ask — OntologyAI detects before they know to look.
 
 ### 8.1 Finance Guardian (FG-01 to FG-06)
 
@@ -512,7 +512,7 @@ Sarthi watches continuously for 17 seed-stage failure patterns across three doma
 
 ## 10. Memory Spine (5 Layers — V2.0 Legacy)
 
-Sarthi's memory compounds with every event. Five layers, each with distinct purpose and TTL:
+OntologyAI's memory compounds with every event. Five layers, each with distinct purpose and TTL:
 
 | Layer | Backend | TTL | Purpose |
 |-------|---------|-----|---------|
@@ -1194,7 +1194,7 @@ open http://localhost:8080/command
 ## Appendix: 3-Minute Demo Script (V4.0)
 
 ```
-[0:00] "Sarthi V4.0 is an AI coordination layer for solo founders.
+[0:00] "OntologyAI V4.0 is an AI coordination layer for solo founders.
         Server-rendered command center with SSE push,
         goroutine-based Temporal dispatch, and domain-specific
         Python specialist agents."
@@ -1233,7 +1233,7 @@ open http://localhost:8080/command
         no 60s timeouts. Temporal Signal HITL —
         buttons actually work."
 
-[2:40] "This is Sarthi V4.0. Not a dashboard maker.
+[2:40] "This is OntologyAI V4.0. Not a dashboard maker.
         Not a chatbot. An AI coordination layer
         that routes to the right specialist
         without the founder needing to know who does what."

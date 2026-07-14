@@ -245,7 +245,9 @@ func TestEnergyScoreRange(t *testing.T) {
 // TestWeekStartCalculation tests week start date calculation.
 func TestWeekStartCalculation(t *testing.T) {
 	now := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
-	weekStart := now.Truncate(7 * 24 * time.Hour)
+	// Calculate Monday of the week: weekday + 6 mod 7 gives days since Monday
+	daysSinceMonday := int((now.Weekday() + 6) % 7)
+	weekStart := now.AddDate(0, 0, -daysSinceMonday)
 
 	if weekStart.After(now) {
 		t.Error("expected weekStart to be before or equal to now")
@@ -254,7 +256,7 @@ func TestWeekStartCalculation(t *testing.T) {
 	// Week start should be at most 6 days before now
 	diff := now.Sub(weekStart)
 	if diff > 6*24*time.Hour {
-		t.Error("expected weekStart to be within 6 days")
+		t.Errorf("expected weekStart to be within 6 days, got %v", diff)
 	}
 }
 

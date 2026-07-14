@@ -1101,7 +1101,7 @@ func (h *Handler) GetLogsData(c *fiber.Ctx) error {
 	})
 }
 
-// ============== TrackGuard Enhancements ==============
+// ============== OntologyAI Enhancements ==============
 
 // FinanceAlert represents a finance anomaly alert
 type FinanceAlert struct {
@@ -1271,7 +1271,7 @@ func (h *Handler) GetRecentBIQueries(c *fiber.Ctx) error {
 // FounderDashboard serves the founder dashboard page
 func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
 	return Render(c, "founder_dashboard", fiber.Map{
-		"Title": "TrackGuard — Your Patterns",
+		"Title": "OntologyAI — Your Patterns",
 	})
 }
 
@@ -1280,7 +1280,7 @@ func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
 // CommandCenter serves the command center dashboard page
 func (h *Handler) CommandCenter(c *fiber.Ctx) error {
 	return Render(c, "command_center", fiber.Map{
-		"Title": "TrackGuard Command Center",
+		"Title": "OntologyAI Command Center",
 	})
 }
 
@@ -2895,7 +2895,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/api/telemetry/metrics", h.GetMetricsData)
 	app.Get("/api/telemetry/logs", h.GetLogsData)
 
-	// TrackGuard Enhancements
+	// OntologyAI Enhancements
 	app.Get("/api/finance/alerts", h.GetFinanceAlerts)
 	app.Get("/api/bi/recent", h.GetRecentBIQueries)
 

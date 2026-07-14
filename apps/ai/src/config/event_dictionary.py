@@ -1,5 +1,5 @@
 """
-Event Dictionary for TrackGuard v1.0.
+Event Dictionary for OntologyAI v1.0.
 
 Maps every (source, event_type) pair to exactly one agent.
 Enforced in code — unknown events raise UnknownEventError.
@@ -25,7 +25,7 @@ class UnknownEventError(KeyError):
     pass
 
 
-# Registry of events for TrackGuard v1.0 (4 agents: Pulse, Anomaly, Investor, QA)
+# Registry of events for OntologyAI v1.0 (4 agents: Pulse, Anomaly, Investor, QA)
 _REGISTRY: List[DictionaryEntry] = [
     # ── TELEGRAM ──────────────────────────────────────────────
     DictionaryEntry("telegram", "QUERY_INBOUND", "ChiefOfStaffAgent", ["Chief of Staff"]),
@@ -38,7 +38,7 @@ _REGISTRY: List[DictionaryEntry] = [
 
 class EventDictionary:
     """
-    Event dictionary for TrackGuard v1.0.
+    Event dictionary for OntologyAI v1.0.
 
     Resolves (source, event_type) pairs to their corresponding
     agent and responsible employees.

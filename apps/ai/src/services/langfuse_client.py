@@ -1,5 +1,5 @@
 """
-Langfuse client wrapper for TrackGuard v1.0.
+Langfuse client wrapper for OntologyAI v1.0.
 
 If LANGFUSE_ENABLED=false or keys are missing — all calls become no-ops.
 This ensures zero code changes needed to disable observability.
@@ -9,7 +9,7 @@ import logging
 from functools import lru_cache
 from typing import Optional, Dict, Any
 
-log = logging.getLogger("trackguard.langfuse")
+log = logging.getLogger("ontology_ai.langfuse")
 
 ENABLED = os.getenv("LANGFUSE_ENABLED", "false").lower() == "true"
 

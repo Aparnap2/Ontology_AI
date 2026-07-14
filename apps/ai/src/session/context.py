@@ -1,7 +1,7 @@
 """
-Session Context — #trackguard channel history.
+Session Context — #ontology_ai channel history.
 
-Per PRD Section 7: One Slack channel: #trackguard.
+Per PRD Section 7: One Slack channel: #ontology_ai.
 All agents and founder share this session.
 """
 from __future__ import annotations
@@ -23,11 +23,11 @@ DATABASE_URL = get_database_url()
 
 @dataclass
 class SessionMessage:
-    """A single message in the #trackguard session."""
+    """A single message in the #ontology_ai session."""
 
     id: str | None
     tenant_id: str
-    role: Literal["founder", "finance", "bi", "ops", "trackguard"]
+    role: Literal["founder", "finance", "bi", "ops", "ontology_ai"]
     content: str
     agent_name: str | None
     created_at: datetime
@@ -37,7 +37,7 @@ async def get_session_context(
     tenant_id: str,
     limit: int = 10,
 ) -> list[SessionMessage]:
-    """Get last N messages from #trackguard session.
+    """Get last N messages from #ontology_ai session.
 
     Per PRD Section 7: All agents read session context.
     Co-founder agent reads, employees write.
@@ -82,11 +82,11 @@ async def get_session_context(
 
 async def write_session_message(
     tenant_id: str,
-    role: Literal["founder", "finance", "bi", "ops", "trackguard"],
+    role: Literal["founder", "finance", "bi", "ops", "ontology_ai"],
     content: str,
     agent_name: str | None = None,
 ) -> bool:
-    """Write a message to the #trackguard session.
+    """Write a message to the #ontology_ai session.
 
     Per PRD Section 7: Every message the founder types is context every agent reads.
     Agents self-activate when their domain keyword is triggered.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sarthi — Gate 2: New Agent Tests Must Pass
+# OntologyAI — Gate 2: New Agent Tests Must Pass
 # Run this AFTER Gate 1 passes, BEFORE any deletion
 # Usage: bash scripts/gate2_new_tests_pass.sh
 

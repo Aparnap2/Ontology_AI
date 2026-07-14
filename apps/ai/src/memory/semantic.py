@@ -10,7 +10,24 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
+# Load .env at module import time so all env vars are available early
+_env_loaded = False
+if not _env_loaded and not os.environ.get("OPENROUTER_API_KEY"):
+    try:
+        env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if k not in os.environ:
+                        os.environ[k] = v
+    except Exception:
+        pass
+_env_loaded = True
 
 try:
     from graphiti_core import Graphiti
@@ -489,6 +506,11 @@ def _create_graphiti_client(uri: str, user: str, password: str) -> Graphiti:
     
     embedder = OpenRouterEmbedder(api_key=embed_key)
 
+    # Graphiti's internal OpenAIRerankerClient needs an API key -
+    # reuse OpenRouter key so it can instantiate without crashing
+    if openrouter_key and not os.environ.get("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = openrouter_key
+
     client = Graphiti(
         uri=uri,
         user=user,
@@ -512,19 +534,16 @@ class SemanticMemory:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._uri, self._user, self._password = _get_neo4j_config()
 
-    def _get_loop(self) -> asyncio.AbstractEventLoop:
-        """Get or create a persistent event loop for this instance."""
-        # Always create a fresh loop to avoid conflicts with pytest's loop
-        # The client will be used in the same loop it's created in
+    def _run_async(self, coro):
+        """Run a coroutine synchronously.
+
+        Must NOT be called from within a running event loop on the same thread.
+        Callers from async contexts should use asyncio.to_thread() to offload.
+        """
         if self._loop is None or self._loop.is_closed():
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
-        return self._loop
-
-    def _run_async(self, coro):
-        """Run a coroutine in the persistent loop."""
-        loop = self._get_loop()
-        return loop.run_until_complete(coro)
+        return self._loop.run_until_complete(coro)
 
     def available(self) -> bool:
         """Check if Graphiti is available and Neo4j is up.
@@ -534,26 +553,34 @@ class SemanticMemory:
         """
         if not GRAPHITI_AVAILABLE or Graphiti is None:
             return False
+
+        # Quick direct Neo4j check first (avoids Graphiti init overhead)
         try:
-            # Try to connect and do a simple query
+            from neo4j import GraphDatabase
+            driver = GraphDatabase.driver(self._uri, auth=(self._user, self._password))
+            with driver.session(database='neo4j') as session:
+                result = session.run('RETURN 1 AS n')
+                result.single()
+            driver.close()
+        except Exception:
+            self._client = None
+            return False
+
+        try:
             uri = self._uri
             user = self._user
             password = self._password
 
-            # Attempt connection - Graphiti will raise if 无法连接
             client = _create_graphiti_client(uri=uri, user=user, password=password)
-
-            # Do a quick health check query using persistent loop
             result = self._run_async(self._health_check(client))
             if not result:
+                self._client = None
                 return False
 
-            # Store client for later use
             self._client = client
             return True
 
         except Exception:
-            # Graphiti down or Neo4j unavailable - fallback contract
             self._client = None
             return False
 

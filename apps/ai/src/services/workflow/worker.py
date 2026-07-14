@@ -1,5 +1,5 @@
 """
-Temporal Worker for TrackGuard AI Agents.
+Temporal Worker for OntologyAI AI Agents.
 
 Registers all workflows and activities with Temporal.
 
@@ -17,7 +17,7 @@ import os
 from temporalio.client import Client
 from temporalio.worker import Worker
 
-log = logging.getLogger("trackguard.worker")
+log = logging.getLogger("ontology_ai.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
 TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")

@@ -1,4 +1,4 @@
-"""Temporal Workflows for TrackGuard AI Agents — V4.1 Canonical Names."""
+"""Temporal Workflows for OntologyAI AI Agents — V4.1 Canonical Names."""
 
 # New canonical workflow imports
 from src.workflows.chief_of_staff_workflow import ChiefOfStaffWorkflow

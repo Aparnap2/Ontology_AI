@@ -1,4 +1,4 @@
-# TrackGuard Go API Server
+# OntologyAI Go API Server
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app

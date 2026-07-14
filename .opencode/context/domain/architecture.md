@@ -120,10 +120,72 @@
 
 ### Mission State System
 
+<<<<<<< Updated upstream
 - **Python AI layer** writes compiled operational state to `mission_state` table
 - **Go handlers** read `mission_state` for dashboard KPIs, signals, health score
 - Fields: mrr, burn_rate, runway_days, burn_alert, burn_severity, trust_score, churn_rate, error_spike, active_alerts, founder_focus
+=======
+- **Python AI layer** writes compiled operational state to `mission_states` table (migration 004 reconciled schema drift `mission_state` → `mission_states`)
+- **Go handlers** read `mission_states` for dashboard KPIs, signals, health score
+- Core fields: mrr, burn_rate, runway_days, burn_alert, burn_severity, trust_score, churn_rate, error_spike, active_alerts, founder_focus
+- **New cognitive offloading fields (2026-06-28):**
+  - `prepared_brief` — LLM-generated brief prepopulated for founder context before a decision
+  - `pending_decisions` — JSONB array of open decisions awaiting founder action
+  - `last_updated_by` — Which agent/specialist last wrote to MissionState (traceability)
+- **Explainability fields (migration 005):**
+  - `last_update_reason` — why this write happened (string)
+  - `last_changed_fields` — which fields were modified (JSONB array)
+  - `active_agent_roles` — derived from authority manifest (JSONB array)
+- **Auto-generated brief:** `generate_prepared_brief()` in `apps/ai/src/session/brief_generator.py` runs on every MissionState write — 2-sentence LLM summary using max_tokens=80, temperature=0.3
+>>>>>>> Stashed changes
 - Context budget: 800 tokens max for mission state compilation
+
+### Agent Authority Manifest
+
+New in 2026-06-28. Declarative capability/escalation registry for all 5 agents.
+
+- **Location**: `apps/ai/src/agents/authority_manifest.py`
+- **Schema**: `AgentAuthority` Pydantic model with fields: agent_name, role, voice, domain, can_emit_alerts, can_execute_tools, allowed_tool_ids, escalation_tier, triggers, writes_mission_fields
+- **5 agents defined**: Sarthi (cofounder), Sarthi·Finance, Sarthi·Data, Sarthi·Ops, Correlation Agent
+- **Helper functions**: `get_authority(agent_name)`, `can_execute_tool(agent_name, tool_id)`, `get_writes_mission_fields(agent_name)`
+- **Used by**: HITL routing, tool execution guards, MissionState write-path validation
+
+### Alert Lineage
+
+New in 2026-06-28. Every `GuardianMessage` carries an `AlertLineage` schema attached.
+
+- **Schema**: `AlertLineage` Pydantic model in `apps/ai/src/schemas/guardian.py`
+- **Fields**: pattern_id, source_metrics, mission_context, raise_timeline_risk, suggested_tool_ids, owner_agent
+- **Dashboard panel**: `GET /api/command/alert-lineage` → `command_alert_lineage.html`
+- **Go handler**: `APICommandAlertLineage` in `handler.go`
+
+### MissionState Explainability
+
+New in 2026-06-28. Migration 005 adds explainability fields to `mission_states`.
+
+- **Fields**: `last_update_reason` (TEXT), `last_changed_fields` (JSONB), `active_agent_roles` (JSONB)
+- **Purpose**: Full audit trail for every MissionState write — why it happened, what changed, who was active
+- **Dashboard panel**: `GET /api/command/operating-layer` → `command_operating_layer.html`
+- **Go handler**: `APICommandOperatingLayer` in `handler.go`
+
+### Brief Generator
+
+New in 2026-06-28. Auto-generated 2-sentence business summary on every MissionState write.
+
+- **Location**: `apps/ai/src/session/brief_generator.py`
+- **Function**: `generate_prepared_brief(tenant_id)` — loads MissionState, generates brief via LLM, persists to `prepared_brief` field
+- **LLM config**: `chat_completion()` with max_tokens=80, temperature=0.3
+- **Template**: "Write 2 plain-English sentences summarising this business state. Runway: {runway_days}d | Burn alert: {burn_alert} | Churn rate: {churn_rate} | Active alerts: {active_alerts} | MRR trend: {mrr_trend} | Trust score: {trust_score}."
+- **Non-blocking**: If LLM fails, MissionState write still succeeds (brief is optional)
+
+### StrategyDelta (Audit Trail)
+
+New in 2026-06-28. Structured audit trail for curator confidence updates.
+
+- **Location**: `apps/ai/src/agents/cofounder/curator.py`
+- **Schema**: `StrategyDelta` Pydantic model with fields: strategy_id, old_confidence, new_confidence, trigger_type, trigger_alert_id, delta, timestamp
+- **Write path**: PostgreSQL first, falls back to `/tmp/strategy_audit.jsonl` if DB unavailable
+- **Purpose**: Traceable, queryable, debuggable confidence changes for curator strategies
 
 ### Goroutine Safety
 
@@ -135,18 +197,44 @@
 
 | File | Role |
 |------|------|
-| `/apps/core/internal/web/handler.go` | All HTTP handlers, @mention routing, SSE broadcasting |
+| `/apps/core/internal/web/handler.go` | All HTTP handlers, @mention routing, SSE broadcasting, alert-lineage, operating-layer |
 | `/apps/core/internal/web/sse.go` | Legacy SSE handler with DB polling |
+| `/apps/core/internal/web/sse_hub.go` | SSEHub fan-out hub with event-type filtering (Subscribe/Broadcast) |
 | `/apps/core/internal/temporal/client.go` | Temporal client wrapper (SignalWorkflow, ExecuteWorkflow) |
 | `/apps/core/internal/workflow/stubs.go` | DiscordApprovalInput type (cleaned) |
-| `/apps/core/internal/db/schema/command_center.sql` | Schema: mission_state, planned_actions, agent_traces, chat_messages |
+| `/apps/core/internal/db/schema/command_center.sql` | Schema: mission_states, planned_actions, agent_traces, chat_messages |
+| `/apps/core/internal/db/migrations/005_mission_state_explainability.sql` | Migration: last_update_reason, last_changed_fields, active_agent_roles |
 | `/apps/core/internal/web/templates/command_center.html` | Main dashboard template (HTMX + SSE + Chart.js) |
 | `/apps/core/internal/web/templates/partials/command_chat.html` | Chat panel with SSE extension |
 | `/apps/core/internal/web/templates/partials/command_approvals.html` | Approval queue UI (approve/hold) |
+<<<<<<< Updated upstream
 | `/apps/core/internal/web/command_center_test.go` | Test suite (52 tests covering chat, approvals, mission state, SSE) |
 | `/apps/ai/src/workflows/finance_workflow.py` | Finance specialist Temporal workflow |
 | `/apps/ai/src/workflows/data_workflow.py` | Data specialist Temporal workflow |
 | `/apps/ai/src/workflows/ops_workflow.py` | Ops specialist Temporal workflow |
+=======
+| `/apps/core/internal/web/templates/partials/command_alert_lineage.html` | Alert lineage panel (pattern, metrics, risk, suggested tools) |
+| `/apps/core/internal/web/templates/partials/command_operating_layer.html` | Operating layer panel (brief, last writer, pending decisions, active roles) |
+| `/apps/core/internal/web/command_center_test.go` | Test suite (19+ command center tests, part of 74+ web tests) |
+| `/apps/ai/src/agents/authority_manifest.py` | Agent authority/permissions registry (5 agents) |
+| `/apps/ai/src/agents/tools/__init__.py` | ToolRegistry with ToolDef dataclass, auto-registration, tier queries |
+| `/apps/ai/src/agents/tools/pause_payment_retry.py` | Tool: Pause Stripe retry (tier: review) |
+| `/apps/ai/src/agents/tools/draft_investor_update.py` | Tool: Draft investor email (tier: approve) |
+| `/apps/ai/src/agents/tools/schedule_customer_checkin.py` | Tool: Schedule at-risk checkin (tier: auto) |
+| `/apps/ai/src/agents/tools/flag_churn_risk.py` | Tool: Flag churn risk segment (tier: auto) |
+| `/apps/ai/src/agents/cofounder/curator.py` | Curator with StrategyDelta audit trail |
+| `/apps/ai/src/session/brief_generator.py` | Auto-generated 2-sentence business brief on MissionState write |
+| `/apps/ai/src/session/mission_state.py` | MissionState dataclass with explainability fields |
+| `/apps/ai/src/schemas/guardian.py` | GuardianMessage with AlertLineage schema |
+| `/apps/ai/src/workflows/finance_workflow.py` | Finance specialist Temporal workflow |
+| `/apps/ai/src/workflows/data_workflow.py` | Data specialist Temporal workflow |
+| `/apps/ai/src/workflows/ops_workflow.py` | Ops specialist Temporal workflow |
+| `/apps/ai/src/integrations/slack_client.py` | Slack WebClient + SocketModeClient for interactive messages |
+| `/apps/ai/src/integrations/slack_buttons.py` | ACE button routing (acknowledge, dispute, breakdown, log_decision) |
+| `/apps/ai/src/hitl/manager.py` | HITLManager with route_extended for guardrail-aware tier routing |
+| `/apps/ai/src/hitl/confidence.py` | Confidence scoring (pattern_seen_before, data_quality, volatility) |
+| `/apps/ai/src/hitl/approval_queue.py` | Approval request/response with Slack notification |
+>>>>>>> Stashed changes
 
 ## Architecture Evolution (2026-06-28)
 

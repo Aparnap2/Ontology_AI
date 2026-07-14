@@ -1,7 +1,7 @@
 {
   "uuid": "sarthi-hitl-testing",
   "lastMigration": 32,
-  "name": "Sarthi v1.0 — HITL + BI Query Mocks",
+  "name": "OntologyAI v1.0 — HITL + BI Query Mocks",
   "endpointPrefix": "",
   "latency": 0,
   "port": 3000,

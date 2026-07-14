@@ -1,4 +1,4 @@
-"""LLM client factory for TrackGuard v4.2 — single source of truth using OpenAI SDK.
+"""LLM client factory for OntologyAI v4.2 — single source of truth using OpenAI SDK.
 
 Providers: Groq (primary), OpenAI, OpenRouter.
 All LLM calls MUST go through this module. No direct client instantiation elsewhere.
@@ -171,6 +171,7 @@ def _build_kwargs(
     **extra: Any,
 ) -> dict[str, Any]:
     """Build kwargs dict for chat completion requests."""
+    extra.pop("tenant_id", None)
     kwargs: dict[str, Any] = {
         "model": model or get_chat_model(),
         "messages": messages,

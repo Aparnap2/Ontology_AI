@@ -369,7 +369,7 @@ def build_slack_message(state: AnomalyState) -> dict:
             "elements": [
                 {
                     "type": "plain_text",
-                    "text": f"Generated {timestamp} by TrackGuard AnomalyAgent",
+                    "text": f"Generated {timestamp} by OntologyAI AnomalyAgent",
                 }
             ],
         })

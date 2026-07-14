@@ -1,23 +1,23 @@
-# Sarthi Event Contracts
+# OntologyAI Event Contracts
 
 ## Redpanda Topics
 
 | Topic | Producer | Consumer | Purpose |
 |-------|----------|----------|---------|
-| `sarthi.ingress.events` | API Gateway | Decision Engine | Raw webhook events |
-| `sarthi.decision.requests` | Decision Engine | Workflow Service | Watchlist evaluation requests |
-| `sarthi.decision.results` | Decision Engine | Delivery Service | Guardian decisions |
-| `sarthi.workflow.triggers` | Workflow Service | Decision Engine | Scheduled triggers |
-| `sarthi.delivery.requests` | Workflow Service | Delivery Service | Outbound notification requests |
-| `sarthi.delivery.results` | Delivery Service | API Gateway | Delivery status |
-| `sarthi.memory.updates` | Any Service | Memory Service | Context updates |
-| `sarthi.hitl.decisions` | Decision Engine | API Gateway | Human approval outcomes |
+| `ontology_ai.ingress.events` | API Gateway | Decision Engine | Raw webhook events |
+| `ontology_ai.decision.requests` | Decision Engine | Workflow Service | Watchlist evaluation requests |
+| `ontology_ai.decision.results` | Decision Engine | Delivery Service | Guardian decisions |
+| `ontology_ai.workflow.triggers` | Workflow Service | Decision Engine | Scheduled triggers |
+| `ontology_ai.delivery.requests` | Workflow Service | Delivery Service | Outbound notification requests |
+| `ontology_ai.delivery.results` | Delivery Service | API Gateway | Delivery status |
+| `ontology_ai.memory.updates` | Any Service | Memory Service | Context updates |
+| `ontology_ai.hitl.decisions` | Decision Engine | API Gateway | Human approval outcomes |
 
 ---
 
 ## Event Schemas
 
-### 1. Ingress Event (`sarthi.ingress.events`)
+### 1. Ingress Event (`ontology_ai.ingress.events`)
 
 ```json
 {
@@ -33,7 +33,7 @@
 }
 ```
 
-### 2. Decision Request (`sarthi.decision.requests`)
+### 2. Decision Request (`ontology_ai.decision.requests`)
 
 ```json
 {
@@ -46,7 +46,7 @@
 }
 ```
 
-### 3. Decision Result (`sarthi.decision.results`)
+### 3. Decision Result (`ontology_ai.decision.results`)
 
 ```json
 {
@@ -63,7 +63,7 @@
 }
 ```
 
-### 4. Delivery Request (`sarthi.delivery.requests`)
+### 4. Delivery Request (`ontology_ai.delivery.requests`)
 
 ```json
 {
@@ -77,7 +77,7 @@
 }
 ```
 
-### 5. Memory Update (`sarthi.memory.updates`)
+### 5. Memory Update (`ontology_ai.memory.updates`)
 
 ```json
 {
@@ -133,9 +133,9 @@ def test_tenant_isolation_in_event():
 ## Topic Creation (Auto-provisioned)
 
 The Go API Gateway already creates these topics in `client.go`:
-- `sarthi.slack.events`
-- `sarthi.stripe.events`
-- `sarthi.guardian.results`
-- `sarthi.hitl.decisions`
+- `ontology_ai.slack.events`
+- `ontology_ai.stripe.events`
+- `ontology_ai.guardian.results`
+- `ontology_ai.hitl.decisions`
 
 Add remaining topics to `ensureTopic()` in `internal/redpanda/client.go`.

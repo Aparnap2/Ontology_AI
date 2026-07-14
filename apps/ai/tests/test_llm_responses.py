@@ -35,7 +35,7 @@ os.environ["OLLAMA_CHAT_MODEL"] = "sam860/LFM2:2.6b"
 os.environ["OLLAMA_EMBED_MODEL"] = "nomic-embed-text:latest"
 os.environ["QDRANT_HOST"] = "localhost"
 os.environ["QDRANT_PORT"] = "6333"
-os.environ["QDRANT_COLLECTION"] = "trackguard_memory"
+os.environ["QDRANT_COLLECTION"] = "ontology_ai_memory"
 
 TENANT = "test-tenant-llm-capture"
 
@@ -360,7 +360,7 @@ def generate_summary_report(all_responses: list[dict]) -> Path:
 
     # Generate report
     report_lines = [
-        "# TrackGuard v1.0.0-alpha — Exact LLM Responses",
+        "# OntologyAI v1.0.0-alpha — Exact LLM Responses",
         "## Captured from Real Ollama Inference",
         "",
         f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sarthi Portfolio Demo — Pre-flight Check
+# OntologyAI Portfolio Demo — Pre-flight Check
 # Run this the night before a recruiter call.
 # Catches every possible demo failure in advance.
 set -e

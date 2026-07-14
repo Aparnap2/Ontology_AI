@@ -25,7 +25,10 @@ func TestRouterPaymentGoesToRevenue(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{
+		TenantID: "tenant_test",
+		SeenKeys: make(map[string]bool),
+	})
 
 	// Send PAYMENT_SUCCESS event
 	envelope := events.EventEnvelope{
@@ -40,7 +43,7 @@ func TestRouterPaymentGoesToRevenue(t *testing.T) {
 		IdempotencyKey: "razorpay:pay_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Wait for workflow to process
 	env.AssertExpectations(t)
@@ -59,7 +62,7 @@ func TestRouterUserSignupGoesToCS(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send USER_SIGNED_UP event
 	envelope := events.EventEnvelope{
@@ -74,7 +77,7 @@ func TestRouterUserSignupGoesToCS(t *testing.T) {
 		IdempotencyKey: "telegram:user_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify CSWorkflow was spawned
 	env.AssertExpectations(t)
@@ -93,7 +96,7 @@ func TestRouterEmployeeGoesToPeople(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send EMPLOYEE_CREATED event
 	envelope := events.EventEnvelope{
@@ -108,7 +111,7 @@ func TestRouterEmployeeGoesToPeople(t *testing.T) {
 		IdempotencyKey: "google_workspace:emp_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify PeopleWorkflow was spawned
 	env.AssertExpectations(t)
@@ -127,7 +130,7 @@ func TestRouterBankWebhookGoesToFinance(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send BANK_WEBHOOK event
 	envelope := events.EventEnvelope{
@@ -142,7 +145,7 @@ func TestRouterBankWebhookGoesToFinance(t *testing.T) {
 		IdempotencyKey: "bank:webhook_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify FinanceWorkflow was spawned
 	env.AssertExpectations(t)
@@ -162,7 +165,7 @@ func TestRouterWeeklyTickGoesToCoS(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send TIME_TICK_WEEKLY event
 	envelope := events.EventEnvelope{
@@ -177,7 +180,7 @@ func TestRouterWeeklyTickGoesToCoS(t *testing.T) {
 		IdempotencyKey: "cron:weekly_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify ChiefOfStaffWorkflow was spawned (and RevenueWorkflow for multi-route)
 	env.AssertExpectations(t)
@@ -196,7 +199,7 @@ func TestRouterAgentOutputGoesToCoS(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send AGENT_OUTPUT event
 	envelope := events.EventEnvelope{
@@ -211,7 +214,7 @@ func TestRouterAgentOutputGoesToCoS(t *testing.T) {
 		IdempotencyKey: "agent:output_test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify ChiefOfStaffWorkflow was spawned
 	env.AssertExpectations(t)
@@ -232,12 +235,12 @@ func TestContinueAsNewAt1000Events(t *testing.T) {
 	env.SetTestTimeout(30 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send 10 events to verify the workflow processes multiple events
 	// In production, the threshold is 1000, but testing with fewer for speed
 	eventCount := 10
-	
+
 	for i := 0; i < eventCount; i++ {
 		envelope := events.EventEnvelope{
 			TenantID:       "tenant_test",
@@ -250,7 +253,7 @@ func TestContinueAsNewAt1000Events(t *testing.T) {
 			TraceID:        "trace_test",
 			IdempotencyKey: fmt.Sprintf("razorpay:pay_%d:v1", i),
 		}
-		env.SignalWorkflow("trackguard.events", envelope)
+		env.SignalWorkflow("ontology_ai.events", envelope)
 	}
 
 	// Cancel workflow after processing
@@ -274,7 +277,7 @@ func TestRouterDuplicateIdempotencyKeySkipped(t *testing.T) {
 	env.SetTestTimeout(10 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send same PAYMENT_SUCCESS event multiple times
 	envelope := events.EventEnvelope{
@@ -291,7 +294,7 @@ func TestRouterDuplicateIdempotencyKeySkipped(t *testing.T) {
 
 	// Send the same event 5 times rapidly
 	for i := 0; i < 5; i++ {
-		env.SignalWorkflow("trackguard.events", envelope)
+		env.SignalWorkflow("ontology_ai.events", envelope)
 	}
 
 	// Workflow should handle all signals without crashing
@@ -311,7 +314,7 @@ func TestUnknownEventTypeGoesToDLQ(t *testing.T) {
 	env.SetTestTimeout(5 * time.Second)
 
 	// Start router workflow
-	env.ExecuteWorkflow(wf.WorkflowRouter, "tenant_test")
+	env.ExecuteWorkflow(wf.WorkflowRouter, wf.WorkflowRouterState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send unknown event type
 	envelope := events.EventEnvelope{
@@ -326,7 +329,7 @@ func TestUnknownEventTypeGoesToDLQ(t *testing.T) {
 		IdempotencyKey: "unknown:test:v1",
 	}
 
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Verify SendToDLQActivity was called
 	env.AssertExpectations(t)

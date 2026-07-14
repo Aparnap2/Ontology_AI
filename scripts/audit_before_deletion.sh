@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sarthi — Pre-Deletion Audit Script
+# OntologyAI — Pre-Deletion Audit Script
 # Run this BEFORE any deletion to understand what will be removed
 # Usage: bash scripts/audit_before_deletion.sh
 

@@ -5,7 +5,7 @@ metadata:
   name: delivery-service
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: delivery-service
 spec:
   type: ClusterIP
@@ -24,7 +24,7 @@ metadata:
   name: delivery-service
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: delivery-service
 spec:
   replicas: {{ .Values.deliveryService.replicaCount }}
@@ -35,7 +35,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "sarthi.labels" . | nindent 8 }}
+        {{- include "ontology_ai.labels" . | nindent 8 }}
         app.kubernetes.io/component: delivery-service
     spec:
       containers:

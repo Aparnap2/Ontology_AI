@@ -199,7 +199,7 @@ class TestQAWorkflowLogic:
         }
         mock_slack_result = {"ok": True, "message_id": "456"}
 
-        with patch("src.workflows.qa_workflow.workflow") as mock_workflow:
+        with patch("src.workflows.chief_of_staff_workflow.workflow") as mock_workflow:
             mock_workflow.execute_activity = AsyncMock(side_effect=[mock_qa_result, mock_slack_result])
             mock_workflow.logger = MagicMock()
 

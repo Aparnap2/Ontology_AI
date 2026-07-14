@@ -1,4 +1,4 @@
-# IterateSwarm (Sarthi) — Codebase Walkthrough
+# IterateSwarm (OntologyAI) — Codebase Walkthrough
 
 > This document is for **learning the codebase** so you can code yourself.
 > Every section references actual files and line numbers. Go read the code.
@@ -7,7 +7,7 @@
 
 ## 1. THE BIG PICTURE
 
-Sarthi is a **ChatOps platform** that monitors startup health and alerts founders via Slack.
+OntologyAI is a **ChatOps platform** that monitors startup health and alerts founders via Slack.
 It has two services that talk to each other:
 
 ```
@@ -25,7 +25,7 @@ It has two services that talk to each other:
 │  ├── Auth (GitHub OAuth)            ├── OnboardingWorkflow      │
 │  ├── HTMX Dashboard                 ├── BusinessOSWorkflow      │
 │  ├── SSE Live Feed                  ├── InternalOpsWorkflow     │
-│  └── Slack command proxy            └── SarthiRouter (event bus)│
+│  └── Slack command proxy            └── OntologyAIRouter (event bus)│
 │                                                                 │
 │  Dependencies: Redpanda (events), PostgreSQL, Temporal          │
 └──────────────────────────┬──────────────────────────────────────┘
@@ -178,10 +178,10 @@ They communicate via **gRPC** (synchronous) and **Redpanda** (async events).
 | [`internal/workflow/feedback.go`](apps/core/internal/workflow/) | FeedbackWorkflow — analyze feedback, create GitHub issues |
 | [`internal/workflow/onboarding.go`](apps/core/internal/workflow/) | OnboardingWorkflow — question-answer flow for new founders |
 
-**SarthiRouter is the most important Go workflow** (sarthi_router.go:110-227):
+**OntologyAIRouter is the most important Go workflow** (sarthi_router.go:110-227):
 
 ```
-Signal Channel "sarthi.events" → Receive event → Check idempotency → 
+Signal Channel "ontology_ai.events" → Receive event → Check idempotency → 
 Look up routing table → Spawn child workflow (fire-and-forget)
 ```
 
@@ -812,7 +812,7 @@ uv run pytest tests/test_agent_logic.py -v  # Specific file
 4. **Tenant isolation**: Always pass `tenant_id` as first param. Always filter DB queries by it.
 5. **Qdrant datetime**: Store as float timestamps, not ISO strings. The system had a bug with this before.
 6. **ReAct loop**: QAAgent can loop forever without the MAX_TOOL_CALLS guard.
-7. **Continue-As-New**: SarthiRouter must restart after 1000 events or Temporal will error.
+7. **Continue-As-New**: OntologyAIRouter must restart after 1000 events or Temporal will error.
 8. **Graceful degradation**: Both Go and Python start even if dependencies are down. Check logs for "Warning:" messages.
 9. **Slack command proxy**: Go proxies `/sarthi decide` to Python. If Redpanda is down, it falls back to HTTP.
 10. **Feedback loop is async**: Button clicks → Redpanda → Python consumer. There's a delay before thresholds update.

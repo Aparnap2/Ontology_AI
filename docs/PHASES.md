@@ -1,4 +1,4 @@
-# Sarthi Phase Execution Plan
+# OntologyAI Phase Execution Plan
 
 **Version:** 4.1  
 **Date:** March 2026
@@ -18,11 +18,11 @@
 
 ---
 
-### PHASE 1 ✅ — Sarthi Pivot
+### PHASE 1 ✅ — OntologyAI Pivot
 
 **Status:** COMPLETE
 
-- Schemas updated for Sarthi
+- Schemas updated for OntologyAI
 - Agents v1 (Memory, Trigger, Supervisor)
 - Workflows (SignalConsumer, Onboarding)
 - Telegram integration skeleton
@@ -172,7 +172,7 @@
 **Exit Criteria:**
 - Real human value delivered
 - Founder testimonial captured
-- `git tag -a v4.0.0 -m "Sarthi v4.0.0 — Production Ready"`
+- `git tag -a v4.0.0 -m "OntologyAI v4.0.0 — Production Ready"`
 
 ---
 
@@ -187,7 +187,7 @@
 - [ ] Tax intelligence: QSBS, R&D credits
 - [ ] Fundraise readiness agent live
 - [ ] First non-India founder onboarded
-- [ ] `git tag -a v4.1.0 -m "Sarthi v4.1.0 — Global"`
+- [ ] `git tag -a v4.1.0 -m "OntologyAI v4.1.0 — Global"`
 
 **Exit Criteria:**
 - Multi-jurisdiction compliance working
@@ -216,7 +216,7 @@
 
 **Completed:**
 - ✅ Phase 0: Base infra
-- ✅ Phase 1: Sarthi pivot
+- ✅ Phase 1: OntologyAI pivot
 - ✅ Test fixes: 117 passing, 10 skipped (GraphMemoryAgent asyncio)
 
 **Next:**

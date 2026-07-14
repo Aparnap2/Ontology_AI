@@ -5,7 +5,7 @@ metadata:
   name: jaeger
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: jaeger
 spec:
   type: ClusterIP
@@ -36,7 +36,7 @@ metadata:
   name: jaeger
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: jaeger
 spec:
   replicas: 1
@@ -47,7 +47,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "sarthi.labels" . | nindent 8 }}
+        {{- include "ontology_ai.labels" . | nindent 8 }}
         app.kubernetes.io/component: jaeger
     spec:
       containers:

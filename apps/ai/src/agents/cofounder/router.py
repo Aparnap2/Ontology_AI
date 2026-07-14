@@ -1,7 +1,7 @@
 """Router: Co-founder message routing.
 
 Routes messages to Employee Agents based on relevance gate and MissionState.
-Per PRD Section 7: #trackguard channel as shared session.
+Per PRD Section 7: #ontology_ai channel as shared session.
 Per PRD Section 220-224: Option C authority (low severity decides, critical escalates).
 """
 from dataclasses import dataclass

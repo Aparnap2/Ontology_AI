@@ -1,4 +1,4 @@
-"""Database module for TrackGuard AI."""
+"""Database module for OntologyAI AI."""
 import asyncio
 import logging
 import os

@@ -343,7 +343,7 @@
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-lg grid place-items-center font-bold text-sm" style="background:rgba(125,211,252,0.12);color:var(--accent-blue)">S</div>
-                <span class="font-bold text-sm" style="color:var(--text)">TrackGuard</span>
+                <span class="font-bold text-sm" style="color:var(--text)">OntologyAI</span>
             </div>
             <button id="nav-close-btn" class="w-8 h-8 rounded-lg grid place-items-center hover:bg-white/5" aria-label="Close navigation">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -369,6 +369,22 @@
             <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="timeline" style="color:var(--text-secondary);min-height:44px">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span>Recent Activity</span>
+            </button>
+            <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="operating-layer" style="color:var(--text-secondary);min-height:44px">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Operating Layer</span>
+            </button>
+            <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="control-plane" style="color:var(--text-secondary);min-height:44px">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span>Control Plane</span>
+            </button>
+            <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="self-guardian" style="color:var(--text-secondary);min-height:44px">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>Self-Guardian</span>
+            </button>
+            <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="risk-status" style="color:var(--text-secondary);min-height:44px">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                <span>Risk Scan</span>
             </button>
             <button class="nav-slide-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" data-section="approvals" style="color:var(--text-secondary);min-height:44px">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -398,7 +414,7 @@
             </button>
             <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl grid place-items-center font-bold text-base md:text-lg glow-accent hide-mobile" style="background:rgba(125,211,252,0.12);color:var(--accent-blue);box-shadow:0 0 20px rgba(125,211,252,0.1)">S</div>
             <div>
-                <h1 class="text-base md:text-xl font-bold tracking-tight">TrackGuard</h1>
+                <h1 class="text-base md:text-xl font-bold tracking-tight">OntologyAI</h1>
                 <p class="text-[10px] md:text-xs" style="color:var(--text-muted)">Admin command center</p>
             </div>
         </div>
@@ -569,7 +585,120 @@
         </div>
     </div>
 
-    <!-- ═══════ ROW 5: Approvals + Performance ═══════ -->
+    <!-- ═══════ ROW 5: Operating Layer ═══════ -->
+    <div class="mb-3 md:mb-4 collapsible-section fade-in" id="operating-layer-container"
+         hx-get="/api/command/operating-layer"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+        <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-sm md:text-base flex items-center gap-1.5">
+                    Operating Layer
+                    <span class="tooltip-trigger relative" data-tip="Current mission context, active roles, and pending decisions">
+                        <svg class="w-3.5 h-3.5 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </span>
+                </h3>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] md:text-xs px-2 py-0.5 rounded-full" style="background:rgba(125,211,252,0.1);color:var(--accent-blue)">Live</span>
+                    <button class="collapse-toggle show-mobile w-8 h-8 grid place-items-center rounded-lg hover:bg-white/5 transition-colors" style="min-height:44px;min-width:44px" data-target="operating-layer-container" aria-label="Toggle section">
+                        <svg class="w-4 h-4 chevron-icon transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="collapse-content">
+                <div class="space-y-2">
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════ ROW 6: Control Plane + Risk + Self-Guardian ═══════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
+
+        <!-- Control Plane Status -->
+        <div class="collapsible-section fade-in" id="control-plane-container"
+             hx-get="/api/command/control-plane-status"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
+            <div class="card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-semibold text-sm md:text-base flex items-center gap-1.5">
+                        Control Plane Status
+                        <span class="tooltip-trigger relative" data-tip="Audit trail and agent health from the control plane">
+                            <svg class="w-3.5 h-3.5 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </span>
+                    </h3>
+                    <button class="collapse-toggle show-mobile w-8 h-8 grid place-items-center rounded-lg hover:bg-white/5 transition-colors" style="min-height:44px;min-width:44px" data-target="control-plane-container" aria-label="Toggle section">
+                        <svg class="w-4 h-4 chevron-icon transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                </div>
+                <div class="collapse-content">
+                    <div class="space-y-2">
+                        <div class="skeleton h-8 w-full"></div>
+                        <div class="skeleton h-8 w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Status -->
+        <div class="collapsible-section fade-in" id="risk-status-container"
+             hx-get="/api/command/risk-status"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
+            <div class="card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-semibold text-sm md:text-base flex items-center gap-1.5">
+                        Risk Status
+                        <span class="tooltip-trigger relative" data-tip="Prompt and output risk scanning results">
+                            <svg class="w-3.5 h-3.5 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </span>
+                    </h3>
+                    <button class="collapse-toggle show-mobile w-8 h-8 grid place-items-center rounded-lg hover:bg-white/5 transition-colors" style="min-height:44px;min-width:44px" data-target="risk-status-container" aria-label="Toggle section">
+                        <svg class="w-4 h-4 chevron-icon transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                </div>
+                <div class="collapse-content">
+                    <div class="space-y-2">
+                        <div class="skeleton h-8 w-full"></div>
+                        <div class="skeleton h-8 w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Self-Guardian Status -->
+        <div class="collapsible-section fade-in" id="self-guardian-container"
+             hx-get="/api/command/self-guardian-status"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
+            <div class="card p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-semibold text-sm md:text-base flex items-center gap-1.5">
+                        Self-Guardian Status
+                        <span class="tooltip-trigger relative" data-tip="Self-monitoring deviation tracking and agent health">
+                            <svg class="w-3.5 h-3.5 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </span>
+                    </h3>
+                    <button class="collapse-toggle show-mobile w-8 h-8 grid place-items-center rounded-lg hover:bg-white/5 transition-colors" style="min-height:44px;min-width:44px" data-target="self-guardian-container" aria-label="Toggle section">
+                        <svg class="w-4 h-4 chevron-icon transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text-muted)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                </div>
+                <div class="collapse-content">
+                    <div class="space-y-2">
+                        <div class="skeleton h-8 w-full"></div>
+                        <div class="skeleton h-8 w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════ ROW 7: Approvals + Performance ═══════ -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4">
 
         <!-- Approvals (revealed lazy load) -->
@@ -633,7 +762,7 @@
 
     </div>
 
-    <!-- ═══════ ROW 6: Chart + Chat ═══════ -->
+    <!-- ═══════ ROW 8: Chart + Chat ═══════ -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mb-4">
 
         <!-- Chart Panel (revealed lazy load) -->

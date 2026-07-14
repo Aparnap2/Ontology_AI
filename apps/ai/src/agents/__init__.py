@@ -1,5 +1,5 @@
 """
-TrackGuard v1.0 Agents — Agent Packages.
+OntologyAI v1.0 Agents — Agent Packages.
 
 Core agents:
   - pulse:        PulseAgent — health monitoring, anomaly detection

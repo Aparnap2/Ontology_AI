@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sarthi Portfolio Demo — single command startup
+# OntologyAI Portfolio Demo — single command startup
 # Usage: bash scripts/demo_start.sh
 set -e
 

@@ -1,5 +1,5 @@
 """
-Pydantic output contracts for all 6 desks in TrackGuard v4.2 Phase 3.
+Pydantic output contracts for all 6 desks in OntologyAI v4.2 Phase 3.
 
 These schemas enforce strict output contracts for all desk agents:
 - No jargon in user-facing messages

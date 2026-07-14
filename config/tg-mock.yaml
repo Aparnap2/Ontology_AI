@@ -1,4 +1,4 @@
-# tg-mock configuration for Sarthi
+# tg-mock configuration for OntologyAI
 server:
   port: 8081
   verbose: true
@@ -15,7 +15,7 @@ tokens:
   
   "987654321:ZYX-cba":
     status: active
-    bot_name: SarthiTestBot
+    bot_name: OntologyAITestBot
     webhook:
       url: "http://localhost:8080/webhooks/telegram"
       secret_token: "sarthi-webhook-secret"
@@ -35,7 +35,7 @@ scenarios:
   - method: getMe
     response_data:
       id: 123456789
-      first_name: "Sarthi"
+      first_name: "OntologyAI"
       username: "sarthi_test_bot"
       is_bot: true
   

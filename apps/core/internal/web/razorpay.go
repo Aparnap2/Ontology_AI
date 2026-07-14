@@ -80,7 +80,7 @@ func (h *RazorpayHandler) Handle(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "storage_failed"})
 	}
 
-// 5. Publish envelope (ref only, not raw payload)
+	// 5. Publish envelope (ref only, not raw payload)
 	envelope := events.EventEnvelope{
 		Source:         events.SourceRazorpay,
 		EventType:      eventName,

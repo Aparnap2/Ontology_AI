@@ -136,6 +136,17 @@ var specialistRoutes = map[string]specialistRoute{
 | Server-rendered bubbles | Single source of truth for HTML. XSS-safe via html.EscapeString. No client templates. |
 | MissionState POST | Clear write path. Dashboard is a dumb renderer. No client state hydration. |
 | Remove stubs | 40 fewer lines of stale dead code. Clear signal: "if it's here, it's real." |
+<<<<<<< Updated upstream
+=======
+| SSEHub event filtering | Event-type routing eliminates channel explosion. Per-subscriber channels reduce head-of-line blocking. |
+| ToolRegistry + HITL mapping | Self-documenting tools with explicit tier. Central registry enables pattern-driven tool suggestion. |
+| Slack SocketMode | No Bolt dependency. No public Slack Events URL needed. ACE loop closes feedback via reflector. |
+| Authority Manifest | Declarative agent permissions — who can do what, write where. Centralizes tool allowlists. |
+| Alert Lineage | Every alert carries full context: pattern, metrics, mission state, risk, suggested tools, owner agent. |
+| MissionState Explainability | Every write carries reason, changed fields, active roles — full audit trail without querying git. |
+| Brief Generator | Auto-generated 2-sentence summary on every MissionState write — founder reads this first. |
+| StrategyDelta Audit Trail | Structured audit log for curator confidence updates — traceable, queryable, debuggable. |
+>>>>>>> Stashed changes
 
 ### Tradeoffs
 
@@ -148,6 +159,17 @@ var specialistRoutes = map[string]specialistRoute{
 | Server-rendered bubbles | Harder to add interactive elements (copy buttons, actions) — would need JS event delegation. |
 | MissionState POST | Tight coupling between Python worker and Go schema. Schema changes require coordinated deploys. |
 | Remove stubs | `DiscordApprovalInput` still exists as a convenience type — could become stale if Discord integration changes. |
+<<<<<<< Updated upstream
+=======
+| SSEHub event filtering | Per-subscriber channels (64 buffer) per client increase memory under high concurrent connections. |
+| ToolRegistry | Tools are auto-registered on import — import order dependencies could cause registration race at startup. |
+| Slack SocketMode | Requires `SLACK_APP_TOKEN` (Socket Mode token) in addition to `SLACK_BOT_TOKEN`. WebSocket dependency for event ingestion. |
+| Authority Manifest | Adding a new agent requires updating the manifest AND the specialistRoutes map — two files to touch. |
+| Alert Lineage | Extra Pydantic model on every GuardianMessage — small overhead per alert for full traceability. |
+| MissionState Explainability | Extra DB columns (migration 005) — small storage overhead for full audit trail. |
+| Brief Generator | LLM call on every MissionState write — bounded by max_tokens=80, temperature=0.3, but still an external call. |
+| StrategyDelta | Falls back to file audit log if PostgreSQL unavailable — eventual consistency for audit trail. |
+>>>>>>> Stashed changes
 
 ### Risks
 
@@ -155,6 +177,14 @@ var specialistRoutes = map[string]specialistRoute{
 2. **Goroutine lifetime** — Long-lived goroutines (5-min timeout) hold references to request context. If the client disconnects, the goroutine continues until timeout or completion. Mitigation: check `ctx.Done()` in the goroutine loop pattern for future streaming responses.
 3. **Specialist routing fragility** — Workflow type strings bypass compile-time checking. Mitigation: add a test that iterates all routes and verifies workflow names match registered Temporal workflow types.
 4. **Signal ID mismatch** — The workflow ID used in the approval action must match the workflow ID that created the `planned_actions` row. If they diverge, signals are lost. Mitigation: store `workflow_id` in the `planned_actions` table and use it for signaling.
+<<<<<<< Updated upstream
+=======
+5. **Tool tier mismatch** — A tool's `hitl_tier` could diverge from the HITL manager's routing decision for a given pattern. Mitigation: `get_tools_for_tier()` provides a single source of truth — tools should be registered with tiers that match the HITL manager output.
+6. **Slack SocketMode reconnection** — If the Socket Mode WebSocket drops, Slack button interactions are lost until reconnection. Mitigation: SocketModeClient auto-reconnects; monitor reconnection events via the `on_socket_connected` callback.
+7. **Authority manifest drift** — If a tool is added but not registered in the manifest, or vice versa, tool execution guards may block valid actions. Mitigation: add a startup check that validates manifest tool IDs against TOOL_REGISTRY keys.
+8. **Brief generator failure** — If LLM call fails, MissionState write still succeeds (brief is optional). Mitigation: log.warning on empty brief, return None — non-blocking degradation.
+9. **StrategyDelta file fallback** — If PostgreSQL is down, audit logs go to `/tmp/strategy_audit.jsonl` — not queryable, not durable. Mitigation: monitor file growth, alert if fallback path is active.
+>>>>>>> Stashed changes
 
 ---
 

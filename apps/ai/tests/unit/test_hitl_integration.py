@@ -1,4 +1,4 @@
-"""Tests for HITL integration — TrackGuard V4.1.
+"""Tests for HITL integration — OntologyAI V4.1.
 
 Run FIRST — they should FAIL, then implement code to pass them.
 """

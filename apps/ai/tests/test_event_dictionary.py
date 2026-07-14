@@ -4,7 +4,7 @@ from src.config.event_dictionary import EventDictionary, UnknownEventError
 
 
 class TestEventDictionary:
-    """Test EventDictionary for TrackGuard v1.0."""
+    """Test EventDictionary for OntologyAI v1.0."""
 
     def setup_method(self):
         """Set up test fixtures."""

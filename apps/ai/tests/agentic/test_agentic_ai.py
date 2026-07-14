@@ -1,5 +1,5 @@
 """
-Comprehensive agentic AI tests for TrackGuard v4.2.
+Comprehensive agentic AI tests for OntologyAI v4.2.
 
 Covers:
 - LLM tool calling via factory pattern

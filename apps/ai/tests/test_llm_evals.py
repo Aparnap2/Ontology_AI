@@ -1,5 +1,5 @@
 """
-LLM Evaluation Suite for TrackGuard Agents.
+LLM Evaluation Suite for OntologyAI Agents.
 
 Tests agent reasoning quality, tone, jargon detection, and memory citation.
 Uses Ollama (qwen3:0.6b) for all LLM calls.
@@ -100,7 +100,7 @@ class TestLLMConnectivity:
         )
         resp = client.embeddings.create(
             model="nomic-embed-text:latest",
-            input="trackguard memory test"
+            input="ontology_ai memory test"
         )
         assert len(resp.data[0].embedding) > 0
         # nomic-embed-text produces 768-dim vectors

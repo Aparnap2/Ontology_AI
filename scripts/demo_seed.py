@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-demo_seed.py — Seed NovaPulse demo data for Sarthi Pulse portfolio.
+demo_seed.py — Seed NovaPulse demo data for OntologyAI Pulse portfolio.
 
 Inserts 6 months of realistic synthetic B2B SaaS metrics into PostgreSQL
 and Qdrant so that Guardian watchlist patterns actually trigger.
@@ -805,7 +805,7 @@ def analyze_triggers() -> list[dict]:
 
 def main() -> int:
     print("╔══════════════════════════════════════════════════════════╗")
-    print("║     NovaPulse Demo Seed — Sarthi Pulse                  ║")
+    print("║     NovaPulse Demo Seed — OntologyAI Pulse                  ║")
     print("║     6-month synthetic B2B SaaS portfolio data            ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()

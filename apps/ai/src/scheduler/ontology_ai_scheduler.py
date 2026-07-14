@@ -1,5 +1,5 @@
 """
-APScheduler-based job scheduler for TrackGuard.
+APScheduler-based job scheduler for OntologyAI.
 
 Replaces Temporal for simple schedule-driven jobs.
 """
@@ -14,7 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 log = logging.getLogger(__name__)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://trackguard:trackguard@localhost:5432/trackguard")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://ontology_ai:ontology_ai@localhost:5432/ontology_ai")
 
 jobstores = {
     "default": SQLAlchemyJobStore(url=DATABASE_URL),

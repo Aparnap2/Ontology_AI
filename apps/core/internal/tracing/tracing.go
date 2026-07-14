@@ -16,15 +16,15 @@ import (
 
 // Config holds tracing configuration.
 type Config struct {
-	ServiceName   string
-	OTLPEndpoint  string
-	Enabled       bool
+	ServiceName  string
+	OTLPEndpoint string
+	Enabled      bool
 }
 
 // NewConfig creates a new tracing config with defaults.
 func NewConfig() *Config {
 	return &Config{
-		ServiceName:   "api-gateway",
+		ServiceName:  "api-gateway",
 		OTLPEndpoint: getDefaultEndpoint(),
 		Enabled:      true,
 	}

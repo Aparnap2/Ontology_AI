@@ -1,1 +1,1 @@
-"""E2E Test Package for TrackGuard v1.0."""
+"""E2E Test Package for OntologyAI v1.0."""

@@ -37,7 +37,7 @@ type WorkflowRouterState struct {
 type EventRoutingTable map[string][]string
 
 // GetRoutingTable returns the event routing configuration
-// This is the central routing logic for TrackGuard v1.0
+// This is the central routing logic for OntologyAI v1.0
 func GetRoutingTable() EventRoutingTable {
 	return EventRoutingTable{
 		// ==================== REVENUE TRACKER ====================
@@ -129,7 +129,7 @@ func WorkflowRouter(ctx workflow.Context, st WorkflowRouterState) error {
 	routingTable := GetRoutingTable()
 
 	// Get signal channel for incoming events
-	signalChan := workflow.GetSignalChannel(ctx, "trackguard.events")
+	signalChan := workflow.GetSignalChannel(ctx, "ontology_ai.events")
 
 	for {
 		// Guard: Continue-As-New before hitting Temporal history limits

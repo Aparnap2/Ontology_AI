@@ -386,39 +386,55 @@ func (h *Handler) HandleDetailedHealth(c *fiber.Ctx) error {
 	}
 
 	// Check Temporal
-	temporalStart := time.Now()
-	temporalErr := h.temporalClient.Health(ctx)
-	temporalDuration := time.Since(temporalStart)
-	if temporalErr != nil {
-		checks["temporal"] = map[string]interface{}{
-			"status":     "unhealthy",
-			"error":      temporalErr.Error(),
-			"latency_ms": temporalDuration.Milliseconds(),
+	if h.temporalClient != nil {
+		temporalStart := time.Now()
+		temporalErr := h.temporalClient.Health(ctx)
+		temporalDuration := time.Since(temporalStart)
+		if temporalErr != nil {
+			checks["temporal"] = map[string]interface{}{
+				"status":     "unhealthy",
+				"error":      temporalErr.Error(),
+				"latency_ms": temporalDuration.Milliseconds(),
+			}
+			allHealthy = false
+		} else {
+			checks["temporal"] = map[string]interface{}{
+				"status":     "healthy",
+				"latency_ms": temporalDuration.Milliseconds(),
+			}
 		}
-		allHealthy = false
 	} else {
 		checks["temporal"] = map[string]interface{}{
-			"status":     "healthy",
-			"latency_ms": temporalDuration.Milliseconds(),
+			"status": "unavailable",
+			"error":  "temporal client not initialized",
 		}
+		allHealthy = false
 	}
 
 	// Check Redpanda
-	redpandaStart := time.Now()
-	redpandaErr := h.redpandaClient.Health(ctx)
-	redpandaDuration := time.Since(redpandaStart)
-	if redpandaErr != nil {
-		checks["redpanda"] = map[string]interface{}{
-			"status":     "unhealthy",
-			"error":      redpandaErr.Error(),
-			"latency_ms": redpandaDuration.Milliseconds(),
+	if h.redpandaClient != nil {
+		redpandaStart := time.Now()
+		redpandaErr := h.redpandaClient.Health(ctx)
+		redpandaDuration := time.Since(redpandaStart)
+		if redpandaErr != nil {
+			checks["redpanda"] = map[string]interface{}{
+				"status":     "unhealthy",
+				"error":      redpandaErr.Error(),
+				"latency_ms": redpandaDuration.Milliseconds(),
+			}
+			allHealthy = false
+		} else {
+			checks["redpanda"] = map[string]interface{}{
+				"status":     "healthy",
+				"latency_ms": redpandaDuration.Milliseconds(),
+			}
 		}
-		allHealthy = false
 	} else {
 		checks["redpanda"] = map[string]interface{}{
-			"status":     "healthy",
-			"latency_ms": redpandaDuration.Milliseconds(),
+			"status": "unavailable",
+			"error":  "redpanda client not initialized",
 		}
+		allHealthy = false
 	}
 
 	// Runtime info
@@ -899,7 +915,7 @@ func (h *Handler) HandleBIQuery(c *fiber.Ctx) error {
 		"query_type": body.QueryType,
 	}
 
-	_, err := h.temporalClient.StartWorkflow(c.Context(), workflowID, "trackguard-queue", input)
+	_, err := h.temporalClient.StartWorkflow(c.Context(), workflowID, "ontology_ai-queue", input)
 	if err != nil {
 		h.logger.Error("failed to start BI workflow", err, "query_id", queryID)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

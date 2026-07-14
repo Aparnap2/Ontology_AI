@@ -1,5 +1,5 @@
 """
-Plaid/Mercury Integration Module for TrackGuard MVP.
+Plaid/Mercury Integration Module for OntologyAI MVP.
 
 Provides bank account balance and burn rate data extraction.
 Supports both Plaid and Mercury providers via BANK_PROVIDER env var.

@@ -27,7 +27,7 @@ class MemoryService:
     """
     
     # Collection names for episodic memory
-    EPISODIC_COLLECTION = "trackguard_episodes"
+    EPISODIC_COLLECTION = "ontology_ai_episodes"
     
     def __init__(self) -> None:
         self._semantic_cache: dict[str, SemanticMemory] = {}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sarthi — Gate 1: Confirm New Agents Exist
+# OntologyAI — Gate 1: Confirm New Agents Exist
 # Run this BEFORE any deletion
 # Usage: bash scripts/gate1_new_agents_exist.sh
 

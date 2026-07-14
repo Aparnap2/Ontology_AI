@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sarthi Portfolio Demo — 3-minute recruiter walkthrough
+# OntologyAI Portfolio Demo — 3-minute recruiter walkthrough
 # Run AFTER demo_start.sh
 set -e
 

@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
--- MIGRATION 003: Sarthi v1.0 Stripped Build (Finance + BI Agents)
+-- MIGRATION 003: OntologyAI v1.0 Stripped Build (Finance + BI Agents)
 -- APPEND ONLY — never modify existing tables
 -- Apply: psql "$DATABASE_URL" -f infra/migrations/003_sarthi_stripped.sql
 -- ══════════════════════════════════════════════════════════════════

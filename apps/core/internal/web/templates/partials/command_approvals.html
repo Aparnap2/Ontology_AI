@@ -10,7 +10,18 @@
         <div class="p-3 rounded-lg transition-all duration-200" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)" id="approval-{{.ID}}">
             <div class="flex items-center justify-between gap-2">
                 <div class="flex-1 min-w-0">
-                    <span class="text-sm font-medium" style="color:var(--text)">{{.Title}}</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-sm font-medium" style="color:var(--text)">{{.Title}}</span>
+                        {{if eq .Type "remediation"}}
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap
+                            {{if eq .BlastRadius "high"}}bg-red-900/40 text-red-400
+                            {{else if eq .BlastRadius "medium"}}bg-yellow-900/40 text-yellow-400
+                            {{else}}bg-blue-900/30 text-blue-400{{end}}">
+                            {{.BlastRadius}} blast
+                        </span>
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap bg-purple-900/30 text-purple-400">fix</span>
+                        {{end}}
+                    </div>
                     <p class="text-xs mt-0.5" style="color:var(--text-secondary)">{{.Description}}</p>
                 </div>
                 <div class="flex gap-1.5 flex-shrink-0">

@@ -1,6 +1,6 @@
 {
   "uuid": "sarthi-slack-mock-v2",
-  "name": "Sarthi Slack Mock",
+  "name": "OntologyAI Slack Mock",
   "port": 3000,
   "hostname": "0.0.0.0",
   "endpointPrefix": "api",

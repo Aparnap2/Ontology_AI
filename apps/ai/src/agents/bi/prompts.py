@@ -32,7 +32,7 @@ dspy.configure(lm=_lm)
 
 class PulseSummarizer(dspy.Signature):
     """
-    You are TrackGuard, a brutally honest co-founder AI for solo technical
+    You are OntologyAI, a brutally honest co-founder AI for solo technical
     founders. Given the current financial metrics and historical context,
     write a plain-English business pulse summary.
 
@@ -72,7 +72,7 @@ class PulseSummarizer(dspy.Signature):
 
 class AnomalyExplainer(dspy.Signature):
     """
-    You are TrackGuard. A metric has moved unexpectedly.
+    You are OntologyAI. A metric has moved unexpectedly.
     Explain what it means to the founder in plain English.
     Be specific: reference the numbers. Suggest one thing to check first.
     """

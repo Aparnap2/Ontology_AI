@@ -1,5 +1,7 @@
 """Qdrant Vector Service for semantic duplicate detection."""
 
+import os
+import uuid
 import structlog
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import PointStruct
@@ -51,11 +53,13 @@ class QdrantService:
             Embedding vector (2048 dimensions)
         """
         openrouter_config = config.get_config().openrouter
+        api_key = openrouter_config.api_key or os.environ.get("OPENROUTER_API_KEY", "")
         import httpx
 
         async with httpx.AsyncClient(timeout=60.0) as http_client:
             response = await http_client.post(
                 f"{openrouter_config.base_url}/embeddings",
+                headers={"Authorization": f"Bearer {api_key}"},
                 json={
                     "model": openrouter_config.embedding_model,
                     "input": text,
@@ -80,12 +84,14 @@ class QdrantService:
         embedding = await self.get_embedding(text)
 
         # Search for similar items
-        search_results = await self.client.search(
+        search_results = await self.client.query_points(
             collection_name=self.config.collection,
-            query_vector=embedding,
+            query=embedding,
+            using="content",
             limit=1,
             with_payload=True,
         )
+        search_results = search_results.points
 
         if search_results:
             score = search_results[0].score
@@ -118,7 +124,7 @@ class QdrantService:
         embedding = await self.get_embedding(text)
 
         point = PointStruct(
-            id=feedback_id,
+            id=uuid.uuid5(uuid.NAMESPACE_DNS, feedback_id),
             vector={"content": embedding},
             payload={
                 "feedback_id": feedback_id,

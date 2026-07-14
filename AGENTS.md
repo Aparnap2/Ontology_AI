@@ -12,21 +12,26 @@
 
 ---
 
-## V4.0 Status
+## V4.2 Status (OntologyAI)
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Python Tests | ✅ 319/320 passing | 1 pre-existing timeout in curator_graphiti |
+| Python Tests | ✅ 901 passing / 26 skipped / 0 failed | Ontology schema + governance + adapter TDD suites |
 | Go Build | ✅ Clean | Binary compiles successfully |
-| Go HTMX Handler Tests | ✅ 52 passing | command center, chat, approvals, mission state, SSE |
-| HTMX Routes | ✅ 13+ routes | Command center dashboard panels + SSE endpoints |
-| SSE Streaming | ✅ | HTMX `hx-ext="sse"` + `SetBodyStreamWriter` pattern |
-| Specialist Agents | ✅ | Finance, Data, Ops (each with LangGraph graph + Temporal workflow) |
+| Go HTMX Handler Tests | ✅ 74+ passing | command center, business, founder, LLMops, onboarding, watchlist, telegram, razorpay, alert lineage, operating layer |
+| HTMX Routes | ✅ 15+ routes | Command center dashboard panels + SSE endpoints + alert-lineage + operating-layer |
+| SSE Streaming | ✅ | HTMX `hx-ext="sse"` + `SetBodyStreamWriter` pattern + SSEHub event-type filtering |
+| SSEHub Event-Type Filtering | ✅ | `Subscribe(tenantID, eventTypes...)` with per-subscriber channels (buffered 64) |
+| Specialist Agents | ✅ | 5 canonical: ChiefOfStaff, FP&A, GrowthAnalytics, Reliability, Comms |
 | HITL Temporal Signals | ✅ | `SignalWorkflow("hitl-approval")` unblocks `AwaitWithTimeout` |
 | MissionState Write Path | ✅ | `POST /api/mission-state` from Python AI → PostgreSQL |
-| @mention Routing | ✅ | `map[string]specialistRoute` — O(1) map lookup, 9 aliases → 6 workflows |
+| @mention Routing | ✅ | `map[string]specialistRoute` — O(1) map lookup, 10 aliases → 5 workflows |
+| Ontology Schema | ✅ | Object Types + Link Types in `apps/ai/src/ontology/` |
+| Ontology Adapter | ✅ | `mission_state_to_ontology()` in `apps/ai/src/ontology/adapter.py` |
+| Governed Writes | ✅ | `@governed_write` decorator in `apps/ai/src/ontology/governance.py` |
+| Authority Manifest | ✅ | 5 agents with role/permissions/tool allowlists |
+| E2E Smoke Test | ✅ | Real Docker + real LLM |
 | DB Tests | 🟡 Skip | Requires PostgreSQL container |
-| Webhook Tests | 🟡 Skip | Requires Redpanda container |
 
 ---
 
@@ -159,7 +164,7 @@ uv run pytest tests/ --cov=src --cov-report=term-missing
 **Specialist Route Map Pattern:**
 ```go
 var specialistRoutes = map[string]specialistRoute{
-    "@sarthi":  {"QAWorkflow", "Sarthi"},
+    "@sarthi":  {"QAWorkflow", "OntologyAI"},
     "@finance": {"FinanceWorkflow", "Finance"},
     "@data":    {"DataWorkflow", "Data"},
     "@ops":     {"OpsWorkflow", "Ops"},

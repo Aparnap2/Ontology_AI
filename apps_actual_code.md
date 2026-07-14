@@ -25,7 +25,7 @@
 
 ### Workflows (`internal/workflow/`)
 - `workflow.go` – FeedbackWorkflow
-- `sarthi_router.go` – SarthiRouter + child workflows
+- `sarthi_router.go` – OntologyAIRouter + child workflows
 - `business_os_workflow.go` – BusinessOSWorkflow
 - `onboarding_workflow.go` – OnboardingWorkflow
 - `onboarding_activities.go` – Onboarding activities

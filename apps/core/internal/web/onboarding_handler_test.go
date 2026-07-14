@@ -58,7 +58,7 @@ func TestOnboardingStatus_ShowsConnectedIntegrations(t *testing.T) {
 		t.Error("FAIL: Should show Slack integration status")
 	}
 
-	// Should show Razorpay as connected (green)  
+	// Should show Razorpay as connected (green)
 	if !strings.Contains(bodyStr, "razorpay") {
 		t.Error("FAIL: Should show Razorpay integration status")
 	}

@@ -19,7 +19,7 @@ func newUniqueTenantID() string {
 	return newUniqueID("tenant")
 }
 
-// expectedTables lists all tables introduced in Migration 002 (TrackGuard v1.0)
+// expectedTables lists all tables introduced in Migration 002 (OntologyAI v1.0)
 var expectedTables = []string{
 	"founders",
 	"raw_events",

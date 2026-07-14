@@ -1,2 +1,2 @@
-# Integration modules for TrackGuard MVP
+# Integration modules for OntologyAI MVP
 # Provides Stripe, Plaid/Mercury, Slack, and Product DB connectors

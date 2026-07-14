@@ -1,1 +1,1 @@
-"""LLM Evals Package for TrackGuard v1.0."""
+"""LLM Evals Package for OntologyAI v1.0."""

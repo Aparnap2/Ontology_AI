@@ -1,12 +1,12 @@
 {{/*
-  Sarthi Helm Chart - Helper Templates
+  OntologyAI Helm Chart - Helper Templates
   Common template functions for the umbrella chart
 */}}
 
 {{/*
   Generate labels for all resources
 */}}
-{{- define "sarthi.labels" -}}
+{{- define "ontology_ai.labels" -}}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
@@ -17,7 +17,7 @@ app.kubernetes.io/part-of: sarthi
 {{/*
   Common labels for service selector
 */}}
-{{- define "sarthi.selectorLabels" -}}
+{{- define "ontology_ai.selectorLabels" -}}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
@@ -25,7 +25,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
   Service labels with component
 */}}
-{{- define "sarthi.componentLabels" -}}
+{{- define "ontology_ai.componentLabels" -}}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: {{ .name }}
@@ -34,7 +34,7 @@ app.kubernetes.io/component: {{ .name }}
 {{/*
   Full image name with registry
 */}}
-{{- define "sarthi.image" -}}
+{{- define "ontology_ai.image" -}}
 {{- $registry := .global.imageRegistry | default "ghcr.io/iterateswarm" -}}
 {{- $image := .image -}}
 {{- if not (hasPrefix "/" $image) -}}
@@ -47,7 +47,7 @@ app.kubernetes.io/component: {{ .name }}
 {{/*
   Generate OTel environment variables
 */}}
-{{- define "sarthi.otelEnv" -}}
+{{- define "ontology_ai.otelEnv" -}}
 - name: OTEL_SERVICE_NAME
   value: {{ .serviceName | default .Chart.Name }}
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -61,7 +61,7 @@ app.kubernetes.io/component: {{ .name }}
 {{/*
   Default resource limits (optimized for 16GB RAM constraint)
 */}}
-{{- define "sarthi.defaultResources" -}}
+{{- define "ontology_ai.defaultResources" -}}
 limits:
   cpu: 500m
   memory: 512Mi
@@ -73,7 +73,7 @@ requests:
 {{/*
   Default health check configuration
 */}}
-{{- define "sarthi.defaultHealthCheck" -}}
+{{- define "ontology_ai.defaultHealthCheck" -}}
 livenessProbe:
   httpGet:
     path: {{ .path | default "/health" }}

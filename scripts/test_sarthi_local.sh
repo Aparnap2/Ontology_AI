@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Sarthi Local Test Suite with tg-mock Telegram Mock
+# OntologyAI Local Test Suite with tg-mock Telegram Mock
 # Usage: bash scripts/test_sarthi_local.sh
 # 
-# This script runs Sarthi tests locally using:
+# This script runs OntologyAI tests locally using:
 # - tg-mock for Telegram Bot API mocking (ghcr.io/watzon/tg-mock)
 # - Docker containers for PostgreSQL, Redpanda, Qdrant
 # - Real LLM calls (Azure/Groq/Ollama)
@@ -104,7 +104,7 @@ run_test "tg-mock: sendMessage with keyboard" bash -c "
 curl -sf -X POST \
   http://localhost:8081/bot987654321:ZYX-cba/sendMessage \
   -H 'Content-Type: application/json' \
-  -d '{\"chat_id\":\"111222333\",\"text\":\"Sarthi boot check\",
+  -d '{\"chat_id\":\"111222333\",\"text\":\"OntologyAI boot check\",
        \"reply_markup\":{\"inline_keyboard\":
          [[{\"text\":\"OK\",\"callback_data\":\"mark_ok:test\"}]]}}' \
   | grep -q 'message_id'
@@ -179,11 +179,11 @@ echo ""
 log "STEP 4 — E2E Flows (Temporal + LLM)"
 
 cd apps/ai
-run_test "E2E finance anomaly"   uv run pytest tests/test_e2e_sarthi.py -k finance_anomaly -q --timeout=120 || true
-run_test "E2E weekly briefing"   uv run pytest tests/test_e2e_sarthi.py -k weekly_briefing -q --timeout=120 || true
-run_test "E2E onboarding nag"    uv run pytest tests/test_e2e_sarthi.py -k onboarding -q --timeout=120 || true
-run_test "E2E churn alert"       uv run pytest tests/test_e2e_sarthi.py -k churn_alert -q --timeout=120 || true
-run_test "E2E investor draft"    uv run pytest tests/test_e2e_sarthi.py -k investor_update -q --timeout=120 || true
+run_test "E2E finance anomaly"   uv run pytest tests/test_e2e_ontology_ai.py -k finance_anomaly -q --timeout=120 || true
+run_test "E2E weekly briefing"   uv run pytest tests/test_e2e_ontology_ai.py -k weekly_briefing -q --timeout=120 || true
+run_test "E2E onboarding nag"    uv run pytest tests/test_e2e_ontology_ai.py -k onboarding -q --timeout=120 || true
+run_test "E2E churn alert"       uv run pytest tests/test_e2e_ontology_ai.py -k churn_alert -q --timeout=120 || true
+run_test "E2E investor draft"    uv run pytest tests/test_e2e_ontology_ai.py -k investor_update -q --timeout=120 || true
 cd - > /dev/null
 
 echo ""

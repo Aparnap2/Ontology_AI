@@ -58,7 +58,7 @@ class WeeklyCheckin:
         """Generate full weekly briefing using LLM + memory context."""
         patterns = self._memory.detect_patterns(founder_id)
         
-        prompt = f"""You are TrackGuard, the Chief of Staff. Generate a weekly briefing.
+        prompt = f"""You are OntologyAI, the Chief of Staff. Generate a weekly briefing.
 
 Founder context:
 - Archetype: {patterns.get('archetype', 'unknown')}

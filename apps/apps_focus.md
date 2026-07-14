@@ -40,7 +40,7 @@
 | File | What It Does |
 |------|-------------|
 | `workflow.go` | **FeedbackWorkflow** — the main feedback processing flow. |
-| `sarthi_router.go` | **SarthiRouter** — routes business events to child workflows. |
+| `sarthi_router.go` | **OntologyAIRouter** — routes business events to child workflows. |
 | `activities.go` | **All activities** — the actual work units (AnalyzeFeedback, SendDiscordApproval, etc.). |
 | `business_os_workflow.go` | Executes SOPs via Python gRPC. |
 | `onboarding_workflow.go` | Telegram-based founder onboarding. |
@@ -233,7 +233,7 @@ Discord/Slack → /webhooks/discord (handlers.go)
 Razorpay/Stripe → /webhooks/payments (webhooks/payments.go)
                → events/envelope.go (normalize to EventEnvelope)
                → redpanda/client.go (publish)
-               → Temporal (SarthiRouter)
+               → Temporal (OntologyAIRouter)
                → sarthi_router.go (route by event_type)
                → Child workflow (RevenueWorkflow, CSWorkflow, etc.)
                → If needs AI → grpc/client.go → Python gRPC

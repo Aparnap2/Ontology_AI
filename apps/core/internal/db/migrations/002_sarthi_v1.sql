@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
--- MIGRATION 002: TrackGuard v1.0 Foundation
+-- MIGRATION 002: OntologyAI v1.0 Foundation
 -- APPEND ONLY — never modify 001_* or any existing table
 -- Apply: psql $DATABASE_URL -f 002_sarthi_v1.sql
 -- ══════════════════════════════════════════════════════════════════

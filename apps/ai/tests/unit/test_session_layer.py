@@ -397,12 +397,12 @@ class TestContextAlignment:
         from typing import Literal
 
         # All valid roles should be accepted
-        valid_roles: list[Literal["founder", "finance", "bi", "ops", "trackguard"]] = [
+        valid_roles: list[Literal["founder", "finance", "bi", "ops", "ontology_ai"]] = [
             "founder",
             "finance",
             "bi",
             "ops",
-            "trackguard",
+            "ontology_ai",
         ]
 
         for role in valid_roles:

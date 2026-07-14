@@ -1,5 +1,5 @@
 """
-DSPy Evaluation Suite — TrackGuard v4.2 Phase 7.
+DSPy Evaluation Suite — OntologyAI v4.2 Phase 7.
 
 Comprehensive evals for internal ops agents:
 1. ToneFilter fidelity (jargon-free)

@@ -1,4 +1,4 @@
-# Sarthi.ai — Testing Architecture
+# OntologyAI.ai — Testing Architecture
 
 **Version:** 4.1
 **Date:** 2026-03-12
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Sarthi uses a **multi-layer testing strategy** combining:
+OntologyAI uses a **multi-layer testing strategy** combining:
 
 1. **Pydantic v2** — Type-safe contracts at agent boundaries
 2. **DSPy** — Automatic prompt optimization with compiled modules

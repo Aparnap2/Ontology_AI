@@ -1,4 +1,4 @@
--- TrackGuard Demo Seed Data
+-- OntologyAI Demo Seed Data
 -- Run: psql "$DATABASE_URL" -f scripts/seed_data.sql
 
 -- Seed demo tenant

@@ -1,4 +1,4 @@
-# IterateSwarm Sarthi - Helm Umbrella Chart Values
+# IterateSwarm OntologyAI - Helm Umbrella Chart Values
 # Deploys all microservices + infrastructure to k3d
 
 global:

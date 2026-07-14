@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test Sarthi v1.0 endpoints against Mockoon mock
+# Test OntologyAI v1.0 endpoints against Mockoon mock
 # Usage: bash scripts/test-with-mockoon.sh
 
 set -euo pipefail

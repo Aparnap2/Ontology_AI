@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════
-# TrackGuard — PRODUCTION DOCKER COMPOSE
+# OntologyAI — PRODUCTION DOCKER COMPOSE
 # Temporal PostgreSQL backend + Langfuse observability
 # ═══════════════════════════════════════════════════════════════
 
@@ -74,7 +74,7 @@ services:
       - LANGFUSE_INIT_PROJECT_NAME=sarthi-ai
       - LANGFUSE_INIT_PROJECT_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-pk-lf-local-dev}
       - LANGFUSE_INIT_PROJECT_SECRET_KEY=${LANGFUSE_SECRET_KEY:-sk-lf-local-dev}
-      - LANGFUSE_INIT_USER_EMAIL=admin@sarthi.local
+      - LANGFUSE_INIT_USER_EMAIL=admin@ontology_ai.local
       - LANGFUSE_INIT_USER_NAME=admin
       - LANGFUSE_INIT_USER_PASSWORD=sarthi-admin-pass
       - TELEMETRY_ENABLED=false
@@ -85,7 +85,7 @@ services:
       timeout: 10s
       retries: 5
 
-  # ── TrackGuard Go API server ──────────────────────────────────
+  # ── OntologyAI Go API server ──────────────────────────────────
   sarthi-api:
     build:
       context: apps/core
@@ -113,7 +113,7 @@ services:
       timeout: 10s
       retries: 5
 
-  # ── TrackGuard Python AI worker ───────────────────────────────
+  # ── OntologyAI Python AI worker ───────────────────────────────
   sarthi-worker:
     build:
       context: apps/ai

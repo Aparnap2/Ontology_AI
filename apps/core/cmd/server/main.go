@@ -247,15 +247,15 @@ func handleSlackCommandProxy(c *fiber.Ctx) error {
 	// Create event envelope for Redpanda
 	envelope := events.EventEnvelope{
 		EventType:  "SLACK_COMMAND",
-		TenantID:  c.Get("X-Tenant-ID", "default"),
-		Source:    events.EventSource("slack"),
+		TenantID:   c.Get("X-Tenant-ID", "default"),
+		Source:     events.EventSource("slack"),
 		PayloadRef: "raw_events:slack-cmd-" + time.Now().Format(time.RFC3339Nano),
 		OccurredAt: time.Now().UTC(),
 	}
 
 	// Try Redpanda first
 	if redpandaClient != nil {
-		err := redpandaClient.PublishEnvelope("trackguard.slack.events", envelope)
+		err := redpandaClient.PublishEnvelope("ontology_ai.slack.events", envelope)
 		if err == nil {
 			log.Printf("Published slack command to Redpanda")
 			return c.Status(fiber.StatusAccepted).JSON(map[string]string{

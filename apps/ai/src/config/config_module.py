@@ -53,7 +53,7 @@ class TelegramConfig(BaseModel):
 
     api_base: str = "http://localhost:8085"
     bot_token: str = "test-bot-token"
-    chat_id: str = "trackguard-alerts"
+    chat_id: str = "ontology_ai-alerts"
 
 
 class AppConfig(BaseModel):

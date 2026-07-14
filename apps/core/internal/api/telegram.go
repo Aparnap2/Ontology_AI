@@ -223,7 +223,7 @@ func (h *TelegramHandler) emitEvent(eventType, contextID string) {
 	}
 
 	go func() {
-		if err := h.redpanda.Publish("trackguard.events.raw", event); err != nil {
+		if err := h.redpanda.Publish("ontology_ai.events.raw", event); err != nil {
 			h.logger.Error("failed to publish telegram event", err, "event_type", eventType)
 		} else {
 			h.logger.Info("telegram event published", "event_type", eventType, "context_id", contextID)
@@ -273,7 +273,7 @@ func (h *TelegramHandler) HandleWebhook(c *fiber.Ctx) error {
 	var update struct {
 		UpdateID int64 `json:"update_id"`
 		Message  *struct {
-			MessageID int64  `json:"message_id"`
+			MessageID int64 `json:"message_id"`
 			From      *struct {
 				ID        int64  `json:"id"`
 				IsBot     bool   `json:"is_bot"`
@@ -287,8 +287,8 @@ func (h *TelegramHandler) HandleWebhook(c *fiber.Ctx) error {
 			Text string `json:"text"`
 		} `json:"message"`
 		CallbackQuery *struct {
-			ID      string `json:"id"`
-			From    *struct {
+			ID   string `json:"id"`
+			From *struct {
 				ID int64 `json:"id"`
 			} `json:"from"`
 			Message *struct {
@@ -324,7 +324,7 @@ func (h *TelegramHandler) HandleWebhook(c *fiber.Ctx) error {
 			"text", update.Message.Text,
 		)
 
-		// TODO: Process message through TrackGuard NLP pipeline
+		// TODO: Process message through OntologyAI NLP pipeline
 		// For now, just acknowledge
 		return c.SendStatus(fiber.StatusOK)
 	}

@@ -342,25 +342,25 @@ type BusinessOSState struct {
 
 // BusinessOSWorkflow is the parent router — spawns child workflows, never executes SOP logic
 // It receives events via signals and spawns agent workflows for each unique event.
-func BusinessOSWorkflow(ctx workflow.Context, tenantID string) error {
-	state := BusinessOSState{
-		TenantID:        tenantID,
-		EventsProcessed: 0,
-		SeenKeys:        make(map[string]bool),
+// Accepts BusinessOSState to preserve SeenKeys across Continue-As-New cycles.
+func BusinessOSWorkflow(ctx workflow.Context, st BusinessOSState) error {
+	if st.SeenKeys == nil {
+		st.SeenKeys = make(map[string]bool)
 	}
 
 	// Get signal channel for incoming events
-	signalChan := workflow.GetSignalChannel(ctx, "trackguard.events")
+	signalChan := workflow.GetSignalChannel(ctx, "ontology_ai.events")
 
 	for {
 		// ── Guard: Continue-As-New before hitting Temporal history limits
-		if state.EventsProcessed >= ContinueAsNewThreshold {
+		if st.EventsProcessed >= ContinueAsNewThreshold {
 			workflow.GetLogger(ctx).Info(
 				"Triggering Continue-As-New",
-				"events_processed", state.EventsProcessed,
-				"tenant_id", state.TenantID,
+				"events_processed", st.EventsProcessed,
+				"tenant_id", st.TenantID,
+				"seen_keys", len(st.SeenKeys),
 			)
-			return workflow.NewContinueAsNewError(ctx, BusinessOSWorkflow, state.TenantID)
+			return workflow.NewContinueAsNewError(ctx, BusinessOSWorkflow, st)
 		}
 
 		// ── Receive next event
@@ -371,7 +371,7 @@ func BusinessOSWorkflow(ctx workflow.Context, tenantID string) error {
 		}
 
 		// ── Idempotency: skip duplicates
-		if state.SeenKeys[envelope.IdempotencyKey] {
+		if st.SeenKeys[envelope.IdempotencyKey] {
 			workflow.GetLogger(ctx).Info(
 				"Skipping duplicate event",
 				"idempotency_key", envelope.IdempotencyKey,
@@ -379,8 +379,8 @@ func BusinessOSWorkflow(ctx workflow.Context, tenantID string) error {
 			)
 			continue
 		}
-		state.SeenKeys[envelope.IdempotencyKey] = true
-		state.EventsProcessed++
+		st.SeenKeys[envelope.IdempotencyKey] = true
+		st.EventsProcessed++
 
 		// ── Spawn child workflow: parent NEVER executes SOP logic
 		// v1.0: AgentName determines which agent handles the event

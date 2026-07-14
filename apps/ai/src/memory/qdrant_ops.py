@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Qdrant configuration
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
 QDRANT_PORT = os.environ.get("QDRANT_PORT", "6333")
-COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION", "trackguard_memory")
+COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION", "ontology_ai_memory")
 EMBEDDING_DIM = 2048  # nvidia/llama-nemotron-embed-vl-1b-v2:free produces 2048-dim vectors
 
 # Singleton client

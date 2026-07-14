@@ -1,6 +1,6 @@
 {
-  "uuid": "trackguard-test-env",
-  "name": "TrackGuard Slackbot Test Environment",
+  "uuid": "ontology_ai-test-env",
+  "name": "OntologyAI Slackbot Test Environment",
   "version": "2.0.0",
   "port": 3333,
   "routes": [
@@ -14,7 +14,7 @@
         "labels": [],
         "latency": 0,
         "statusCode": 200,
-        "body": "{\n  \"status\": \"ok\",\n  \"service\": \"trackguard-core-mock\",\n  \"time\": \"{{timestamp}}\"\n}",
+        "body": "{\n  \"status\": \"ok\",\n  \"service\": \"ontology_ai-core-mock\",\n  \"time\": \"{{timestamp}}\"\n}",
         "headers": [
           {
             "key": "Content-Type",
@@ -170,7 +170,7 @@
     },
     {
       "uuid": "slack-deliver",
-      "documentation": "Demo delivery endpoint for TrackGuard webhook testing",
+      "documentation": "Demo delivery endpoint for OntologyAI webhook testing",
       "method": "post",
       "endpoint": "/slack/deliver",
       "body": true,

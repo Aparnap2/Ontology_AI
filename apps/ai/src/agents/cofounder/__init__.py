@@ -1,4 +1,4 @@
-"""Co-founder Agent for TrackGuard V3.0.
+"""Co-founder Agent for OntologyAI V3.0.
 
 This module provides the manager layer that orchestrates Employee Agents:
 - router.py: routes messages to employee agents

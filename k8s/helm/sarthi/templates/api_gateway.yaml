@@ -5,7 +5,7 @@ metadata:
   name: api-gateway
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: api-gateway
 spec:
   type: ClusterIP
@@ -24,7 +24,7 @@ metadata:
   name: api-gateway
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: api-gateway
 spec:
   replicas: {{ .Values.apiGateway.replicaCount }}
@@ -35,7 +35,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "sarthi.labels" . | nindent 8 }}
+        {{- include "ontology_ai.labels" . | nindent 8 }}
         app.kubernetes.io/component: api-gateway
     spec:
       containers:
