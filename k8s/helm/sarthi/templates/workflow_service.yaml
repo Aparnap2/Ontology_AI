@@ -5,7 +5,7 @@ metadata:
   name: workflow-service
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: workflow-service
 spec:
   type: ClusterIP
@@ -24,7 +24,7 @@ metadata:
   name: workflow-service
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "sarthi.labels" . | nindent 4 }}
+    {{- include "ontology_ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: workflow-service
 spec:
   replicas: {{ .Values.workflowService.replicaCount }}
@@ -35,7 +35,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "sarthi.labels" . | nindent 8 }}
+        {{- include "ontology_ai.labels" . | nindent 8 }}
         app.kubernetes.io/component: workflow-service
     spec:
       containers:

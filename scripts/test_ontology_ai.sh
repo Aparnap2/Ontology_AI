@@ -52,11 +52,11 @@ check "I-3 no banned jargon" bash -c \
 echo ""
 echo "[5/6] E2E flows (real Temporal + real LLM)"
 cd apps/ai
-check "E2E finance anomaly"   uv run pytest tests/test_e2e_sarthi.py -k finance_anomaly -q --timeout=120 || true
-check "E2E weekly briefing"   uv run pytest tests/test_e2e_sarthi.py -k weekly_briefing -q --timeout=120 || true
-check "E2E onboarding nag"    uv run pytest tests/test_e2e_sarthi.py -k onboarding -q --timeout=120 || true
-check "E2E churn alert"       uv run pytest tests/test_e2e_sarthi.py -k churn_alert -q --timeout=120 || true
-check "E2E investor draft"    uv run pytest tests/test_e2e_sarthi.py -k investor_update -q --timeout=120 || true
+check "E2E finance anomaly"   uv run pytest tests/test_e2e_ontology_ai.py -k finance_anomaly -q --timeout=120 || true
+check "E2E weekly briefing"   uv run pytest tests/test_e2e_ontology_ai.py -k weekly_briefing -q --timeout=120 || true
+check "E2E onboarding nag"    uv run pytest tests/test_e2e_ontology_ai.py -k onboarding -q --timeout=120 || true
+check "E2E churn alert"       uv run pytest tests/test_e2e_ontology_ai.py -k churn_alert -q --timeout=120 || true
+check "E2E investor draft"    uv run pytest tests/test_e2e_ontology_ai.py -k investor_update -q --timeout=120 || true
 cd - > /dev/null
 
 echo ""

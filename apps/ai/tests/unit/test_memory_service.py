@@ -35,7 +35,9 @@ class TestMemoryService:
              "agent": "test-agent", "point_id": "abc123"}
         ]
         
-        with patch("src.services.memory.qdrant_query", return_value=mock_results):
+        with patch("src.services.memory.qdrant_query", return_value=mock_results), \
+             patch.object(service, "_get_episodic") as mock_episodic:
+            mock_episodic.return_value.available.return_value = False
             results = await service.read("tenant-123", "test query", top_k=5)
         
         assert len(results) == 1
@@ -90,9 +92,11 @@ class TestMemoryService:
         ]
         
         with patch("src.services.memory.qdrant_query", return_value=vector_results), \
-             patch.object(service, "_get_semantic") as mock_semantic:
+             patch.object(service, "_get_semantic") as mock_semantic, \
+             patch.object(service, "_get_episodic") as mock_episodic:
             mock_semantic.return_value.available.return_value = True
             mock_semantic.return_value.search.return_value = semantic_results
+            mock_episodic.return_value.available.return_value = False
             
             results = await service.read("tenant-123", "test query", top_k=5)
         

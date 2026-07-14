@@ -63,7 +63,7 @@ The platform is built as a **modular monolith** with two primary services:
 │        │                │         ┌─────────────────────┐          │
 │        │                │         │ Workflow Orchestrator│          │
 │        │                │         │ (FeedbackWorkflow,   │          │
-│        │                │         │ SarthiRouter, etc.)  │          │
+│        │                │         │ OntologyAIRouter, etc.)  │          │
 │        │                │         └──────────┬──────────┘          │
 │        │                │                    │                     │
 │        │                │         ┌──────────┴──────────┐          │
@@ -144,7 +144,7 @@ The platform is built as a **modular monolith** with two primary services:
   2. `SendDiscordApproval` → Discord embed with Approve/Reject buttons
   3. Wait for user signal (48-hour timeout)
   4. `CreateGitHubIssue` → GitHub API
-- [`sarthi_router.go`](apps/core/internal/workflow/sarthi_router.go) — **SarthiRouter**: Parent workflow that routes events to child workflows (Revenue, CS, People, Finance, ChiefOfStaff). Implements Continue-As-New at 1000 events to prevent Temporal history bloat.
+- [`sarthi_router.go`](apps/core/internal/workflow/sarthi_router.go) — **OntologyAIRouter**: Parent workflow that routes events to child workflows (Revenue, CS, People, Finance, ChiefOfStaff). Implements Continue-As-New at 1000 events to prevent Temporal history bloat.
 - [`business_os_workflow.go`](apps/core/internal/workflow/business_os_workflow.go) — **BusinessOSWorkflow**: Executes SOPs via Python gRPC.
 - [`onboarding_workflow.go`](apps/core/internal/workflow/onboarding_workflow.go) — **OnboardingWorkflow**: Telegram-based founder onboarding.
 - [`activities.go`](apps/core/internal/workflow/activities.go) — All activity implementations:
@@ -405,7 +405,7 @@ Key features:
 - Dead Letter Queue (DLQ) for failed tasks
 - Signal-based user approval via Discord buttons
 
-### 6.2 SarthiRouter
+### 6.2 OntologyAIRouter
 
 **File**: [`apps/core/internal/workflow/sarthi_router.go`](apps/core/internal/workflow/sarthi_router.go)
 
@@ -573,9 +573,9 @@ Used for:
        ↓
 2. Event normalized to EventEnvelope, published to Redpanda
        ↓
-3. Redpanda pushes to Temporal → SarthiRouter
+3. Redpanda pushes to Temporal → OntologyAIRouter
        ↓
-4. SarthiRouter looks up event_type in routing table
+4. OntologyAIRouter looks up event_type in routing table
        ↓
 5. Spawns child workflow (e.g., RevenueWorkflow)
        ↓
@@ -813,9 +813,9 @@ make down
 
 **A**: Every operation includes a `tenant_id` parameter. Qdrant filters by `tenant_id`, PostgreSQL queries filter by `tenant_id`, and Temporal workflows receive `tenant_id` as input.
 
-### Q: What is the "Sarthi" naming about?
+### Q: What is the "OntologyAI" naming about?
 
-**A**: "Sarthi" (सारथी) is a Sanskrit word meaning "charioteer" or "guide". It represents the AI agents guiding the founder through their business operations.
+**A**: "OntologyAI" (सारथी) is a Sanskrit word meaning "charioteer" or "guide". It represents the AI agents guiding the founder through their business operations.
 
 ### Q: How do I add a new event type?
 

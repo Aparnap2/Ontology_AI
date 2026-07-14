@@ -2,7 +2,7 @@ package events
 
 import "time"
 
-// EventSource represents all event sources in TrackGuard.
+// EventSource represents all event sources in OntologyAI.
 type EventSource string
 
 const (
@@ -39,7 +39,7 @@ type EventEnvelope struct {
 	// OccurredAt is when the event occurred (from source)
 	OccurredAt time.Time `json:"occurred_at"`
 
-	// ReceivedAt is when TrackGuard received the event
+	// ReceivedAt is when OntologyAI received the event
 	ReceivedAt time.Time `json:"received_at"`
 
 	// TraceID is the distributed tracing ID (for Langfuse)

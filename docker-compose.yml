@@ -28,9 +28,9 @@ services:
     networks:
       - iterateswarm-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "tctl cluster health | grep -q SERVING"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   temporal-admin-tools:
@@ -114,9 +114,9 @@ services:
     networks:
       - iterateswarm-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   # ===========================================
@@ -325,6 +325,8 @@ services:
       - "6379:6379"
     restart: unless-stopped
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -372,6 +374,8 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  redis-data:
     driver: local
 
 networks:

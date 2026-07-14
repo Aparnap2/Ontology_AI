@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
--- MIGRATION 009: Sarthi MVP Pivot — Pulse, Anomaly, Investor, QA
+-- MIGRATION 009: OntologyAI MVP Pivot — Pulse, Anomaly, Investor, QA
 -- ALL statements are idempotent (IF NOT EXISTS / ON CONFLICT DO NOTHING)
 -- NEVER drops or alters existing tables
 -- ═══════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
--- TrackGuard v4.2 Internal Ops Schema Extensions
+-- OntologyAI v4.2 Internal Ops Schema Extensions
 -- For sqlc code generation
 
 -- Finance Desk: AR/AP, payroll events, reconciliation

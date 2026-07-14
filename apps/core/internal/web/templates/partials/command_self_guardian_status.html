@@ -1,0 +1,67 @@
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Self-Guardian Status</h3>
+        <span class="text-[10px] md:text-xs px-2 py-0.5 rounded-full" style="background:rgba(52,211,153,0.1);color:var(--accent-green)">Monitoring</span>
+    </div>
+
+    <!-- Active Alerts/Deviations -->
+    {{if .Alerts}}
+    <div class="mb-3">
+        <div class="text-[10px] font-semibold mb-1.5" style="color:var(--text-muted)">Active Deviations</div>
+        <div class="space-y-1.5 max-h-48 overflow-y-auto" style="scrollbar-width:thin">
+        {{range .Alerts}}
+            <div class="p-2 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+                <div class="flex items-start gap-2">
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap
+                        {{if eq .Severity "critical"}}bg-red-900/40 text-red-400
+                        {{else if eq .Severity "warning"}}bg-yellow-900/40 text-yellow-400
+                        {{else}}bg-blue-900/30 text-blue-400{{end}}">
+                        {{.Severity | upper}}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[11px] font-medium" style="color:var(--text)">{{.AgentName}}</span>
+                            <span class="text-[9px] px-1 py-0.5 rounded" style="background:rgba(167,139,250,0.1);color:var(--accent-purple)">{{.DeviationType}}</span>
+                        </div>
+                        {{if .Description}}
+                        <p class="text-[10px] mt-0.5" style="color:var(--text-secondary)">{{.Description}}</p>
+                        {{end}}
+                    </div>
+                    <span class="text-[9px] whitespace-nowrap" style="color:var(--text-muted)">{{.TimeAgo}}</span>
+                </div>
+            </div>
+        {{end}}
+        </div>
+    </div>
+    {{else}}
+    <div class="text-xs py-5 text-center" style="color:var(--text-muted)">
+        <svg class="w-5 h-5 mx-auto mb-1.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        No active deviations — all agents operating within expected bounds
+    </div>
+    {{end}}
+
+    <!-- Per-Agent Health Summary -->
+    {{if .AgentHealth}}
+    <div>
+        <div class="text-[10px] font-semibold mb-1.5 mt-2" style="color:var(--text-muted)">Per-Agent Health</div>
+        <div class="space-y-1">
+        {{range .AgentHealth}}
+            <div class="flex items-center justify-between px-2 py-1.5 rounded" style="background:rgba(255,255,255,0.02)">
+                <div class="flex items-center gap-2">
+                    <span class="status-dot {{if .StatusClass}}{{.StatusClass}}{{else}}connected{{end}}"></span>
+                    <span class="text-[11px] font-medium" style="color:var(--text)">{{.AgentName}}</span>
+                </div>
+                <div class="flex items-center gap-3 text-[10px] tabular-nums">
+                    <span style="color:var(--text-muted)">{{.Observations}} obs</span>
+                    {{if gt .Deviations 0}}
+                    <span class="px-1.5 py-0.5 rounded" style="background:rgba(248,113,113,0.12);color:var(--accent-red)">{{.Deviations}} dev</span>
+                    {{else}}
+                    <span class="px-1.5 py-0.5 rounded" style="background:rgba(52,211,153,0.12);color:var(--accent-green)">clean</span>
+                    {{end}}
+                </div>
+            </div>
+        {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>

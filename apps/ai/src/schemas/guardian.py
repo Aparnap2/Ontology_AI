@@ -1,5 +1,5 @@
 """
-Pydantic output contracts for TrackGuard v3.0 Guardian Agent.
+Pydantic output contracts for OntologyAI v3.0 Guardian Agent.
 
 These schemas enforce strict output contracts for the Guardian:
 - AlertDecision: Cognitive decision only — should alert or not

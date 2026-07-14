@@ -39,10 +39,10 @@ type MockTelegramDB struct {
 }
 
 type HITLResponse struct {
-	UserID     int64
-	Action     string
-	ContextID  string
-	Timestamp  time.Time
+	UserID    int64
+	Action    string
+	ContextID string
+	Timestamp time.Time
 }
 
 func (m *MockTelegramDB) WriteHITLResponse(ctx context.Context, userID int64, action, contextID string) error {
@@ -87,17 +87,17 @@ func TestTelegramSendMessage(t *testing.T) {
 				called = true
 				assert.Equal(t, "POST", req.Method)
 				assert.Contains(t, req.URL.Path, "sendMessage")
-				
+
 				// Read and verify body
 				body, _ := io.ReadAll(req.Body)
 				var payload map[string]interface{}
 				err := json.Unmarshal(body, &payload)
 				require.NoError(t, err)
 				assert.Equal(t, "123456", payload["chat_id"])
-				assert.Equal(t, "Hello from TrackGuard", payload["text"])
+				assert.Equal(t, "Hello from OntologyAI", payload["text"])
 				assert.Equal(t, "Markdown", payload["parse_mode"])
 				assert.NotContains(t, payload, "reply_markup")
-				
+
 				return &http.Response{
 					StatusCode: 200,
 					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
@@ -105,7 +105,7 @@ func TestTelegramSendMessage(t *testing.T) {
 			},
 		})
 
-		err := handler.SendMessage("123456", "Hello from TrackGuard", nil)
+		err := handler.SendMessage("123456", "Hello from OntologyAI", nil)
 		require.NoError(t, err)
 		assert.True(t, called, "HTTP client should have been called")
 	})
@@ -130,16 +130,16 @@ func TestTelegramSendMessage(t *testing.T) {
 				var payload map[string]interface{}
 				err := json.Unmarshal(body, &payload)
 				require.NoError(t, err)
-				
+
 				assert.Contains(t, payload, "reply_markup")
 				replyMarkup := payload["reply_markup"].(map[string]interface{})
 				assert.Contains(t, replyMarkup, "inline_keyboard")
-				
+
 				keyboard := replyMarkup["inline_keyboard"].([]interface{})
 				assert.Len(t, keyboard, 1) // One row
 				row := keyboard[0].([]interface{})
 				assert.Len(t, row, 2) // Two buttons
-				
+
 				return &http.Response{
 					StatusCode: 200,
 					Body:       io.NopCloser(strings.NewReader(`{"ok": true}`)),
@@ -202,10 +202,10 @@ func TestTelegramInlineKeyboardRendered(t *testing.T) {
 		replyMarkup := result["reply_markup"].(map[string]interface{})
 		keyboard := replyMarkup["inline_keyboard"].([]interface{})
 		assert.Len(t, keyboard, 1)
-		
+
 		row := keyboard[0].([]interface{})
 		assert.Len(t, row, 1)
-		
+
 		button := row[0].(map[string]interface{})
 		assert.Equal(t, "Approve", button["text"])
 		assert.Equal(t, "approve:123", button["callback_data"])
@@ -244,12 +244,12 @@ func TestTelegramInlineKeyboardRendered(t *testing.T) {
 		replyMarkup := result["reply_markup"].(map[string]interface{})
 		keyboard := replyMarkup["inline_keyboard"].([]interface{})
 		assert.Len(t, keyboard, 2) // Two rows
-		
+
 		// First row
 		row1 := keyboard[0].([]interface{})
 		assert.Len(t, row1, 2)
 		assert.Equal(t, "Pay Now", row1[0].(map[string]interface{})["text"])
-		
+
 		// Second row
 		row2 := keyboard[1].([]interface{})
 		assert.Len(t, row2, 2)

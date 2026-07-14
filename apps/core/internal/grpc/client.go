@@ -79,6 +79,12 @@ func (c *Client) AnalyzeFeedback(ctx context.Context, text, source, userID strin
 	return resp, nil
 }
 
+// Conn returns the underlying gRPC ClientConn so it can be used by the workflow
+// Activities struct for future Python AI service integration.
+func (c *Client) Conn() *grpc.ClientConn {
+	return c.conn
+}
+
 // Close closes the gRPC connection.
 func (c *Client) Close() error {
 	log.Println("Closing gRPC connection")

@@ -1,9 +1,9 @@
 #!/bin/bash
-# Sarthi Portfolio Demo — clean stop
+# OntologyAI Portfolio Demo — clean stop
 # Usage: bash scripts/demo_stop.sh
 set -e
 
-echo "▶ Stopping Sarthi demo..."
+echo "▶ Stopping OntologyAI demo..."
 
 # Stop worker
 if [ -f /tmp/sarthi_worker.pid ]; then

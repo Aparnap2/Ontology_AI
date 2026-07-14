@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mock Slack API server for testing TrackGuard Slack integration."""
+"""Mock Slack API server for testing OntologyAI Slack integration."""
 
 import json
 from aiohttp import web

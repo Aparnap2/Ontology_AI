@@ -1,5 +1,5 @@
 """
-Events package for TrackGuard."""
+Events package for OntologyAI."""
 
 from src.events.bus import (
     EventBus,

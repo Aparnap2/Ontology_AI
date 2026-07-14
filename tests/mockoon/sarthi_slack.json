@@ -1,5 +1,5 @@
 {
-  "name": "Sarthi Slack API Mock",
+  "name": "OntologyAI Slack API Mock",
   "port": 8888,
   "statusCode": 200,
   "headers": [],

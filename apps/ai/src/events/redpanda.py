@@ -3,10 +3,10 @@ Redpanda Event Bus for Go→Python interop.
 
 Provides Redpanda consumer/publisher to route events between Go API Gateway
 and Python AI Worker through topics:
-- trackguard.slack.events       → Python consumes from Go
-- trackguard.stripe.events     → Python consumes from Go  
-- trackguard.guardian.results → Python publishes to Go
-- trackguard.hitl.decisions → Python publishes to Go
+- ontology_ai.slack.events       → Python consumes from Go
+- ontology_ai.stripe.events     → Python consumes from Go  
+- ontology_ai.guardian.results → Python publishes to Go
+- ontology_ai.hitl.decisions → Python publishes to Go
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 log = logging.getLogger(__name__)
 
 REDPANDA_URL = os.environ.get("REDPANDA_URL", "localhost:9092")
-CONSUMER_GROUP = "trackguard-python-worker"
+CONSUMER_GROUP = "ontology_ai-python-worker"
 TIMEOUT_SECONDS = 10
 
 
@@ -39,8 +39,8 @@ class RedpandaConsumer:
         """Connect to Redpanda. Returns False if unavailable."""
         try:
             self._consumer = AIOKafkaConsumer(
-                "trackguard.slack.events",
-                "trackguard.stripe.events",
+                "ontology_ai.slack.events",
+                "ontology_ai.stripe.events",
                 bootstrap_servers=self.brokers,
                 group_id=self.group,
                 auto_offset_reset="latest",
@@ -149,7 +149,7 @@ async def publish_guardian_result(
 
     try:
         return await publisher.publish(
-            topic="trackguard.guardian.results",
+            topic="ontology_ai.guardian.results",
             tenant_id=tenant_id,
             event_type="GUARDIAN_DECISION",
             source="guardian",

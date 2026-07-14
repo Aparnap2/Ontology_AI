@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Mockoon CLI for Sarthi v1.0 testing
+# Start Mockoon CLI for OntologyAI v1.0 testing
 # Usage: bash scripts/start-mockoon.sh
 # Stop:  bash scripts/stop-mockoon.sh
 
@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MOCK_DATA="${PROJECT_ROOT}/config/mockoon-sarthi.json"
+MOCK_DATA="${PROJECT_ROOT}/config/mockoon-ontology_ai.json"
 MOCK_PORT="${MOCK_PORT:-3000}"
 
 stop_existing() {
@@ -72,14 +72,14 @@ start_mockoon() {
             echo "  POST http://localhost:${MOCK_PORT}/bot:test-token/sendPhoto"
             echo ""
             echo "Process ID: ${MOCKOON_PID}"
-            echo "Log file:   /tmp/mockoon-sarthi.log"
+            echo "Log file:   /tmp/mockoon-ontology_ai.log"
             return 0
         fi
         sleep 1
     done
     
     echo "❌ Mockoon failed to start within 15 seconds"
-    cat /tmp/mockoon-sarthi.log 2>/dev/null || true
+    cat /tmp/mockoon-ontology_ai.log 2>/dev/null || true
     return 1
 }
 
@@ -92,7 +92,7 @@ mockoon-cli start \
   --port "$MOCK_PORT" \
   --hostname "0.0.0.0" \
   --log-transaction \
-  > /tmp/mockoon-sarthi.log 2>&1 &
+  > /tmp/mockoon-ontology_ai.log 2>&1 &
 
 echo $! > /tmp/sarthi-mockoon.pid
 echo ""

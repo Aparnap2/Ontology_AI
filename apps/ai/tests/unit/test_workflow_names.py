@@ -1,4 +1,4 @@
-"""Tests for TrackGuard V4.1 workflow renames — TDD approach.
+"""Tests for OntologyAI V4.1 workflow renames — TDD approach.
 
 Tests verify new canonical workflow names exist and old names
 resolve via backward-compat aliases. Run FIRST — they should FAIL.

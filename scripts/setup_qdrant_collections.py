@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Setup Qdrant collections for Sarthi v1.0.
+Setup Qdrant collections for OntologyAI v1.0.
 
 Creates:
 - finance_memory: Finance Agent episodic memory (768-dim)

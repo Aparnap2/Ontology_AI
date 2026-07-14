@@ -49,7 +49,7 @@ class TestRedpandaPublisher:
     @pytest.mark.timeout(30)
     async def test_publish_guardian_result_to_correct_topic(self):
         """
-        publish_guardian_result publishes to trackguard.guardian.results.
+        publish_guardian_result publishes to ontology_ai.guardian.results.
         """
         from apps.ai.src.events.redpanda import publish_guardian_result
 

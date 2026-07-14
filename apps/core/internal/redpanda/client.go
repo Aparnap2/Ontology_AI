@@ -43,7 +43,7 @@ func NewClient(brokers []string, topic string) (*Client, error) {
 	}
 
 	// Ensure topics exist by creating them if needed
-	for _, t := range []string{topic, "trackguard.slack.events", "trackguard.stripe.events", "trackguard.guardian.results", "trackguard.hitl.decisions"} {
+	for _, t := range []string{topic, "ontology_ai.slack.events", "ontology_ai.stripe.events", "ontology_ai.guardian.results", "ontology_ai.hitl.decisions"} {
 		ensureTopic(brokers, t)
 	}
 

@@ -1,5 +1,5 @@
 """
-SOP Registry for TrackGuard SOP Runtime.
+SOP Registry for OntologyAI SOP Runtime.
 
 All SOPs self-register via register() function.
 """

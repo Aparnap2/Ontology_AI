@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full end-to-end smoke test for Sarthi v1.0 - Phases 7, 8, 9
+# Full end-to-end smoke test for OntologyAI v1.0 - Phases 7, 8, 9
 # Tests: Container health, Service connectivity, E2E flows, LLM Evals
 
 set -euo pipefail
@@ -34,7 +34,7 @@ warn() {
 }
 
 echo "========================================"
-echo "Sarthi v1.0 - Full Smoke Test"
+echo "OntologyAI v1.0 - Full Smoke Test"
 echo "Phases 7, 8, 9: E2E + Evals + Production"
 echo "========================================"
 echo ""

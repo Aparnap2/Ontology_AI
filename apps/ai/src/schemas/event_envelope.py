@@ -1,5 +1,5 @@
 """
-Canonical Event Envelope for TrackGuard v1.0.
+Canonical Event Envelope for OntologyAI v1.0.
 
 This is the ONLY shape that flows through Redpanda and Temporal.
 PayloadRef points to raw_events table — NEVER contains raw JSON.
@@ -11,7 +11,7 @@ from pydantic import BaseModel, field_validator
 
 
 class EventSource(str, Enum):
-    """All event sources in TrackGuard v1.0."""
+    """All event sources in OntologyAI v1.0."""
     RAZORPAY = "razorpay"
     STRIPE = "stripe"
     INTERCOM = "intercom"
@@ -24,7 +24,7 @@ class EventSource(str, Enum):
 
 class EventEnvelope(BaseModel):
     """
-    EventEnvelope for TrackGuard v1.0.
+    EventEnvelope for OntologyAI v1.0.
 
     Attributes:
         tenant_id: Multi-tenant identifier (renamed from founder_id)
@@ -34,7 +34,7 @@ class EventEnvelope(BaseModel):
         payload_hash: SHA-256 hash of raw payload
         idempotency_key: Deduplication key
         occurred_at: When the event occurred
-        received_at: When TrackGuard received the event
+        received_at: When OntologyAI received the event
         trace_id: Distributed tracing ID
     """
     tenant_id: str

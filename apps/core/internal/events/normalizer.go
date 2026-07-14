@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// EventType represents the normalized event types in TrackGuard v1.0.
+// EventType represents the normalized event types in OntologyAI v1.0.
 // These replace the v4.3.0-alpha SOP/Topic pattern.
 type EventType string
 
@@ -26,8 +26,8 @@ const (
 	EventTypeEmployeeTerminated EventType = "EMPLOYEE_TERMINATED"
 
 	// Finance events
-	EventTypeBankWebhook    EventType = "BANK_WEBHOOK"
-	EventTypeExpenseCreated EventType = "EXPENSE_CREATED"
+	EventTypeBankWebhook     EventType = "BANK_WEBHOOK"
+	EventTypeExpenseRecorded EventType = "EXPENSE_RECORDED"
 
 	// Time-based events
 	EventTypeTimeTickWeekly  EventType = "TIME_TICK_WEEKLY"
@@ -118,8 +118,8 @@ func init() {
 	normalizerIndex["cron::cron.monthly"] = EventTypeTimeTickMonthly
 
 	// Additional common mappings
-	normalizerIndex["zoho_books::expense.created"] = EventTypeExpenseCreated
-	normalizerIndex["zoho_books::invoice.created"] = EventTypeExpenseCreated
+	normalizerIndex["zoho_books::expense.created"] = EventTypeExpenseRecorded
+	normalizerIndex["zoho_books::invoice.created"] = EventTypeExpenseRecorded
 }
 
 // MappingCount returns the total number of normalization mappings

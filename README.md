@@ -1,17 +1,28 @@
-# TrackGuard — Operating System for a Solo Founder's Company
+# OntologyAI — Palantir-Style Ontology for Small Businesses
 
-> Server-rendered command center with SSE push, goroutine-based Temporal dispatch, and Python specialist agents.
-> Chat → @mention → specialist workflow → SSE result — all driven by Go + Temporal + LangGraph.
-> **V4.1**: Five canonical specialists. No legacy Hiring. Backward-compat aliases. TrackGuard branded.
+> OntologyAI builds a live Ontology of a small business from its existing tools, and lets AI specialists query and act on it — with every consequential action gated by human approval.
 
-[![Tests](https://img.shields.io/badge/tests-994%2B%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-901%20passing-brightgreen)](#)
 [![Architecture](https://img.shields.io/badge/architecture-SSE%20%2B%20Specialist-blue)](#)
 [![Go](https://img.shields.io/badge/Go-1.24-blue?logo=go)](#)
 [![Python](https://img.shields.io/badge/Python-3.13-green?logo=python)](#)
 
 ---
 
-## V4.1 Architecture: Five Canonical Specialists
+## V4.2 Ontology Layer
+
+OntologyAI V4.2 adds a **semantic Ontology layer** on top of the existing `MissionState` and PostgreSQL store — a schema/semantic extension, not a rewrite. It is fully implemented and TDD-verified (**42 tests passing**: 23 schema + 12 adapter + 7 governance).
+
+| Component | File | What it does |
+|-----------|------|--------------|
+| **Object Types** | `apps/ai/src/ontology/object_types.py` | 6 strict Pydantic v2 models (`extra="forbid"`, `strict=True`): `Customer`, `Deal`, `RevenueMetric`, `Incident`, `Message`, `PlannedAction`. |
+| **Link Types** | `apps/ai/src/ontology/link_types.py` | `LINK_TYPES` registry of 4 semantic links + `resolve_link()` (raises `KeyError` for unknown links). |
+| **MissionState → Ontology Adapter** | `apps/ai/src/ontology/adapter.py` | `mission_state_to_ontology(state) -> dict[str, list[BaseModel]]` — tolerant per-field mapping of a `MissionState` payload into typed ontology buckets. |
+| **Governed Writes** | `apps/ai/src/ontology/governance.py` | `@governed_write` decorator enforcing the `OBJECT_WRITE_POLICY` blast-radius gate; emits a `PlannedAction` and blocks above threshold. Reference wrappers: `governed_fpa_cancel`, `governed_growth_flag`, `governed_reliability_incident_update`, `governed_comms_send`. |
+
+The Ontology is the single shared model every specialist reads from and writes through — with every consequential write gated by human approval.
+
+## Architecture: Five Canonical Specialists
 
 Browser connects via HTMX SSE. Go dispatches to Temporal in goroutines. Five Python specialist agents handle each domain.
 
@@ -92,19 +103,19 @@ var specialistRoutes = map[string]specialistRoute{
 - Backward compat aliases maintained: `@sarthi`, `@agent`, `@qa`, `@ask` all route to ChiefOfStaff.
 - V3 legacy aliases (`qa_workflow` → `ChiefOfStaffWorkflow`, `finance_workflow` → `FPAWorkflow`, etc.) preserved as re-exports with deprecation warnings.
 
-### Key V4.1 Decisions
+### Key Decisions
 
 | Decision | Benefit |
 |----------|---------|
 | **Five canonical specialists** | Chief of Staff, FP&A, Growth Analytics, Reliability & Delivery, Communications — exactly 5, no Hiring |
 | **SpecialistResponse Literal schema** | Pydantic enforces valid specialist names and workflow names at the type level |
 | **Backward-compat workflow re-exports** | `QAWorkflow`, `FinanceWorkflow`, `DataWorkflow`, `OpsWorkflow` → new canonical names with deprecation |
-| **TrackGuard branding** | All page titles, display names, and documentation use "TrackGuard" not "Sarthi" |
+| **OntologyAI branding** | All page titles, display names, and documentation use "OntologyAI" (rebrand from "Sarthi"; see Migration Notes) |
 | **API Mission State endpoints** | `GET /api/mission-state` and `POST /api/mission-state` for machine-readable JSON (Python AI ↔ Go Core) |
 
 ---
 
-## V4.1 New: Operating Layer
+## Operating Layer
 
 ### Agent Authority Manifest
 5 specialist agents + 1 correlation agent defined in `apps/ai/src/agents/authority_manifest.py`:
@@ -244,7 +255,7 @@ Tools auto-register via `register_tool(ToolDef(...))` on import. `get_tools_for_
 
 | Layer | Technology |
 |-------|-----------|
-| **Go Core** | Go 1.24 + Fiber v2 + HTMX |
+| **Go Core** | Go 1.24 + Fiber v2 + sqlc + HTMX |
 | **Python AI** | Python 3.13 + Temporal SDK + LangGraph + DSPy |
 | **Workflow Engine** | Temporal (1.39 SDK) |
 | **LLM** | Azure AI Foundry / Groq / Ollama (auto-detected via OpenAI SDK) |
@@ -257,11 +268,11 @@ Tools auto-register via `register_tool(ToolDef(...))` on import. `get_tools_for_
 
 ---
 
-## Test Coverage (994+ Passing — Go Build Clean)
+## Test Coverage (901 Passing — Go Build Clean)
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| Python Unit Tests | 994 | ✅ All passing |
+| Python Unit Tests | 901 | ✅ All passing (26 skipped) |
 | Go HTMX Web Handlers | 74+ | ✅ All passing |
 | Go Build | Clean | ✅ Binary compiles successfully |
 | E2E Smoke Test | 9/9 | ✅ Real Docker + real LLM (Groq) |
@@ -282,7 +293,7 @@ apps/
       web/           # HTTP handlers (Fiber + HTMX + SSE)
         handler.go       # All endpoints, @mention routing (10 aliases, 5 workflows)
         sse.go           # SSE handler with DB polling
-        command_center_test.go  # 74+ tests including V4.1 branding/routing/mission-state
+        command_center_test.go  # 74+ tests including V4.2 branding/routing/mission-state
         templates/
           command_center.html       # Main dashboard
           partials/                 # HTMX partials (13+ panels)
@@ -321,7 +332,7 @@ apps/
 
 ```bash
 # Start infrastructure
-docker start trackguard-postgres trackguard-qdrant trackguard-redis
+docker start ontology_ai-postgres ontology_ai-qdrant ontology_ai-redis
 
 # Run Python tests
 cd apps/ai && uv run pytest tests/ -v
@@ -342,14 +353,19 @@ cd apps/core && go run cmd/server/main.go
 
 ---
 
-## Migration Notes (Sarthi → TrackGuard V4.1)
+## Migration Notes (TrackGuard / Sarthi → OntologyAI)
 
-- **Branding**: "Sarthi" → "TrackGuard" across all page titles, display names, and documentation
-- **Specialist roster**: 6 specialists → 5 canonical specialists (Hiring removed)
-- **Workflow renames**: QAWorkflow → ChiefOfStaffWorkflow, FinanceWorkflow → FPAWorkflow, DataWorkflow → GrowthAnalyticsWorkflow, OpsWorkflow → ReliabilityWorkflow
-- **Backward compat**: All legacy aliases re-exported with deprecation warnings
-- **SpecialistResponse**: New Pydantic schema enforces valid specialist names and workflow names via Literal types
-- **API endpoints**: `GET /api/mission-state` and `POST /api/mission-state` added for Python AI ↔ Go Core integration
+> The product was rebranded to **OntologyAI**. The notes below record what changed so the old names are not mistaken for current branding.
+
+- **Branding**: "TrackGuard" / "Sarthi" → "OntologyAI" across all page titles, display names, and documentation.
+- **Chat alias preserved**: `@sarthi` still routes to `ChiefOfStaffWorkflow` for backward compatibility (along with `@agent`, `@qa`, `@ask`).
+- **Schema types renamed**: internal Pydantic `Sarthi*` types renamed to `OntologyAI*` — complete rename, zero dangling `Sarthi` references in code (no backward-compat alias).
+- **Scheduler renamed**: `trackguard_scheduler.py` → `ontology_ai_scheduler.py`.
+- **Not renamed (backward compat)**: SQL migration filenames (e.g. `008_sarthi_internal_ops.sql`) and Docker service/container names (e.g. `iterateswarm-api`) keep their names — only header comments / comments were updated. The Temporal task queue constant `TRACKGUARD-MAIN-QUEUE` is also retained.
+- **Specialist roster**: 6 specialists → 5 canonical specialists (Hiring removed).
+- **Workflow renames**: QAWorkflow → ChiefOfStaffWorkflow, FinanceWorkflow → FPAWorkflow, DataWorkflow → GrowthAnalyticsWorkflow, OpsWorkflow → ReliabilityWorkflow.
+- **SpecialistResponse**: New Pydantic schema enforces valid specialist names and workflow names via Literal types.
+- **API endpoints**: `GET /api/mission-state` and `POST /api/mission-state` added for Python AI ↔ Go Core integration.
 
 ---
 

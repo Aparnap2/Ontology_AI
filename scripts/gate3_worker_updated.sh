@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sarthi — Gate 3: Worker Must Import ONLY New Agents
+# OntologyAI — Gate 3: Worker Must Import ONLY New Agents
 # Run this AFTER Gate 2 passes, BEFORE any deletion
 # Usage: bash scripts/gate3_worker_updated.sh
 

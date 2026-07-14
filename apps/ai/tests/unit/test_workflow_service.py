@@ -323,7 +323,7 @@ class TestWorkflowEventPublishing:
         publisher = WorkflowEventPublisher()
         
         # Test that topic constants are correct
-        assert MEMORY_QUERY_TOPIC == "trackguard.memory.query"
+        assert MEMORY_QUERY_TOPIC == "ontology_ai.memory.query"
         
         # Test that the class can be instantiated
         assert publisher is not None
@@ -339,10 +339,10 @@ class TestWorkflowEventPublishing:
         )
 
         # Verify topic names - these should be used for cross-service communication
-        assert MEMORY_QUERY_TOPIC == "trackguard.memory.query"
-        assert MEMORY_STORE_TOPIC == "trackguard.memory.store"
-        assert MEMORY_DECAY_TOPIC == "trackguard.memory.decay"
-        assert DECISION_REQUEST_TOPIC == "trackguard.decision.request"
+        assert MEMORY_QUERY_TOPIC == "ontology_ai.memory.query"
+        assert MEMORY_STORE_TOPIC == "ontology_ai.memory.store"
+        assert MEMORY_DECAY_TOPIC == "ontology_ai.memory.decay"
+        assert DECISION_REQUEST_TOPIC == "ontology_ai.decision.request"
         
         # Verify workflows use events, not imports - check the events module
         import src.services.workflow.events as events_module

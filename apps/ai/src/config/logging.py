@@ -1,4 +1,4 @@
-"""Structured logging configuration for TrackGuard.
+"""Structured logging configuration for OntologyAI.
 
 Configures structlog when available, falls back to stdlib logging.
 Called once at application startup from main.py.

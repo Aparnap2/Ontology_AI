@@ -114,7 +114,7 @@ async def test_emit_consume_ack_round_trip(redis_url):
 
         # Verify pending count is now 0
         client = await bus._get_client()
-        stream = f"trackguard:{tenant_id}:{topic}"
+        stream = f"ontology_ai:{tenant_id}:{topic}"
         pending = await client.xpending(stream, group)
 
         assert pending.get("pending", 0) == 0, \
@@ -148,7 +148,7 @@ async def test_stream_maxlen_trimming(redis_url):
 
         # Check stream length
         client = await bus._get_client()
-        stream = f"trackguard:{tenant_id}:{topic}"
+        stream = f"ontology_ai:{tenant_id}:{topic}"
         length = await client.xlen(stream)
 
         # Should be around 1000 (Redis uses approximate trimming)

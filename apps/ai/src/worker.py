@@ -1,5 +1,5 @@
 """
-TrackGuard Temporal Worker — V4.1 Canonical Names.
+OntologyAI Temporal Worker — V4.1 Canonical Names.
 
 Registers:
   Workflows: PulseWorkflow, InvestorWorkflow, ChiefOfStaffWorkflow,
@@ -48,7 +48,7 @@ from src.workflows.growth_analytics_workflow import run_bi_analyst
 from src.workflows.reliability_workflow import run_ops_watch
 from src.workflows.comms_workflow import run_comms_specialist
 
-log = logging.getLogger("trackguard.worker")
+log = logging.getLogger("ontology_ai.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
 TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")

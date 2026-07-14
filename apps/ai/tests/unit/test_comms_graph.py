@@ -1,4 +1,4 @@
-"""Tests for CommsGraph — TrackGuard V4.1.
+"""Tests for CommsGraph — OntologyAI V4.1.
 
 Run FIRST — they should FAIL, then implement code to pass them.
 """

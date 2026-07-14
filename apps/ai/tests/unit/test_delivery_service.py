@@ -55,13 +55,13 @@ class TestDeliveryConsumesDecisionTopic:
 
     @pytest.mark.asyncio
     async def test_consumer_connects_to_decision_topic(self):
-        """Test that consumer is configured for trackguard.decision.results topic."""
+        """Test that consumer is configured for ontology_ai.decision.results topic."""
         from apps.ai.src.services.delivery import DeliveryService, DECISION_TOPIC
 
         service = DeliveryService()
 
         # Check that topic name is correct (not calling decision-engine)
-        assert DECISION_TOPIC == "trackguard.decision.results"
+        assert DECISION_TOPIC == "ontology_ai.decision.results"
 
         # Verify consumer would subscribe to Redpanda topic (not HTTP endpoint)
         with patch("aiokafka.AIOKafkaConsumer") as mock_consumer:

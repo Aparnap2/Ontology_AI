@@ -1,0 +1,74 @@
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Control Plane Status</h3>
+        <span class="text-[10px] md:text-xs px-2 py-0.5 rounded-full" style="background:rgba(125,211,252,0.1);color:var(--accent-blue)">Audit</span>
+    </div>
+
+    <!-- Activity Overview -->
+    <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="p-2 rounded-lg text-center" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <div class="text-[18px] font-bold tabular-nums" style="color:var(--accent-green)">{{.Recent5m}}</div>
+            <div class="text-[9px]" style="color:var(--text-muted)">Last 5m</div>
+        </div>
+        <div class="p-2 rounded-lg text-center" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <div class="text-[18px] font-bold tabular-nums" style="color:var(--accent-yellow)">{{.Recent30m}}</div>
+            <div class="text-[9px]" style="color:var(--text-muted)">Last 30m</div>
+        </div>
+        <div class="p-2 rounded-lg text-center" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <div class="text-[18px] font-bold tabular-nums" style="color:var(--accent-blue)">{{.Recent24h}}</div>
+            <div class="text-[9px]" style="color:var(--text-muted)">Last 24h</div>
+        </div>
+    </div>
+
+    <!-- Agent Activity Summary -->
+    {{if .AgentSummaries}}
+    <div class="mb-3">
+        <div class="text-[10px] font-semibold mb-1.5" style="color:var(--text-muted)">Per-Agent Health</div>
+        <div class="space-y-1">
+        {{range .AgentSummaries}}
+            <div class="flex items-center justify-between px-2 py-1.5 rounded" style="background:rgba(255,255,255,0.02)">
+                <div class="flex items-center gap-2">
+                    <span class="status-dot {{if .StatusDotClass}}{{.StatusDotClass}}{{else}}connected{{end}}"></span>
+                    <span class="text-[11px] font-medium" style="color:var(--text)">{{.AgentName}}</span>
+                </div>
+                <div class="flex items-center gap-3 text-[10px] tabular-nums">
+                    <span style="color:var(--text-muted)">{{.TotalActions}} actions</span>
+                    {{if gt .FailedActions 0}}
+                    <span class="px-1.5 py-0.5 rounded" style="background:rgba(248,113,113,0.12);color:var(--accent-red)">{{.FailedActions}} failed</span>
+                    {{else}}
+                    <span class="px-1.5 py-0.5 rounded" style="background:rgba(52,211,153,0.12);color:var(--accent-green)">OK</span>
+                    {{end}}
+                </div>
+            </div>
+        {{end}}
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Recent Audit Events -->
+    {{if .AuditEvents}}
+    <div>
+        <div class="text-[10px] font-semibold mb-1.5" style="color:var(--text-muted)">Recent Audit Events</div>
+        <div class="space-y-1 max-h-48 overflow-y-auto" style="scrollbar-width:thin">
+        {{range .AuditEvents}}
+            <div class="flex items-center gap-2 px-2 py-1.5 rounded text-[10px]" style="background:rgba(255,255,255,0.02)">
+                <span class="font-mono font-medium min-w-[64px]" style="color:var(--text)">{{.AgentName}}</span>
+                <span style="color:var(--text-secondary)">{{.Action}}</span>
+                {{if .ToolName}}
+                <span class="px-1 py-0.5 rounded" style="background:rgba(167,139,250,0.1);color:var(--accent-purple);font-size:9px">{{.ToolName}}</span>
+                {{end}}
+                <span class="ml-auto flex items-center gap-1">
+                    <span class="status-dot {{if eq .Outcome "completed"}}connected{{else}}disconnected{{end}}" style="width:5px;height:5px"></span>
+                    <span style="color:var(--text-muted)">{{.TimeAgo}}</span>
+                </span>
+            </div>
+        {{end}}
+        </div>
+    </div>
+    {{else}}
+    <div class="text-xs py-6 text-center" style="color:var(--text-muted)">
+        <svg class="w-5 h-5 mx-auto mb-1.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        No audit events yet — agent activity will appear here
+    </div>
+    {{end}}
+</div>

@@ -15,7 +15,7 @@ test('SARTHI E2E — Full guardian coordination flow', async ({ request, page })
   // ── STEP 1: Open a real browser tab showing live test progress ──────────────
   await page.setContent(`
     <html><body style="font-family:monospace;padding:20px;background:#0d1117;color:#58a6ff">
-    <h2 style="color:#fff">🛡️ Sarthi Guardian — Live E2E Demo</h2>
+    <h2 style="color:#fff">🛡️ OntologyAI Guardian — Live E2E Demo</h2>
     <div id="log" style="font-size:13px;line-height:2"></div>
     <script>
       function log(msg, color='#58a6ff') {

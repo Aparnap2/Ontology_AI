@@ -1,5 +1,5 @@
 """
-Import guard for TrackGuard v4.2 LLM factory pattern.
+Import guard for OntologyAI v4.2 LLM factory pattern.
 
 Usage:
     Add this import at the top of agent files to enforce factory pattern:

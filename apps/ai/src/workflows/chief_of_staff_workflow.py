@@ -19,6 +19,8 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from src.activities.run_qa_agent import run_qa_agent
     from src.activities.send_slack_message import send_slack_message
+    # OntologyAI V4.2: optional MissionState -> Ontology enrichment helper.
+    from src.ontology.adapter import mission_state_to_ontology
 
 
 @workflow.defn(name="ChiefOfStaffWorkflow")
@@ -62,6 +64,22 @@ class ChiefOfStaffWorkflow:
         if not question:
             return {"ok": False, "error": "question is required"}
 
+        # ── OntologyAI V4.2: optional MissionState → Ontology enrichment ──
+        # Additive + non-breaking: only runs when a ``mission_state`` dict is
+        # supplied in the input. Any failure is swallowed (logged) so the
+        # existing Q&A flow is never affected. Existing MissionState access in
+        # downstream activities is untouched.
+        ontology_context: dict = {}
+        raw_mission_state = input.get("mission_state")
+        if raw_mission_state is not None:
+            try:
+                ontology_context = mission_state_to_ontology(raw_mission_state)
+            except Exception as enrich_exc:  # pragma: no cover - defensive
+                workflow.logger.warning(
+                    f"Ontology enrichment skipped for {tenant_id}: {enrich_exc}"
+                )
+                ontology_context = {}
+
         workflow.logger.info(f"ChiefOfStaffWorkflow starting for tenant {tenant_id}: {question[:50]}...")
 
         # Retry policy for activities
@@ -95,7 +113,7 @@ class ChiefOfStaffWorkflow:
                     start_to_close_timeout=timedelta(minutes=2),
                 )
 
-                return {"ok": False, "tenant_id": tenant_id, "question": question, "error": error_msg}
+                return {"ok": False, "tenant_id": tenant_id, "question": question, "error": error_msg, "ontology_context": ontology_context}
 
             workflow.logger.info(f"QAAgent completed: {qa_result.get('answer', '')[:100]}")
 

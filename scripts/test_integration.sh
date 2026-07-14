@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sarthi v1.0 Phase 6 - Integration Testing Script
+# OntologyAI v1.0 Phase 6 - Integration Testing Script
 # Tests: HITL flow, BI workflow, Cross-agent triggers
 #
 # Usage: ./scripts/test_integration.sh
@@ -403,7 +403,7 @@ print_summary() {
 # Main execution
 main() {
     echo "========================================"
-    echo "Sarthi v1.0 Phase 6 - Integration Tests"
+    echo "OntologyAI v1.0 Phase 6 - Integration Tests"
     echo "========================================"
     echo ""
     

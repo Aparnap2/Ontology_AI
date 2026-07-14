@@ -36,7 +36,7 @@ func TestBusinessOSWorkflowSpawnsChildNotExecutesSOP(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, workflow.BusinessOSState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send signal with event envelope (v1.0 schema)
 	envelope := events.EventEnvelope{
@@ -52,7 +52,7 @@ func TestBusinessOSWorkflowSpawnsChildNotExecutesSOP(t *testing.T) {
 	}
 
 	// Signal the workflow with the event
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// The workflow should process the event without errors
 	// It will complete with "deadline exceeded" when the test timeout fires, which is expected
@@ -76,7 +76,7 @@ func TestContinueAsNewAt5000Events(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, workflow.BusinessOSState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send 5001 events to trigger Continue-As-New (v1.0 schema)
 	for i := 0; i < 5001; i++ {
@@ -91,7 +91,7 @@ func TestContinueAsNewAt5000Events(t *testing.T) {
 			TraceID:        "trace_test",
 			IdempotencyKey: fmt.Sprintf("razorpay:pay_%d:v1", i),
 		}
-		env.SignalWorkflow("trackguard.events", envelope)
+		env.SignalWorkflow("ontology_ai.events", envelope)
 	}
 
 	// Verify Continue-As-New was triggered
@@ -117,7 +117,7 @@ func TestDuplicateIdempotencyKeySkipped(t *testing.T) {
 	env.SetTestTimeout(1 * time.Hour)
 
 	// Start parent workflow
-	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, "tenant_test")
+	env.ExecuteWorkflow(workflow.BusinessOSWorkflow, workflow.BusinessOSState{TenantID: "tenant_test", SeenKeys: make(map[string]bool)})
 
 	// Send same event twice (v1.0 schema)
 	envelope := events.EventEnvelope{
@@ -133,10 +133,10 @@ func TestDuplicateIdempotencyKeySkipped(t *testing.T) {
 	}
 
 	// First signal
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// Second signal (should be skipped due to idempotency)
-	env.SignalWorkflow("trackguard.events", envelope)
+	env.SignalWorkflow("ontology_ai.events", envelope)
 
 	// The workflow should process events without errors
 	// Idempotency is tested by the workflow logic skipping duplicate keys

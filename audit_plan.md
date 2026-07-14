@@ -1,4 +1,4 @@
-# Sarthi Microservices Audit Report (Revised)
+# OntologyAI Microservices Audit Report (Revised)
 
 ## Executive Summary
 

@@ -1,4 +1,4 @@
-"""PulseAgent — daily business pulse monitor for TrackGuard."""
+"""PulseAgent — daily business pulse monitor for OntologyAI."""
 from src.agents.pulse.state import PulseState
 from src.agents.pulse.graph import pulse_graph, build_pulse_graph
 

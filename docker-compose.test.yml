@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: ./apps/core
+      dockerfile: Dockerfile.test
+    container_name: iterateswarm-api
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://iterateswarm:iterateswarm@host.docker.internal:5433/iterateswarm?sslmode=disable
+      - TEMPORAL_ADDRESS=host.docker.internal:7233
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_CHAT_MODEL=llama-3.3-70b-versatile
+      - LLM_PROVIDER=groq
+      - DEMO_MODE=true
+      - DEV_MODE=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["-temporal", "host.docker.internal:7233"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

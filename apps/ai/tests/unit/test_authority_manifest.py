@@ -1,4 +1,4 @@
-"""Tests for Authority Manifest updates — TrackGuard V4.1.
+"""Tests for Authority Manifest updates — OntologyAI V4.1.
 
 Run FIRST — they should FAIL, then implement code to pass them.
 """
@@ -32,12 +32,12 @@ class TestAuthorityManifest:
         assert "Hiring" not in agent_names, f"Hiring still present: {agent_names}"
 
     def test_authority_manifest_no_sarthi_prefix(self):
-        """Agent names must not use 'Sarthi' prefix — use canonical names."""
+        """Agent names must not use 'OntologyAI' prefix — use canonical names."""
         from src.agents.authority_manifest import AUTHORITY_MANIFEST
         for agent in AUTHORITY_MANIFEST:
             name = agent.agent_name
-            assert "Sarthi" not in name, (
-                f"Agent name still uses 'Sarthi' prefix: '{name}'. "
+            assert "OntologyAI" not in name, (
+                f"Agent name still uses 'OntologyAI' prefix: '{name}'. "
                 f"Must use canonical display name."
             )
 

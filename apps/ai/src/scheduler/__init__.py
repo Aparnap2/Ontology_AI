@@ -1,7 +1,7 @@
 """
-Scheduler package for TrackGuard."""
+Scheduler package for OntologyAI."""
 
-from src.scheduler.trackguard_scheduler import (
+from src.scheduler.ontology_ai_scheduler import (
     scheduler,
     register_tenant_schedules,
     unregister_tenant_schedules,

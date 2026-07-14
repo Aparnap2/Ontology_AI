@@ -1,5 +1,5 @@
 """
-SpecialistResponse schema for TrackGuard V4.1.
+SpecialistResponse schema for OntologyAI V4.1.
 
 Defines the output contract for specialist agent responses with
 canonical specialist names and workflow names enforced via Literal types.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop Mockoon CLI for Sarthi v1.0
+# Stop Mockoon CLI for OntologyAI v1.0
 # Usage: bash scripts/stop-mockoon.sh
 
 set -euo pipefail

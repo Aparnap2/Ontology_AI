@@ -1,5 +1,5 @@
 """
-TrackGuard LLM Eval Suite — 15 evals.
+OntologyAI LLM Eval Suite — 15 evals.
 Real Azure OpenAI, no mocks.
 Each eval has: input, judge_prompt, passing_condition.
 Run: uv run pytest tests/test_llm_eval.py -v --timeout=60

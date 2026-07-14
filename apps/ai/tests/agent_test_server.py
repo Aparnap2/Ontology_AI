@@ -22,7 +22,7 @@ log = structlog.get_logger(__name__)
 # ── FastAPI app ───────────────────────────────────────────────────
 
 app = FastAPI(
-    title="TrackGuard Agent Test Server",
+    title="OntologyAI Agent Test Server",
     description="Test endpoints for agentic AI capabilities",
     version="1.0.0",
 )

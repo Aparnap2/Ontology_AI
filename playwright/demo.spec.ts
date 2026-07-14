@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const TENANT_ID   = '00000000-0000-0000-0000-000000000001';
 const WORKER_URL  = 'http://127.0.0.1:8000';
 
-test.describe('Sarthi Guardian Demo — NovaPulse (REAL services)', () => {
+test.describe('OntologyAI Guardian Demo — NovaPulse (REAL services)', () => {
 
   let apiCtx: any;
 

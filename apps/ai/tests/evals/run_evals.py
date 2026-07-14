@@ -1,5 +1,5 @@
 """
-LLM Evaluation Runner for TrackGuard v1.0.
+LLM Evaluation Runner for OntologyAI v1.0.
 
 Runs DSPy-based evaluations for:
 1. Anomaly Explanations (target: ≥80% pass rate)
@@ -371,7 +371,7 @@ def _evaluate_anomaly_explanation(explanation: str, scenario: AnomalyEvalScenari
 def run_all_evals() -> Dict[str, EvalSetResult]:
     """Run all evaluation sets and return results."""
     print("=" * 60)
-    print("TrackGuard v1.0 - LLM Evaluation Suite")
+    print("OntologyAI v1.0 - LLM Evaluation Suite")
     print("=" * 60)
     print()
 

@@ -4,7 +4,7 @@ Defines each agent's domain, tool permissions, escalation tier, triggers,
 and MissionState fields it is allowed to write. Used by HITL routing,
 tool execution guards, and MissionState write-path validation.
 
-TrackGuard V4.1: All agent names use canonical display names.
+OntologyAI V4.1: All agent names use canonical display names.
 """
 from pydantic import BaseModel
 from typing import Literal

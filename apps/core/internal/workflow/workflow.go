@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -208,13 +210,25 @@ func FeedbackWorkflow(ctx workflow.Context, input FeedbackInput) error {
 }
 
 // isRetryExhausted checks if an error indicates retry exhaustion
+// Returns true when Temporal's retry policy has been fully consumed:
+//   - Non-retryable ApplicationErrors (Temporal refuses to retry)
+//   - Timeout errors after all retry windows expired
+//   - Errors containing retry-exhaustion strings (fallback)
 func isRetryExhausted(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Check for Temporal retry exhaustion
-	// This is a simplified check - in production, check for specific error types
-	return true
+	var applicationErr *temporal.ApplicationError
+	if errors.As(err, &applicationErr) {
+		return applicationErr.NonRetryable()
+	}
+	var timeoutErr *temporal.TimeoutError
+	if errors.As(err, &timeoutErr) {
+		return true
+	}
+	errMsg := err.Error()
+	return temporal.IsApplicationError(err) ||
+		(strings.Contains(errMsg, "retry") && strings.Contains(errMsg, "exhaust"))
 }
 
 // sendToDLQ sends a failed task to the Dead Letter Queue

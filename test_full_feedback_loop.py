@@ -11,7 +11,7 @@ Tests the complete end-to-end feedback loop:
 Usage:
     python test_full_feedback_loop.py
 
-This test verifies that Sarthi is truly iterative.
+This test verifies that OntologyAI is truly iterative.
 """
 
 import asyncio
@@ -128,7 +128,7 @@ async def test_feedback_loop():
         logger.info("🎉 Full feedback loop test PASSED!")
         logger.info(f"   - Threshold adaptation: {initial_threshold:.1f} → {updated_threshold:.1f}")
         logger.info("   - Agent now uses learned tenant-specific thresholds")
-        logger.info("   - Sarthi is truly iterative!")
+        logger.info("   - OntologyAI is truly iterative!")
 
         return True
 
@@ -143,7 +143,7 @@ async def main():
 
     if success:
         print("\n🎯 PRODUCTION READINESS: PASSED")
-        print("Sarthi has a genuine iteration loop. Deploy with confidence.")
+        print("OntologyAI has a genuine iteration loop. Deploy with confidence.")
         sys.exit(0)
     else:
         print("\n💥 PRODUCTION READINESS: FAILED")

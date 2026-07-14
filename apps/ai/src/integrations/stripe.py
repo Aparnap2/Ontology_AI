@@ -1,5 +1,5 @@
 """
-Stripe Integration Module for TrackGuard MVP.
+Stripe Integration Module for OntologyAI MVP.
 
 Provides MRR (Monthly Recurring Revenue) data extraction from Stripe.
 Supports MOCK MODE for development/testing without real API keys.

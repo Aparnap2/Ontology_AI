@@ -1,4 +1,4 @@
-"""Tests for workflow output schema enforcement — TrackGuard V4.1.
+"""Tests for workflow output schema enforcement — OntologyAI V4.1.
 
 Each workflow's run() method should return a dict compatible with
 SpecialistResponse.model_validate(). Run FIRST — they should FAIL.

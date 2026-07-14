@@ -19,7 +19,7 @@ import (
 // against tg-mock (not real Telegram).
 //
 // Requires:
-//   - trackguard-tg-mock container running on :8081
+//   - ontology_ai-tg-mock container running on :8081
 //   - TELEGRAM_API_BASE=http://localhost:8081
 //   - TELEGRAM_BOT_TOKEN=987654321:ZYX-cba
 //   - TELEGRAM_TEST_CHAT_ID=111222333
@@ -42,7 +42,7 @@ func TestTelegramSendMessageViaMock(t *testing.T) {
 	handler.SetHTTPClient(&http.Client{Timeout: 5 * time.Second})
 
 	// Test plain message
-	err := handler.SendMessage("111222333", "TrackGuard test message", nil)
+	err := handler.SendMessage("111222333", "OntologyAI test message", nil)
 	require.NoError(t, err)
 
 	// Test with inline keyboard
@@ -63,7 +63,7 @@ func TestTelegramRateLimitHandling(t *testing.T) {
 	// Skip scenario-based test due to tg-mock matching limitations
 	// Instead, verify error handling with mock HTTP client
 	t.Skip("tg-mock scenario matching requires manual scenario registration per test run")
-	
+
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	require.NotEmpty(t, botToken)
 
@@ -86,7 +86,7 @@ func TestTelegramRateLimitHandling(t *testing.T) {
 func TestTelegramChatNotFoundHandling(t *testing.T) {
 	// Skip scenario-based test due to tg-mock matching limitations
 	t.Skip("tg-mock scenario matching requires manual scenario registration per test run")
-	
+
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
 	require.NotEmpty(t, botToken)
 

@@ -1,4 +1,4 @@
-# Sarthi — Safe Old Code Deletion Protocol
+# OntologyAI — Safe Old Code Deletion Protocol
 
 **Version:** 1.0  
 **Date:** March 25, 2026  

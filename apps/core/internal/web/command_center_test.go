@@ -26,8 +26,8 @@ func TestCommandCenter_ServesPage(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := string(body)
 
-	if !strings.Contains(bodyStr, "TrackGuard Command Center") {
-		t.Errorf("FAIL: Expected page title 'TrackGuard Command Center', got: %q", bodyStr)
+	if !strings.Contains(bodyStr, "OntologyAI Command Center") {
+		t.Errorf("FAIL: Expected page title 'OntologyAI Command Center', got: %q", bodyStr)
 	}
 	if !strings.Contains(bodyStr, "htmx.org") {
 		t.Errorf("FAIL: Expected HTMX script, got: %q", bodyStr)
@@ -911,7 +911,7 @@ func TestAPIMissionState_WithNilDB_ReturnsDefault(t *testing.T) {
 
 // ── V4.1 Branding Tests ─────────────────────────────────────────────
 
-func TestCommandCenter_TitleContainsTrackGuard(t *testing.T) {
+func TestCommandCenter_TitleContainsOntologyAI(t *testing.T) {
 	app := fiber.New()
 	h := NewHandler(nil, nil)
 	app.Get("/command", h.CommandCenter)
@@ -923,11 +923,11 @@ func TestCommandCenter_TitleContainsTrackGuard(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := string(body)
-	if strings.Contains(bodyStr, "Sarthi") {
-		t.Errorf("FAIL: Page title should not contain 'Sarthi', got: %q", bodyStr[:200])
+	if strings.Contains(bodyStr, "OntologyAI") {
+		t.Errorf("FAIL: Page title should not contain 'OntologyAI', got: %q", bodyStr[:200])
 	}
-	if !strings.Contains(bodyStr, "TrackGuard") {
-		t.Errorf("FAIL: Page title should contain 'TrackGuard', got: %q", bodyStr[:200])
+	if !strings.Contains(bodyStr, "OntologyAI") {
+		t.Errorf("FAIL: Page title should contain 'OntologyAI', got: %q", bodyStr[:200])
 	}
 }
 
@@ -946,8 +946,8 @@ func TestCommandCenter_AgentFleetShowsChiefOfStaff(t *testing.T) {
 		t.Errorf("FAIL: Expected 'Chief of Staff' in agent fleet, got: %q", bodyStr[:500])
 	}
 	// Also verify old names are not present
-	if strings.Contains(bodyStr, "Sarthi") {
-		t.Errorf("FAIL: Agent fleet should not contain 'Sarthi', got: %q", bodyStr[:500])
+	if strings.Contains(bodyStr, "OntologyAI") {
+		t.Errorf("FAIL: Agent fleet should not contain 'OntologyAI', got: %q", bodyStr[:500])
 	}
 }
 

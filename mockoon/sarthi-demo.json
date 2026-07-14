@@ -1,7 +1,7 @@
 {
   "uuid": "sarthi-demo-v1",
   "lastMigration": 32,
-  "name": "Sarthi Demo — Slack + Webhook Mock",
+  "name": "OntologyAI Demo — Slack + Webhook Mock",
   "endpointPrefix": "",
   "latency": 0,
   "port": 3001,

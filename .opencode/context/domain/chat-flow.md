@@ -137,8 +137,22 @@ func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 
 Key patterns:
 - **Fiber v2 `SetBodyStreamWriter`**: Proper SSE streaming support
+<<<<<<< Updated upstream
 - **`tryBroadcast()`**: Non-blocking send with `select/default` to prevent goroutine leaks
 - **Two SSE endpoints**: `APICommandChatEvents` (chat-specific) and `APICommandEvents` (dashboard heartbeats)
+=======
+- **`tryBroadcast()`**: Non-blocking send with `select/default` to prevent goroutine leaks. Also pushes to `sseHub.Broadcast("default", SSEEvent{Type: "chat", ...})` for fan-out.
+- **SSEHub event-type filtering**: The SSEHub (sse_hub.go) manages per-subscriber channels with optional `Types` filter. Subscribing with `sseHub.Subscribe(tenantID, "chat")` only receives events with `Type == "chat"`.
+- **Four SSE event domains** (2026-06-28):
+  - `event: chat` — Chat bubble HTML fragments (for `sse-swap="chat"`)
+  - `event: mission` — Mission state updates (prepared_brief, pending_decisions changes)
+  - `event: hitl` — HITL approval signals (new pending, approved, rejected)
+  - `event: session` — Session events (connection state, context updates)
+- **SSE endpoints**: `APICommandChatEvents` (chat-specific via SSEHub), `APICommandEvents` (dashboard heartbeats), plus new typed subscribe endpoints for mission/hitl/session event types:
+  - `GET /api/command/mission/events` — subscribes to `mission` events
+  - `GET /api/command/hitl/events` — subscribes to `hitl` events
+  - `GET /api/command/session/events` — subscribes to `session` events
+>>>>>>> Stashed changes
 - **`recover()`**: Deferred in stream writer to prevent panic from closed connections
 
 ### 5. HTMX SSE Swap

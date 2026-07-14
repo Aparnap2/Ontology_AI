@@ -1,7 +1,7 @@
 #!/bin/bash
-# Demo Onboarding Script — Sarthi v4.2.0
+# Demo Onboarding Script — OntologyAI v4.2.0
 # 
-# This script demonstrates the full onboarding flow for Sarthi.
+# This script demonstrates the full onboarding flow for OntologyAI.
 # Run with: bash scripts/demo_onboarding.sh
 
 set -e
@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}============================================${NC}"
-echo -e "${BLUE}  Sarthi v4.2.0 — Demo Onboarding Script   ${NC}"
+echo -e "${BLUE}  OntologyAI v4.2.0 — Demo Onboarding Script   ${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 
@@ -181,12 +181,12 @@ echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}  Onboarding Complete!                     ${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
-echo -e "${GREEN}Sarthi v4.2.0 is ready for use!${NC}"
+echo -e "${GREEN}OntologyAI v4.2.0 is ready for use!${NC}"
 echo ""
 echo "Next steps:"
 echo "1. Start the AI service: cd apps/ai && uv run python -m src.grpc_server"
 echo "2. Start the Go service: cd apps/core && go run cmd/server/main.go"
-echo "3. Connect via Telegram: @SarthiBot"
+echo "3. Connect via Telegram: @OntologyAIBot"
 echo ""
 echo "For more information, see docs/V4_2_MILESTONE.md"
 echo ""

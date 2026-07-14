@@ -1,5 +1,5 @@
 # AGENT_INSTRUCTION.md
-## Sarthi — SOP Runtime Implementation
+## OntologyAI — SOP Runtime Implementation
 ### Version 1.0 | Internal Design Doc → Code | TDD-First
 
 ***
@@ -7,9 +7,9 @@
 ## READ BEFORE TOUCHING A SINGLE FILE
 
 ```
-You are implementing the Sarthi Internal Ops SOP Runtime.
+You are implementing the OntologyAI Internal Ops SOP Runtime.
 This is NOT a greenfield project. You are extending an existing
-polyglot codebase (IterateSwarm → Sarthi) that already has:
+polyglot codebase (IterateSwarm → OntologyAI) that already has:
 
   ✅ Go Fiber API gateway         (apps/core)
   ✅ Temporal orchestration       (Go + Python workers)
@@ -38,7 +38,7 @@ TESTING LAW (non-negotiable):
 *Confirm the existing system is green before touching anything.*
 
 - [ ] **0.1** Run `docker compose up -d` — all containers healthy
-- [ ] **0.2** Run `bash scripts/test_sarthi.sh` — all existing tests pass
+- [ ] **0.2** Run `bash scripts/test_ontology_ai.sh` — all existing tests pass
 - [ ] **0.3** Confirm Azure LLM reachable:
   ```bash
   cd apps/ai
@@ -58,7 +58,7 @@ TESTING LAW (non-negotiable):
 ***
 
 ## PHASE 1 — CANONICAL EVENT ENVELOPE
-*Every event in Sarthi has exactly one envelope shape. Define it here.*
+*Every event in OntologyAI has exactly one envelope shape. Define it here.*
 
 ### 1.1 — Write the test FIRST
 
@@ -479,7 +479,7 @@ Run: `go test ./internal/db -run TestRawEvent -v` → **expect FAIL**
 
 ```sql
 -- ──────────────────────────────────────────────────────────────
--- MIGRATION 009: Sarthi SOP Runtime tables
+-- MIGRATION 009: OntologyAI SOP Runtime tables
 -- APPEND ONLY. Never drop existing tables.
 -- ──────────────────────────────────────────────────────────────
 
@@ -832,7 +832,7 @@ func BusinessOSWorkflow(ctx workflow.Context, founderID string) error {
         SeenKeys:  make(map[string]bool),
     }
 
-    ch := workflow.GetSignalChannel(ctx, "sarthi.business.events")
+    ch := workflow.GetSignalChannel(ctx, "ontology_ai.business.events")
 
     for {
         // Continue-As-New BEFORE hitting Temporal history limits
@@ -1277,7 +1277,7 @@ class TestE2EWeeklyBriefing:
 
 ## PHASE 10 — UPDATE TEST RUNNER
 
-**File:** `scripts/test_sarthi.sh`
+**File:** `scripts/test_ontology_ai.sh`
 
 ```bash
 #!/bin/bash
@@ -1335,7 +1335,7 @@ uv run pytest tests/test_e2e_sop_flows.py \
 echo ""
 echo "═══════════════════════════════════════════════"
 echo " ALL TESTS PASSED ✓"
-echo " Sarthi SOP Runtime is operational."
+echo " OntologyAI SOP Runtime is operational."
 echo "═══════════════════════════════════════════════"
 ```
 
@@ -1359,7 +1359,7 @@ This implementation is complete only when **all** of the following are true:
 ✅ All SOP outputs pass ToneFilter jargon validator
 ✅ Langfuse traces every SOP execution
 ✅ All tests use real Docker, real Azure LLM, zero mocks
-✅ bash scripts/test_sarthi.sh → all green
+✅ bash scripts/test_ontology_ai.sh → all green
 ```
 
 ```

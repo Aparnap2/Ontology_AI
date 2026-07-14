@@ -1,4 +1,4 @@
-# Sarthi.ai — Canonical PRD v4.1
+# OntologyAI.ai — Canonical PRD v4.1
 
 **Version:** 4.1  
 **Date:** March 2026  
@@ -55,7 +55,7 @@
 ## 1. The One-Line Definition
 
 ```
-Sarthi is the autonomous back-office for any company that has
+OntologyAI is the autonomous back-office for any company that has
 outgrown spreadsheets but cannot yet afford a team of specialists.
 
 It does not advise. It works.
@@ -86,7 +86,7 @@ Delivered as a message — not a login.
 
 ## 3. The ICP
 
-### Who Sarthi Is For
+### Who OntologyAI Is For
 
 | Attribute | Value |
 |-----------|-------|
@@ -97,7 +97,7 @@ Delivered as a message — not a login.
 
 ### Jurisdiction Awareness
 
-Sarthi detects which laws apply based on company incorporation profile at onboarding:
+OntologyAI detects which laws apply based on company incorporation profile at onboarding:
 
 - **India:** GST, TDS, PF, ESIC, PT, MCA, DPDP
 - **US:** Sales tax, SBIR/STTR grants, QSBS, 409A, SOC2
@@ -135,7 +135,7 @@ Sarthi detects which laws apply based on company incorporation profile at onboar
 | AI Policy & Governance | $1.3B | $39.5B | 40.0% |
 | Accounting services startups | $8.2B | $14.1B | 14.5% |
 
-**Sarthi SAM:** ~135M companies globally with 1–100 employees, outgrown Excel, cannot afford specialists. At $50/month = **$81B/year addressable**.
+**OntologyAI SAM:** ~135M companies globally with 1–100 employees, outgrown Excel, cannot afford specialists. At $50/month = **$81B/year addressable**.
 
 ---
 
@@ -145,7 +145,7 @@ Sarthi detects which laws apply based on company incorporation profile at onboar
 
 Free, no per-message cost, async, file-capable, inline keyboards for HITL approvals. Works globally.
 
-### What Founders Send Sarthi
+### What Founders Send OntologyAI
 
 - **Text questions:** "What's my runway?"
 - **CSV/Excel files:** Bank statement export from net banking
@@ -153,7 +153,7 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 - **Photos:** Tax notices, receipts, whiteboards
 - **/commands:** `/status` `/runway` `/pipeline` `/decisions` `/weekly`
 
-### What Sarthi Sends Founders
+### What OntologyAI Sends Founders
 
 - **Proactive alerts** (unprompted, when score > threshold)
 - **Task reports:** "Done: sent 3 payment reminders"
@@ -165,17 +165,17 @@ Free, no per-message cost, async, file-capable, inline keyboards for HITL approv
 
 ## 6. The BI Replacement Layer
 
-| Excel / Power BI | Sarthi |
+| Excel / Power BI | OntologyAI |
 |-----------------|--------|
-| Founder opens tool | Sarthi watches 24/7 |
-| Refresh to see data | Sarthi pushes when it matters |
-| Founder spots anomaly | Sarthi spots it first |
-| Export for investor | Sarthi generates narrative |
+| Founder opens tool | OntologyAI watches 24/7 |
+| Refresh to see data | OntologyAI pushes when it matters |
+| Founder spots anomaly | OntologyAI spots it first |
+| Export for investor | OntologyAI generates narrative |
 | Manual scenario math | "What if I hire in April?" answered against live data |
 | Rear-view snapshot | Rolling 13-week forward forecast |
 | Static chart | "At current trajectory: zero June 14" |
 
-**Every agent in Sarthi is a living BI query. Not a chart. A decision.**
+**Every agent in OntologyAI is a living BI query. Not a chart. A decision.**
 
 ---
 
@@ -597,7 +597,7 @@ EVENT: Founder sends HDFC CSV to Telegram bot
          ▼
 [Go Fiber] TelegramWebhookHandler
   → Validates, authenticates founder
-  → Produces to Redpanda: "sarthi.business.events"
+  → Produces to Redpanda: "ontology_ai.business.events"
          │
          ▼
 [Temporal] BusinessOSWorkflow (long-running, never stops)
@@ -827,7 +827,7 @@ class GrantFinding(BaseModel):  # NEW v4.1
 
 ```
 PHASE 0  ✅  IterateSwarm base infra — done
-PHASE 1  ✅  Sarthi pivot: schemas, agents v1, workflows — done
+PHASE 1  ✅  OntologyAI pivot: schemas, agents v1, workflows — done
 
 PHASE 2  🔨  NOW — LLM unification + graph memory
   □ apps/ai/src/config/llm.py             universal client
@@ -943,13 +943,13 @@ v4.0.0 tag condition                   ✅ first real founder, not code
    Docker OSS stack. 85%+ gross margins at scale. Competitors on managed cloud can't price this low.
 
 4. **THE RELATIONSHIP COMPOUNDS**
-   Trust between founder and Sarthi grows every week. Every intervention, rating, and outcome improves the model for this specific company. Not transferable.
+   Trust between founder and OntologyAI grows every week. Every intervention, rating, and outcome improves the model for this specific company. Not transferable.
 
 5. **BRAND POSITIONING ENTERPRISE CAN'T COPY**
    No enterprise vendor can say "don't worry, I've got this" to a scared 26-year-old founder at 11pm. Their legal team, brand, and sales motion won't allow it.
 
 6. **GRANT DETECTION = FOUND MONEY**
-   "There's a ₹40 lakh DPIIT grant you qualify for." No other tool watches this continuously per company. First time Sarthi finds a grant the founder didn't know about — that's lifetime retention.
+   "There's a ₹40 lakh DPIIT grant you qualify for." No other tool watches this continuously per company. First time OntologyAI finds a grant the founder didn't know about — that's lifetime retention.
 
 ---
 
@@ -969,7 +969,7 @@ v4.0.0 tag condition                   ✅ first real founder, not code
 - All Langfuse traces < 8s p95
 
 ### The real metric:
-**"Would you recommend Sarthi to another founder?"**
+**"Would you recommend OntologyAI to another founder?"**
 
 **Target:** 8/10 by founder #5.
 

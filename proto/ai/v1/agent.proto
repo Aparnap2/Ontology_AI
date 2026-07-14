@@ -122,7 +122,7 @@ message EventEnvelope {
   // occurred_at is when the event occurred (from source)
   int64 occurred_at = 6;
   
-  // received_at is when Sarthi received the event
+  // received_at is when OntologyAI received the event
   int64 received_at = 7;
   
   // trace_id is the distributed tracing ID (for Langfuse)
