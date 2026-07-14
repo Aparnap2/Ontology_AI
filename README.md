@@ -1,8 +1,6 @@
-# TrackGuard — Operating System for a Solo Founder's Company
+# OntologyAI — Palantir-Style Ontology for Small Businesses
 
-> Server-rendered command center with SSE push, goroutine-based Temporal dispatch, and Python specialist agents.
-> Chat → @mention → specialist workflow → SSE result — all driven by Go + Temporal + LangGraph.
-> **V4.1**: Five canonical specialists. No legacy Hiring. Backward-compat aliases. TrackGuard branded.
+> OntologyAI builds a live Ontology of a small business from its existing tools, and lets AI specialists query and act on it — with every consequential action gated by human approval.
 
 [![Tests](https://img.shields.io/badge/tests-994%2B%20passing-brightgreen)](#)
 [![Architecture](https://img.shields.io/badge/architecture-SSE%20%2B%20Specialist-blue)](#)
@@ -99,7 +97,7 @@ var specialistRoutes = map[string]specialistRoute{
 | **Five canonical specialists** | Chief of Staff, FP&A, Growth Analytics, Reliability & Delivery, Communications — exactly 5, no Hiring |
 | **SpecialistResponse Literal schema** | Pydantic enforces valid specialist names and workflow names at the type level |
 | **Backward-compat workflow re-exports** | `QAWorkflow`, `FinanceWorkflow`, `DataWorkflow`, `OpsWorkflow` → new canonical names with deprecation |
-| **TrackGuard branding** | All page titles, display names, and documentation use "TrackGuard" not "Sarthi" |
+| **OntologyAI branding** | All page titles, display names, and documentation use "OntologyAI" not "OntologyAI" |
 | **API Mission State endpoints** | `GET /api/mission-state` and `POST /api/mission-state` for machine-readable JSON (Python AI ↔ Go Core) |
 
 ---
@@ -321,7 +319,7 @@ apps/
 
 ```bash
 # Start infrastructure
-docker start trackguard-postgres trackguard-qdrant trackguard-redis
+docker start ontology_ai-postgres ontology_ai-qdrant ontology_ai-redis
 
 # Run Python tests
 cd apps/ai && uv run pytest tests/ -v
@@ -342,9 +340,9 @@ cd apps/core && go run cmd/server/main.go
 
 ---
 
-## Migration Notes (Sarthi → TrackGuard V4.1)
+## Migration Notes (OntologyAI → OntologyAI V4.1)
 
-- **Branding**: "Sarthi" → "TrackGuard" across all page titles, display names, and documentation
+- **Branding**: "OntologyAI" → "OntologyAI" across all page titles, display names, and documentation
 - **Specialist roster**: 6 specialists → 5 canonical specialists (Hiring removed)
 - **Workflow renames**: QAWorkflow → ChiefOfStaffWorkflow, FinanceWorkflow → FPAWorkflow, DataWorkflow → GrowthAnalyticsWorkflow, OpsWorkflow → ReliabilityWorkflow
 - **Backward compat**: All legacy aliases re-exported with deprecation warnings
