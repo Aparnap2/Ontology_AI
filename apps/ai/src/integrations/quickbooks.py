@@ -83,87 +83,88 @@ def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
         )
         return _add_metadata(_MOCK_DATA, "quickbooks_mock")
 
-    url = f"{api_url}/v3/company/{company_id}/query"
-    params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Accept": "application/json",
-        "Content-Type": "application/text",
-    }
-
-    def _fetch_invoices() -> list:
-        """Single HTTP attempt — retried by ``retry_with_backoff``."""
-        response = httpx.get(url, params=params, headers=headers, timeout=30.0)
-        response.raise_for_status()
-        data = response.json()
-        query_response = data.get("QueryResponse", {}) or {}
-        invoices = query_response.get("Invoice", [])
-
-        if not invoices:
-            return _add_metadata({
-                "finance_outstanding_invoices": 0,
-                "finance_total_outstanding_cents": 0,
-                "finance_overdue_invoices": 0,
-                "finance_total_overdue_cents": 0,
-                "finance_paid_invoices_30d_cents": 0,
-                "finance_unpaid_invoices_30d_cents": 0,
-                "finance_days_sales_outstanding": None,
-            }, "quickbooks")
-
-        now = datetime.utcnow()
-        thirty_days_ago = now - timedelta(days=30)
-
-        outstanding_invoices = 0
-        total_outstanding_cents = 0
-        overdue_invoices = 0
-        total_overdue_cents = 0
-        paid_invoices_30d_cents = 0
-        unpaid_invoices_30d_cents = 0
-
-        for inv in invoices:
-            total_amt_cents = _parse_invoice_amount(inv.get("TotalAmt"))
-            balance_cents = _parse_invoice_amount(inv.get("Balance"))
-            due_date_str = inv.get("DueDate", "")
-            txn_date_str = inv.get("TxnDate", "")
-
-            due_date: Optional[datetime] = None
-            txn_date: Optional[datetime] = None
-
-            if due_date_str:
-                try:
-                    due_date = datetime.fromisoformat(due_date_str)
-                except (ValueError, TypeError):
-                    pass
-
-            if txn_date_str:
-                try:
-                    txn_date = datetime.fromisoformat(txn_date_str)
-                except (ValueError, TypeError):
-                    pass
-
-            if balance_cents > 0:
-                outstanding_invoices += 1
-                total_outstanding_cents += balance_cents
-                if txn_date and txn_date >= thirty_days_ago:
-                    unpaid_invoices_30d_cents += balance_cents
-                if due_date and due_date < now:
-                    overdue_invoices += 1
-                    total_overdue_cents += balance_cents
-
-            if balance_cents == 0 and txn_date and txn_date >= thirty_days_ago:
-                paid_invoices_30d_cents += total_amt_cents
-
-        dso = _calculate_dso(total_outstanding_cents, paid_invoices_30d_cents)
-
-        result = {
-            "finance_outstanding_invoices": outstanding_invoices,
-            "finance_total_outstanding_cents": total_outstanding_cents,
-            "finance_overdue_invoices": overdue_invoices,
-            "finance_total_overdue_cents": total_overdue_cents,
-            "finance_paid_invoices_30d_cents": paid_invoices_30d_cents,
-            "finance_unpaid_invoices_30d_cents": unpaid_invoices_30d_cents,
-            "finance_days_sales_outstanding": dso,
+    try:
+        url = f"{api_url}/v3/company/{company_id}/query"
+        params = {"query": "select * from Invoice STARTPOSITION 1 MAXRESULTS 1000"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/text",
         }
+
+        def _fetch_invoices() -> list:
+            """Single HTTP attempt — retried by ``retry_with_backoff``."""
+            response = httpx.get(url, params=params, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            query_response = data.get("QueryResponse", {}) or {}
+            invoices = query_response.get("Invoice", [])
+
+            if not invoices:
+                return _add_metadata({
+                    "finance_outstanding_invoices": 0,
+                    "finance_total_outstanding_cents": 0,
+                    "finance_overdue_invoices": 0,
+                    "finance_total_overdue_cents": 0,
+                    "finance_paid_invoices_30d_cents": 0,
+                    "finance_unpaid_invoices_30d_cents": 0,
+                    "finance_days_sales_outstanding": None,
+                }, "quickbooks")
+
+            now = datetime.utcnow()
+            thirty_days_ago = now - timedelta(days=30)
+
+            outstanding_invoices = 0
+            total_outstanding_cents = 0
+            overdue_invoices = 0
+            total_overdue_cents = 0
+            paid_invoices_30d_cents = 0
+            unpaid_invoices_30d_cents = 0
+
+            for inv in invoices:
+                total_amt_cents = _parse_invoice_amount(inv.get("TotalAmt"))
+                balance_cents = _parse_invoice_amount(inv.get("Balance"))
+                due_date_str = inv.get("DueDate", "")
+                txn_date_str = inv.get("TxnDate", "")
+
+                due_date: Optional[datetime] = None
+                txn_date: Optional[datetime] = None
+
+                if due_date_str:
+                    try:
+                        due_date = datetime.fromisoformat(due_date_str)
+                    except (ValueError, TypeError):
+                        pass
+
+                if txn_date_str:
+                    try:
+                        txn_date = datetime.fromisoformat(txn_date_str)
+                    except (ValueError, TypeError):
+                        pass
+
+                if balance_cents > 0:
+                    outstanding_invoices += 1
+                    total_outstanding_cents += balance_cents
+                    if txn_date and txn_date >= thirty_days_ago:
+                        unpaid_invoices_30d_cents += balance_cents
+                    if due_date and due_date < now:
+                        overdue_invoices += 1
+                        total_overdue_cents += balance_cents
+
+                if balance_cents == 0 and txn_date and txn_date >= thirty_days_ago:
+                    paid_invoices_30d_cents += total_amt_cents
+
+            dso = _calculate_dso(total_outstanding_cents, paid_invoices_30d_cents)
+
+            result = {
+                "finance_outstanding_invoices": outstanding_invoices,
+                "finance_total_outstanding_cents": total_outstanding_cents,
+                "finance_overdue_invoices": overdue_invoices,
+                "finance_total_overdue_cents": total_overdue_cents,
+                "finance_paid_invoices_30d_cents": paid_invoices_30d_cents,
+                "finance_unpaid_invoices_30d_cents": unpaid_invoices_30d_cents,
+                "finance_days_sales_outstanding": dso,
+            }
 
         return _add_metadata(result, "quickbooks")
 
