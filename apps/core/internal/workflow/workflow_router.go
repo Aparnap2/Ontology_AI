@@ -42,89 +42,88 @@ func GetRoutingTable() EventRoutingTable {
 	return EventRoutingTable{
 		// ==================== REVENUE TRACKER ====================
 		// Payment & Subscription events from Razorpay
-		"PAYMENT_SUCCESS":        {"RevenueWorkflow"},
-		"SUBSCRIPTION_CREATED":   {"RevenueWorkflow"},
-		"SUBSCRIPTION_UPDATED":   {"RevenueWorkflow"},
-		"SUBSCRIPTION_CANCELED":  {"RevenueWorkflow"},
-		"PAYMENT_FAILED":         {"RevenueWorkflow"},
-		"INVOICE_PAID":           {"RevenueWorkflow"},
-		"INVOICE_EXPIRED":        {"RevenueWorkflow"},
-		"REFUND_CREATED":         {"RevenueWorkflow"},
+		"PAYMENT_SUCCESS":       {"RevenueWorkflow"},
+		"SUBSCRIPTION_CREATED":  {"RevenueWorkflow"},
+		"SUBSCRIPTION_UPDATED":  {"RevenueWorkflow"},
+		"SUBSCRIPTION_CANCELED": {"RevenueWorkflow"},
+		"PAYMENT_FAILED":        {"RevenueWorkflow"},
+		"INVOICE_PAID":          {"RevenueWorkflow"},
+		"INVOICE_EXPIRED":       {"RevenueWorkflow"},
+		"REFUND_CREATED":        {"RevenueWorkflow"},
 
 		// CRM & Sales events
-		"CRM_DEAL_CREATED":       {"RevenueWorkflow"},
-		"CRM_DEAL_UPDATED":       {"RevenueWorkflow"},
-		"CRM_DEAL_WON":           {"RevenueWorkflow"},
-		"CRM_DEAL_LOST":          {"RevenueWorkflow"},
+		"CRM_DEAL_CREATED": {"RevenueWorkflow"},
+		"CRM_DEAL_UPDATED": {"RevenueWorkflow"},
+		"CRM_DEAL_WON":     {"RevenueWorkflow"},
+		"CRM_DEAL_LOST":    {"RevenueWorkflow"},
 
 		// Weekly tick for revenue review
-		"TIME_TICK_WEEKLY":       {"RevenueWorkflow", "ChiefOfStaffWorkflow"}, // Multi-route
+		"TIME_TICK_WEEKLY": {"RevenueWorkflow", "ChiefOfStaffWorkflow"}, // Multi-route
 
 		// ==================== CS AGENT ====================
 		// User lifecycle events
-		"USER_SIGNED_UP":         {"CSWorkflow"},
-		"USER_LOGGED_IN":         {"CSWorkflow"},
-		"USER_LOGGED_OUT":        {"CSWorkflow"},
-		"USER_PROFILE_UPDATED":   {"CSWorkflow"},
+		"USER_SIGNED_UP":       {"CSWorkflow"},
+		"USER_LOGGED_IN":       {"CSWorkflow"},
+		"USER_LOGGED_OUT":      {"CSWorkflow"},
+		"USER_PROFILE_UPDATED": {"CSWorkflow"},
 
 		// Support events
-		"SUPPORT_TICKET_CREATED": {"CSWorkflow"},
-		"SUPPORT_TICKET_UPDATED": {"CSWorkflow"},
-		"SUPPORT_TICKET_RESOLVED":{"CSWorkflow"},
+		"SUPPORT_TICKET_CREATED":  {"CSWorkflow"},
+		"SUPPORT_TICKET_UPDATED":  {"CSWorkflow"},
+		"SUPPORT_TICKET_RESOLVED": {"CSWorkflow"},
 
 		// Day-based ticks for CS follow-ups
-		"TIME_TICK_D1":           {"CSWorkflow"}, // Day 1 check-in
-		"TIME_TICK_D3":           {"CSWorkflow"}, // Day 3 follow-up
-		"TIME_TICK_D7":           {"CSWorkflow"}, // Day 7 retention check
+		"TIME_TICK_D1": {"CSWorkflow"}, // Day 1 check-in
+		"TIME_TICK_D3": {"CSWorkflow"}, // Day 3 follow-up
+		"TIME_TICK_D7": {"CSWorkflow"}, // Day 7 retention check
 
 		// ==================== PEOPLE COORDINATOR ====================
 		// Employee lifecycle
-		"EMPLOYEE_CREATED":       {"PeopleWorkflow"},
-		"EMPLOYEE_UPDATED":       {"PeopleWorkflow"},
-		"EMPLOYEE_TERMINATED":    {"PeopleWorkflow"},
+		"EMPLOYEE_CREATED":    {"PeopleWorkflow"},
+		"EMPLOYEE_UPDATED":    {"PeopleWorkflow"},
+		"EMPLOYEE_TERMINATED": {"PeopleWorkflow"},
 
 		// Checklist & onboarding
-		"CHECKLIST_ITEM_CONFIRMED":{"PeopleWorkflow"},
-		"CHECKLIST_ITEM_COMPLETED":{"PeopleWorkflow"},
-		"ONBOARDING_STARTED":     {"PeopleWorkflow"},
-		"ONBOARDING_COMPLETED":   {"PeopleWorkflow"},
+		"CHECKLIST_ITEM_CONFIRMED": {"PeopleWorkflow"},
+		"CHECKLIST_ITEM_COMPLETED": {"PeopleWorkflow"},
+		"ONBOARDING_STARTED":       {"PeopleWorkflow"},
+		"ONBOARDING_COMPLETED":     {"PeopleWorkflow"},
 
-		// ==================== FINANCE MONITOR ====================
+		// ==================== FP&A MONITOR ====================
 		// Expense & accounting
-		"EXPENSE_RECORDED":       {"FinanceWorkflow"},
-		"EXPENSE_APPROVED":       {"FinanceWorkflow"},
-		"EXPENSE_REJECTED":       {"FinanceWorkflow"},
+		"EXPENSE_RECORDED": {"FPAWorkflow"},
+		"EXPENSE_APPROVED": {"FPAWorkflow"},
+		"EXPENSE_REJECTED": {"FPAWorkflow"},
 
 		// Bank & payment processing
-		"BANK_WEBHOOK":           {"FinanceWorkflow"},
-		"BANK_TRANSACTION":       {"FinanceWorkflow"},
-		"VENDOR_INVOICE_RECEIVED":{"FinanceWorkflow"},
-		"VENDOR_INVOICE_PAID":    {"FinanceWorkflow"},
+		"BANK_WEBHOOK":            {"FPAWorkflow"},
+		"BANK_TRANSACTION":        {"FPAWorkflow"},
+		"VENDOR_INVOICE_RECEIVED": {"FPAWorkflow"},
+		"VENDOR_INVOICE_PAID":     {"FPAWorkflow"},
 
 		// Daily finance review
-		"TIME_TICK_DAILY":        {"FinanceWorkflow"},
+		"TIME_TICK_DAILY": {"FPAWorkflow"},
 
 		// ==================== CHIEF OF STAFF ====================
 		// Monthly executive review
-		"TIME_TICK_MONTHLY":      {"ChiefOfStaffWorkflow"},
+		"TIME_TICK_MONTHLY": {"ChiefOfStaffWorkflow"},
 
 		// Agent outputs require CoS attention
-		"AGENT_OUTPUT":           {"ChiefOfStaffWorkflow"},
+		"AGENT_OUTPUT": {"ChiefOfStaffWorkflow"},
 
 		// Strategic decisions
-		"DECISION_LOGGED":        {"ChiefOfStaffWorkflow"},
-		"POLICY_CHANGE":          {"ChiefOfStaffWorkflow"},
+		"DECISION_LOGGED": {"ChiefOfStaffWorkflow"},
+		"POLICY_CHANGE":   {"ChiefOfStaffWorkflow"},
 	}
 }
 
 // WorkflowRouter is the parent router that spawns child workflows based on event type.
 // It implements the router pattern with Continue-As-New at 1000 events to prevent
 // Temporal history size bloat.
-func WorkflowRouter(ctx workflow.Context, tenantID string) error {
-	state := WorkflowRouterState{
-		TenantID:        tenantID,
-		EventsProcessed: 0,
-		SeenKeys:        make(map[string]bool),
+// Accepts WorkflowRouterState to preserve SeenKeys across Continue-As-New cycles.
+func WorkflowRouter(ctx workflow.Context, st WorkflowRouterState) error {
+	if st.SeenKeys == nil {
+		st.SeenKeys = make(map[string]bool)
 	}
 
 	routingTable := GetRoutingTable()
@@ -135,13 +134,14 @@ func WorkflowRouter(ctx workflow.Context, tenantID string) error {
 	for {
 		// Guard: Continue-As-New before hitting Temporal history limits
 		// This is critical for long-running workflows to prevent history size errors
-		if state.EventsProcessed >= WorkflowRouterContinueAsNewThreshold {
+		if st.EventsProcessed >= WorkflowRouterContinueAsNewThreshold {
 			workflow.GetLogger(ctx).Info(
 				"Triggering Continue-As-New",
-				"events_processed", state.EventsProcessed,
-				"tenant_id", state.TenantID,
+				"events_processed", st.EventsProcessed,
+				"tenant_id", st.TenantID,
+				"seen_keys", len(st.SeenKeys),
 			)
-			return workflow.NewContinueAsNewError(ctx, WorkflowRouter, state.TenantID)
+			return workflow.NewContinueAsNewError(ctx, WorkflowRouter, st)
 		}
 
 		// Receive next event from signal channel
@@ -150,7 +150,7 @@ func WorkflowRouter(ctx workflow.Context, tenantID string) error {
 
 		// Idempotency: skip duplicate events based on idempotency key
 		// This prevents double-processing of retried events
-		if state.SeenKeys[envelope.IdempotencyKey] {
+		if st.SeenKeys[envelope.IdempotencyKey] {
 			workflow.GetLogger(ctx).Info(
 				"Skipping duplicate event",
 				"idempotency_key", envelope.IdempotencyKey,
@@ -159,8 +159,8 @@ func WorkflowRouter(ctx workflow.Context, tenantID string) error {
 			)
 			continue
 		}
-		state.SeenKeys[envelope.IdempotencyKey] = true
-		state.EventsProcessed++
+		st.SeenKeys[envelope.IdempotencyKey] = true
+		st.EventsProcessed++
 
 		// Route to appropriate workflows based on event type
 		workflowNames, exists := routingTable[envelope.EventType]
@@ -240,54 +240,178 @@ func WorkflowRouter(ctx workflow.Context, tenantID string) error {
 }
 
 // RevenueWorkflow handles all revenue-related events (payments, subscriptions, CRM deals).
-// This is a stub to be implemented in Phase 6.
+// It routes the event to the Python Revenue agent via gRPC for processing.
 func RevenueWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
-	workflow.GetLogger(ctx).Info(
+	logger := workflow.GetLogger(ctx)
+	logger.Info(
 		"RevenueWorkflow started",
 		"event_type", envelope.EventType,
 		"tenant_id", envelope.TenantID,
 		"trace_id", envelope.TraceID,
 	)
-	// TODO: Implement RevenueWorkflow agent logic
+
+	// Set activity options with retry policy
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    10 * time.Second,
+			MaximumAttempts:    3,
+		},
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
+
+	// Execute Python revenue agent via gRPC
+	var result SOPActivityResult
+	err := workflow.ExecuteActivity(ctx, ExecuteSOPActivity, envelope).Get(ctx, &result)
+	if err != nil {
+		logger.Error("RevenueWorkflow: SOP execution failed", "error", err)
+		return err
+	}
+
+	logger.Info("RevenueWorkflow completed",
+		"success", result.Success,
+		"message", result.Message,
+	)
+
+	// Fire alert if the agent detected an issue requiring attention
+	if result.FireAlert {
+		logger.Info("RevenueWorkflow: alert flagged", "message", result.Message)
+	}
+
 	return nil
 }
 
 // CSWorkflow handles customer success events (signups, support tickets, engagement ticks).
-// This is a stub to be implemented in Phase 6.
+// It routes the event to the Python CS agent via gRPC for processing.
 func CSWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
-	workflow.GetLogger(ctx).Info(
+	logger := workflow.GetLogger(ctx)
+	logger.Info(
 		"CSWorkflow started",
 		"event_type", envelope.EventType,
 		"tenant_id", envelope.TenantID,
 		"trace_id", envelope.TraceID,
 	)
-	// TODO: Implement CSWorkflow agent logic
+
+	// Set activity options with retry policy
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    10 * time.Second,
+			MaximumAttempts:    3,
+		},
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
+
+	// Execute Python CS agent via gRPC
+	var result SOPActivityResult
+	err := workflow.ExecuteActivity(ctx, ExecuteSOPActivity, envelope).Get(ctx, &result)
+	if err != nil {
+		logger.Error("CSWorkflow: SOP execution failed", "error", err)
+		return err
+	}
+
+	logger.Info("CSWorkflow completed",
+		"success", result.Success,
+		"message", result.Message,
+	)
+
+	// Fire alert if the agent detected an issue requiring attention
+	if result.FireAlert {
+		logger.Info("CSWorkflow: alert flagged", "message", result.Message)
+	}
+
 	return nil
 }
 
 // PeopleWorkflow handles HR/people operations (employee lifecycle, onboarding, checklists).
-// This is a stub to be implemented in Phase 6.
+// It routes the event to the Python People agent via gRPC for processing.
 func PeopleWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
-	workflow.GetLogger(ctx).Info(
+	logger := workflow.GetLogger(ctx)
+	logger.Info(
 		"PeopleWorkflow started",
 		"event_type", envelope.EventType,
 		"tenant_id", envelope.TenantID,
 		"trace_id", envelope.TraceID,
 	)
-	// TODO: Implement PeopleWorkflow agent logic
+
+	// Set activity options with retry policy
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    10 * time.Second,
+			MaximumAttempts:    3,
+		},
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
+
+	// Execute Python people agent via gRPC
+	var result SOPActivityResult
+	err := workflow.ExecuteActivity(ctx, ExecuteSOPActivity, envelope).Get(ctx, &result)
+	if err != nil {
+		logger.Error("PeopleWorkflow: SOP execution failed", "error", err)
+		return err
+	}
+
+	logger.Info("PeopleWorkflow completed",
+		"success", result.Success,
+		"message", result.Message,
+	)
+
+	// Fire alert if the agent detected an issue requiring attention
+	if result.FireAlert {
+		logger.Info("PeopleWorkflow: alert flagged", "message", result.Message)
+	}
+
 	return nil
 }
 
 // FinanceWorkflow handles finance operations (expenses, bank webhooks, vendor invoices).
-// This is a stub to be implemented in Phase 6.
+// It routes the event to the Python Finance agent via gRPC for processing.
 func FinanceWorkflow(ctx workflow.Context, envelope events.EventEnvelope) error {
-	workflow.GetLogger(ctx).Info(
+	logger := workflow.GetLogger(ctx)
+	logger.Info(
 		"FinanceWorkflow started",
 		"event_type", envelope.EventType,
 		"tenant_id", envelope.TenantID,
 		"trace_id", envelope.TraceID,
 	)
-	// TODO: Implement FinanceWorkflow agent logic
+
+	// Set activity options with retry policy
+	ao := workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 2.0,
+			MaximumInterval:    10 * time.Second,
+			MaximumAttempts:    3,
+		},
+	}
+	ctx = workflow.WithActivityOptions(ctx, ao)
+
+	// Execute Python finance agent via gRPC
+	var result SOPActivityResult
+	err := workflow.ExecuteActivity(ctx, ExecuteSOPActivity, envelope).Get(ctx, &result)
+	if err != nil {
+		logger.Error("FinanceWorkflow: SOP execution failed", "error", err)
+		return err
+	}
+
+	logger.Info("FinanceWorkflow completed",
+		"success", result.Success,
+		"message", result.Message,
+	)
+
+	// Fire alert if the agent detected an issue requiring attention
+	if result.FireAlert {
+		logger.Info("FinanceWorkflow: alert flagged", "message", result.Message)
+	}
+
 	return nil
 }
 
@@ -366,8 +490,8 @@ func ChiefOfStaffWorkflow(ctx workflow.Context, envelope events.EventEnvelope) e
 		Decisions:      decisionsResult.Decisions,
 		Metrics:        metricsResult.Metrics,
 		InvestorStatus: investorResult.Health,
-		FounderName:    "Founder",    // TODO: Get from tenant config
-		CompanyName:    "Company",    // TODO: Get from tenant config
+		FounderName:    "Founder", // TODO: Get from tenant config
+		CompanyName:    "Company", // TODO: Get from tenant config
 	}).Get(ctx, briefResult)
 	if err != nil {
 		logger.Error("Failed to synthesize weekly brief", err)

@@ -12,8 +12,9 @@ import (
 
 	_ "github.com/lib/pq"
 	"go.temporal.io/sdk/worker"
+	"google.golang.org/grpc"
 
-	"iterateswarm-core/internal/grpc"
+	coregrpc "iterateswarm-core/internal/grpc"
 	"iterateswarm-core/internal/temporal"
 	"iterateswarm-core/internal/workflow"
 )
@@ -38,7 +39,7 @@ func main() {
 	log.Println("Connected to Temporal")
 
 	// Initialize gRPC client for AI service
-	aiClient, err := grpc.NewClientWithoutBlock(*aiGRPCAddr)
+	aiClient, err := coregrpc.NewClientWithoutBlock(*aiGRPCAddr)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to AI gRPC server: %v", err)
 		log.Println("Worker will start, but AI calls will fail until AI service is available")
@@ -69,9 +70,25 @@ func main() {
 	// Register feedback workflow and activities
 	w.RegisterWorkflow(workflow.FeedbackWorkflow)
 
-	// Note: aiClient is nil because Go-based agents use Azure OpenAI directly
-	// The gRPC client is only needed for Python AI service integration
-	activities := workflow.NewActivities(nil)
+	// Wire the Python AI gRPC client into activities so it's available when
+	// desk ops (Finance, People, Legal, etc.) and other Python-integration
+	// activities are implemented. Currently:
+	//   - AnalyzeFeedback uses Azure OpenAI directly (Go-based agents)
+	//   - StartSwarm still creates its own per-call connection (TODO: refactor)
+	//   - Desk ops (ProcessFinanceOps, etc.) are stubs awaiting proto updates
+	// The aiClient connection is lazily established (non-blocking dial) and may
+	// be nil if the Python AI service was unavailable at startup.
+	var aiClientConn *grpc.ClientConn
+	if aiClient != nil {
+		aiClientConn = aiClient.Conn()
+	}
+	activities := workflow.NewActivities(aiClientConn)
+
+	// Also set the client on the global singleton used by standalone activities
+	if aiClientConn != nil {
+		workflow.InitAIClient(aiClientConn)
+	}
+
 	w.RegisterActivity(activities.AnalyzeFeedback)
 	w.RegisterActivity(activities.SendDiscordApproval)
 	w.RegisterActivity(activities.CreateGitHubIssue)
@@ -104,6 +121,7 @@ func main() {
 
 	// Register WorkflowRouter and child workflows (Phase 5)
 	w.RegisterWorkflow(workflow.WorkflowRouter)
+	// Legacy compat aliases for in-flight workflows
 	w.RegisterWorkflow(workflow.RevenueWorkflow)
 	w.RegisterWorkflow(workflow.CSWorkflow)
 	w.RegisterWorkflow(workflow.PeopleWorkflow)

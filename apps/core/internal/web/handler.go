@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html"
 	"html/template"
@@ -37,14 +38,16 @@ func Render(c *fiber.Ctx, name string, data interface{}) error {
 			switch sender {
 			case "founder":
 				return "You"
-			case "sarthi":
-				return "Sarthi (Manager)"
-			case "finance":
-				return "Finance (Analyst)"
-			case "data":
-				return "Data (Analyst)"
-			case "ops":
-				return "Ops (Analyst)"
+			case "sarthi", "chief_of_staff":
+				return "Chief of Staff"
+			case "finance", "fpa":
+				return "FP&A"
+			case "data", "growth":
+				return "Growth Analytics"
+			case "ops", "reliability":
+				return "Reliability & Delivery"
+			case "comms":
+				return "Communications"
 			case "all":
 				return "Everyone"
 			default:
@@ -86,6 +89,14 @@ func NewHandler(db *sql.DB, temporalClient *temporal.Client) *Handler {
 			created_at TIMESTAMP DEFAULT NOW()
 		)`)
 		db.Exec(`CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at DESC)`)
+
+		db.Exec(`CREATE TABLE IF NOT EXISTS app_config (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			tenant_id VARCHAR(100) DEFAULT 'default',
+			config_key VARCHAR(100) UNIQUE NOT NULL,
+			config_value JSONB NOT NULL DEFAULT '{}',
+			updated_at TIMESTAMP DEFAULT NOW()
+		)`)
 	}
 	return &Handler{
 		db:            db,
@@ -134,19 +145,35 @@ func (h *Handler) HandleFeedback(c *fiber.Ctx) error {
 
 // HandleStats returns system stats for HTMX polling
 func (h *Handler) HandleStats(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
+	stats := fiber.Map{
 		"circuit_breaker":  "CLOSED",
 		"rate_limit_used":  0,
 		"rate_limit_total": 20,
-		"avg_time":         "3.5",
-	})
+		"avg_time":         "0",
+	}
+
+	if h.db != nil {
+		// Count recent traces as rate limit usage
+		var recentCount int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 minute'`).Scan(&recentCount)
+		stats["rate_limit_used"] = recentCount
+
+		// Average processing time from agent_traces
+		var avgTime sql.NullFloat64
+		_ = h.db.QueryRow(`SELECT AVG(COALESCE(duration_ms, 0)) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'`).Scan(&avgTime)
+		if avgTime.Valid {
+			stats["avg_time"] = fmt.Sprintf("%.1f", avgTime.Float64)
+		}
+	}
+
+	return c.JSON(stats)
 }
 
-// HandleMetrics returns detailed metrics
+// HandleMetrics returns detailed metrics from agent_traces and audit_log
 func (h *Handler) HandleMetrics(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
+	metrics := fiber.Map{
 		"feedbacks_processed":   0,
-		"avg_processing_time":   3.5,
+		"avg_processing_time":   0,
 		"circuit_breaker_state": "CLOSED",
 		"rate_limit_hits":       0,
 		"classification_accuracy": fiber.Map{
@@ -154,7 +181,28 @@ func (h *Handler) HandleMetrics(c *fiber.Ctx) error {
 			"feature":  0.97,
 			"question": 0.98,
 		},
-	})
+	}
+
+	if h.db != nil {
+		// Total traces processed
+		var totalTraces int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces`).Scan(&totalTraces)
+		metrics["feedbacks_processed"] = totalTraces
+
+		// Average processing time
+		var avgTime sql.NullFloat64
+		_ = h.db.QueryRow(`SELECT AVG(COALESCE(duration_ms, 0)) FROM agent_traces WHERE created_at > NOW() - INTERVAL '24 hours'`).Scan(&avgTime)
+		if avgTime.Valid {
+			metrics["avg_processing_time"] = avgTime.Float64
+		}
+
+		// Rate limit hits: count of failed traces in last hour
+		var failedCount int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE status = 'failed' AND created_at > NOW() - INTERVAL '1 hour'`).Scan(&failedCount)
+		metrics["rate_limit_hits"] = failedCount
+	}
+
+	return c.JSON(metrics)
 }
 
 // ============== Panel 1: Live Feed ==============
@@ -282,14 +330,13 @@ type AgentStatus struct {
 	LastSeen  string `json:"last_seen"`
 }
 
-// GetAgentStatus returns status for a specific agent
+// GetAgentStatus returns status for a specific agent from agent_traces
 func (h *Handler) GetAgentStatus(c *fiber.Ctx) error {
 	agent := c.Params("agent")
 	if agent == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "Missing agent parameter"})
 	}
 
-	// Placeholder - return default status
 	status := AgentStatus{
 		Name:      agent,
 		State:     "idle",
@@ -297,20 +344,94 @@ func (h *Handler) GetAgentStatus(c *fiber.Ctx) error {
 		LastSeen:  time.Now().Format(time.RFC3339),
 	}
 
+	if h.db != nil {
+		// Get last trace for this agent
+		var lastSeen sql.NullTime
+		var taskCount int
+		err := h.db.QueryRow(`
+			SELECT MAX(created_at), COUNT(*)
+			FROM agent_traces
+			WHERE agent_name = $1
+		`, agent).Scan(&lastSeen, &taskCount)
+		if err == nil {
+			if lastSeen.Valid {
+				status.LastSeen = lastSeen.Time.Format(time.RFC3339)
+			}
+			status.TaskCount = taskCount
+		}
+
+		// Determine state from most recent trace status
+		var recentStatus sql.NullString
+		_ = h.db.QueryRow(`
+			SELECT status FROM agent_traces
+			WHERE agent_name = $1
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, agent).Scan(&recentStatus)
+		if recentStatus.Valid {
+			switch recentStatus.String {
+			case "processing", "running":
+				status.State = "busy"
+			case "failed":
+				status.State = "error"
+			case "success", "completed":
+				status.State = "active"
+			default:
+				status.State = "idle"
+			}
+		}
+	}
+
 	return c.JSON(status)
 }
 
-// GetAllAgentsStatus returns status for all agents
+// GetAllAgentsStatus returns status for all agents from agent_traces
 func (h *Handler) GetAllAgentsStatus(c *fiber.Ctx) error {
-	agents := []string{"supervisor", "researcher", "sre", "swe", "reviewer"}
 	statuses := make(map[string]AgentStatus)
 
-	for _, agent := range agents {
-		statuses[agent] = AgentStatus{
-			Name:      agent,
-			State:     "idle",
-			TaskCount: 0,
-			LastSeen:  time.Now().Format(time.RFC3339),
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name,
+			       MAX(created_at) as last_seen,
+			       COUNT(*) as task_count
+			FROM agent_traces
+			WHERE agent_name IS NOT NULL AND agent_name != ''
+			GROUP BY agent_name
+			ORDER BY agent_name
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var name string
+				var lastSeen time.Time
+				var taskCount int
+				if err := rows.Scan(&name, &lastSeen, &taskCount); err == nil {
+					state := "idle"
+					// Check most recent status
+					var recentStatus sql.NullString
+					_ = h.db.QueryRow(`
+						SELECT status FROM agent_traces
+						WHERE agent_name = $1
+						ORDER BY created_at DESC LIMIT 1
+					`, name).Scan(&recentStatus)
+					if recentStatus.Valid {
+						switch recentStatus.String {
+						case "processing", "running":
+							state = "busy"
+						case "failed":
+							state = "error"
+						case "success", "completed":
+							state = "active"
+						}
+					}
+					statuses[name] = AgentStatus{
+						Name:      name,
+						State:     state,
+						TaskCount: taskCount,
+						LastSeen:  lastSeen.Format(time.RFC3339),
+					}
+				}
+			}
 		}
 	}
 
@@ -383,27 +504,149 @@ func (h *Handler) GetCompletedTasks(c *fiber.Ctx) error {
 	})
 }
 
-// getTaskBoardData retrieves task board data
+// getTaskBoardData retrieves task board data from database tables
 func (h *Handler) getTaskBoardData() *TaskBoard {
-	// Placeholder - return empty board
-	// TODO: Integrate with actual task tracking
-	return &TaskBoard{
+	board := &TaskBoard{
 		Queued:       []Task{},
 		Analyzing:    []Task{},
 		AwaitingHITL: []Task{},
 		Completed:    []Task{},
 	}
+
+	if h.db == nil {
+		return board
+	}
+
+	// Queued tasks: sop_jobs with status = 'pending'
+	queuedRows, err := h.db.Query(`
+		SELECT id, COALESCE(sop_name, '') as description, 'pending' as priority,
+		       created_at, 'sop_jobs' as source, 0 as progress, 0 as confidence
+		FROM sop_jobs
+		WHERE status = 'pending'
+		ORDER BY created_at DESC
+		LIMIT 20
+	`)
+	if err == nil {
+		defer queuedRows.Close()
+		for queuedRows.Next() {
+			var t Task
+			if err := queuedRows.Scan(&t.TaskID, &t.Description, &t.Priority, &t.CreatedAt, &t.Source, &t.Progress, &t.Confidence); err == nil {
+				board.Queued = append(board.Queued, t)
+			}
+		}
+	}
+
+	// Analyzing tasks: agent_traces with status = 'processing' or similar
+	analyzingRows, err := h.db.Query(`
+		SELECT trace_id, COALESCE(action, '') as description, COALESCE(status, 'processing') as priority,
+		       created_at, 'agent_traces' as source, COALESCE(duration_ms, 0) / 1000 as progress, 0 as confidence
+		FROM agent_traces
+		WHERE status = 'processing' OR status = 'running'
+		ORDER BY created_at DESC
+		LIMIT 20
+	`)
+	if err == nil {
+		defer analyzingRows.Close()
+		for analyzingRows.Next() {
+			var t Task
+			if err := analyzingRows.Scan(&t.TaskID, &t.Description, &t.Priority, &t.CreatedAt, &t.Source, &t.Progress, &t.Confidence); err == nil {
+				board.Analyzing = append(board.Analyzing, t)
+			}
+		}
+	}
+
+	// Awaiting HITL: planned_actions with status = 'planned'
+	hitlRows, err := h.db.Query(`
+		SELECT id, COALESCE(approval_reason, action_type) as description,
+		       COALESCE(risk_level, 'medium') as priority,
+		       created_at, 'planned_actions' as source, 0 as progress, 0 as confidence
+		FROM planned_actions
+		WHERE status = 'planned'
+		ORDER BY created_at DESC
+		LIMIT 20
+	`)
+	if err == nil {
+		defer hitlRows.Close()
+		for hitlRows.Next() {
+			var t Task
+			if err := hitlRows.Scan(&t.TaskID, &t.Description, &t.Priority, &t.CreatedAt, &t.Source, &t.Progress, &t.Confidence); err == nil {
+				board.AwaitingHITL = append(board.AwaitingHITL, t)
+			}
+		}
+	}
+
+	// Completed tasks: agent_traces with status = 'success' or 'completed'
+	completedRows, err := h.db.Query(`
+		SELECT trace_id, COALESCE(action, '') as description, COALESCE(status, 'completed') as priority,
+		       created_at, 'agent_traces' as source, 100 as progress, 0 as confidence
+		FROM agent_traces
+		WHERE status = 'success' OR status = 'completed'
+		ORDER BY created_at DESC
+		LIMIT 20
+	`)
+	if err == nil {
+		defer completedRows.Close()
+		for completedRows.Next() {
+			var t Task
+			if err := completedRows.Scan(&t.TaskID, &t.Description, &t.Priority, &t.CreatedAt, &t.Source, &t.Progress, &t.Confidence); err == nil {
+				board.Completed = append(board.Completed, t)
+			}
+		}
+	}
+
+	return board
 }
 
 // GetTaskDetails returns details for a specific task
 func (h *Handler) GetTaskDetails(c *fiber.Ctx) error {
 	taskID := c.Params("id")
 
-	// Placeholder - return empty task
 	task := map[string]interface{}{
 		"task_id":     taskID,
-		"description": "Task details not implemented",
-		"status":      "pending",
+		"description": "Task not found",
+		"status":      "unknown",
+	}
+
+	if h.db != nil {
+		// Try agent_traces first
+		var traceID, action, status string
+		var durationMs sql.NullInt32
+		var llmCalls sql.NullInt32
+		var llmTokens sql.NullInt32
+		var createdAt time.Time
+		err := h.db.QueryRow(`
+			SELECT trace_id, COALESCE(action, ''), COALESCE(status, ''),
+			       COALESCE(duration_ms, 0), COALESCE(llm_calls, 0), COALESCE(llm_tokens, 0), created_at
+			FROM agent_traces
+			WHERE trace_id = $1
+		`, taskID).Scan(&traceID, &action, &status, &durationMs, &llmCalls, &llmTokens, &createdAt)
+		if err == nil {
+			task = map[string]interface{}{
+				"task_id":     traceID,
+				"description": action,
+				"status":      status,
+				"duration_ms": durationMs,
+				"llm_calls":   llmCalls,
+				"llm_tokens":  llmTokens,
+				"created_at":  createdAt.Format(time.RFC3339),
+			}
+		} else {
+			// Fallback: try sop_jobs
+			var sopID, sopName, sopStatus string
+			var sopCreatedAt time.Time
+			err2 := h.db.QueryRow(`
+				SELECT id, COALESCE(sop_name, ''), COALESCE(status, 'pending'), created_at
+				FROM sop_jobs WHERE id = $1
+			`, taskID).Scan(&sopID, &sopName, &sopStatus, &sopCreatedAt)
+			if err2 == nil {
+				task = map[string]interface{}{
+					"task_id":     sopID,
+					"description": sopName,
+					"status":      sopStatus,
+					"created_at":  sopCreatedAt.Format(time.RFC3339),
+				}
+			}
+		}
 	}
 
 	return c.JSON(task)
@@ -445,9 +688,9 @@ func (h *Handler) GetConfig(c *fiber.Ctx) error {
 	})
 }
 
-// getDefaultConfig returns default configuration
+// getDefaultConfig returns default configuration, loading saved values from DB if available
 func (h *Handler) getDefaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		MaxTokensPerTask:        4000,
 		MaxConcurrentTasks:      10,
 		HITLConfidenceThreshold: 80,
@@ -463,6 +706,61 @@ func (h *Handler) getDefaultConfig() *Config {
 		DebugMode:               false,
 		LastSaved:               "",
 	}
+
+	if h.db != nil {
+		var configJSON sql.NullString
+		var updatedAt sql.NullTime
+		err := h.db.QueryRow(`
+			SELECT config_value::text, updated_at
+			FROM app_config
+			WHERE config_key = 'system_config'
+			ORDER BY updated_at DESC
+			LIMIT 1
+		`).Scan(&configJSON, &updatedAt)
+		if err == nil && configJSON.Valid && configJSON.String != "" {
+			var saved Config
+			if jsonErr := json.Unmarshal([]byte(configJSON.String), &saved); jsonErr == nil {
+				if saved.MaxTokensPerTask > 0 {
+					cfg.MaxTokensPerTask = saved.MaxTokensPerTask
+				}
+				if saved.MaxConcurrentTasks > 0 {
+					cfg.MaxConcurrentTasks = saved.MaxConcurrentTasks
+				}
+				if saved.HITLConfidenceThreshold > 0 {
+					cfg.HITLConfidenceThreshold = saved.HITLConfidenceThreshold
+				}
+				if saved.RateLimitRPM > 0 {
+					cfg.RateLimitRPM = saved.RateLimitRPM
+				}
+				if saved.CircuitBreakerThreshold > 0 {
+					cfg.CircuitBreakerThreshold = saved.CircuitBreakerThreshold
+				}
+				if saved.CircuitResetTimeout > 0 {
+					cfg.CircuitResetTimeout = saved.CircuitResetTimeout
+				}
+				if saved.AzureDeployment != "" {
+					cfg.AzureDeployment = saved.AzureDeployment
+				}
+				if saved.Temperature > 0 {
+					cfg.Temperature = saved.Temperature
+				}
+				if saved.RequestTimeout > 0 {
+					cfg.RequestTimeout = saved.RequestTimeout
+				}
+				if saved.LogLevel != "" {
+					cfg.LogLevel = saved.LogLevel
+				}
+				cfg.EnableTracing = saved.EnableTracing
+				cfg.EnableMetrics = saved.EnableMetrics
+				cfg.DebugMode = saved.DebugMode
+				if updatedAt.Valid {
+					cfg.LastSaved = updatedAt.Time.Format(time.RFC3339)
+				}
+			}
+		}
+	}
+
+	return cfg
 }
 
 // SaveConfig saves configuration changes
@@ -481,15 +779,34 @@ func (h *Handler) SaveConfig(c *fiber.Ctx) error {
 		return c.Status(400).SendString(`<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">Max concurrent tasks must be between 1 and 100</div>`)
 	}
 
-	// TODO: Actually save configuration
-	// For now, just return success
+	// Persist configuration to app_config table
+	if h.db != nil {
+		configJSON, jsonErr := json.Marshal(req)
+		if jsonErr == nil {
+			_, execErr := h.db.Exec(`
+				INSERT INTO app_config (config_key, config_value, updated_at)
+				VALUES ('system_config', $1::jsonb, NOW())
+				ON CONFLICT (config_key)
+				DO UPDATE SET config_value = $1::jsonb, updated_at = NOW()
+			`, string(configJSON))
+			if execErr != nil {
+				log.Printf("Failed to persist config: %v", execErr)
+				return c.Status(500).SendString(`<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">Failed to save configuration</div>`)
+			}
+		}
+	}
 
 	return c.SendString(`<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center"><i class="fas fa-check-circle mr-2"></i>Configuration saved successfully!</div>`)
 }
 
 // ResetConfig resets configuration to defaults
 func (h *Handler) ResetConfig(c *fiber.Ctx) error {
-	// TODO: Implement actual reset logic
+	if h.db != nil {
+		_, err := h.db.Exec(`DELETE FROM app_config WHERE config_key = 'system_config'`)
+		if err != nil {
+			log.Printf("Failed to reset config: %v", err)
+		}
+	}
 	return h.GetConfigPanel(c)
 }
 
@@ -518,52 +835,269 @@ type Alert struct {
 	Time     string `json:"time"`
 }
 
-// GetTelemetryOverview returns telemetry overview data
+// GetTelemetryOverview returns telemetry overview data from agent_traces
 func (h *Handler) GetTelemetryOverview(c *fiber.Ctx) error {
-	// Placeholder - return sample data
 	overview := TelemetryOverview{
-		RPM:         42,
-		RPMChange:   12.5,
-		SuccessRate: 99.8,
-		AvgLatency:  245,
-		P95Latency:  890,
-		ErrorRate:   0.2,
+		RPM:         0,
+		RPMChange:   0,
+		SuccessRate: 100.0,
+		AvgLatency:  0,
+		P95Latency:  0,
+		ErrorRate:   0,
 		Alerts:      []Alert{},
 	}
+
+	if h.db != nil {
+		// RPM: count of traces in last minute
+		var rpm int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 minute'`).Scan(&rpm)
+		overview.RPM = rpm
+
+		// RPM change: compare to previous minute
+		var prevRpm int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE created_at BETWEEN NOW() - INTERVAL '2 minutes' AND NOW() - INTERVAL '1 minute'`).Scan(&prevRpm)
+		if prevRpm > 0 {
+			overview.RPMChange = float64(rpm-prevRpm) / float64(prevRpm) * 100
+		}
+
+		// Success rate and error rate
+		var total, failed int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'`).Scan(&total)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE status = 'failed' AND created_at > NOW() - INTERVAL '1 hour'`).Scan(&failed)
+		if total > 0 {
+			overview.SuccessRate = float64(total-failed) / float64(total) * 100
+			overview.ErrorRate = float64(failed) / float64(total) * 100
+		}
+
+		// Average latency from agent_traces
+		var avgLatency sql.NullFloat64
+		_ = h.db.QueryRow(`SELECT AVG(COALESCE(duration_ms, 0)) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'`).Scan(&avgLatency)
+		if avgLatency.Valid {
+			overview.AvgLatency = avgLatency.Float64
+		}
+
+		// P95 latency
+		var p95Latency sql.NullFloat64
+		_ = h.db.QueryRow(`
+			SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms)
+			FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'
+		`).Scan(&p95Latency)
+		if p95Latency.Valid {
+			overview.P95Latency = p95Latency.Float64
+		}
+
+		// Alerts from self_guardian_alerts
+		alertRows, err := h.db.Query(`
+			SELECT severity, COALESCE(description, ''), created_at
+			FROM self_guardian_alerts
+			WHERE created_at > NOW() - INTERVAL '24 hours'
+			ORDER BY created_at DESC
+			LIMIT 5
+		`)
+		if err == nil {
+			defer alertRows.Close()
+			for alertRows.Next() {
+				var a Alert
+				var alertTime time.Time
+				if err := alertRows.Scan(&a.Severity, &a.Message, &alertTime); err == nil {
+					a.Time = alertTime.Format(time.RFC3339)
+					overview.Alerts = append(overview.Alerts, a)
+				}
+			}
+		}
+	}
+
 	return c.JSON(overview)
 }
 
-// GetSigNozData returns SigNoz telemetry data
+// GetSigNozData returns trace data from agent_traces
 func (h *Handler) GetSigNozData(c *fiber.Ctx) error {
-	// Placeholder - return sample data
+	traces := []fiber.Map{}
+	services := []string{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT trace_id, COALESCE(agent_name, ''), COALESCE(action, ''),
+			       COALESCE(status, ''), COALESCE(duration_ms, 0), created_at
+			FROM agent_traces
+			ORDER BY created_at DESC
+			LIMIT 50
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var traceID, agentName, action, status string
+				var durationMs int
+				var createdAt time.Time
+				if err := rows.Scan(&traceID, &agentName, &action, &status, &durationMs, &createdAt); err == nil {
+					traces = append(traces, fiber.Map{
+						"trace_id":    traceID,
+						"agent":       agentName,
+						"action":      action,
+						"status":      status,
+						"duration_ms": durationMs,
+						"timestamp":   createdAt.Format(time.RFC3339),
+					})
+				}
+			}
+		}
+
+		// Distinct agent names as services
+		svcRows, err := h.db.Query(`SELECT DISTINCT agent_name FROM agent_traces WHERE agent_name IS NOT NULL AND agent_name != ''`)
+		if err == nil {
+			defer svcRows.Close()
+			for svcRows.Next() {
+				var svc string
+				if err := svcRows.Scan(&svc); err == nil {
+					services = append(services, svc)
+				}
+			}
+		}
+	}
+
+	if services == nil {
+		services = []string{}
+	}
+
 	return c.JSON(fiber.Map{
-		"traces":   []interface{}{},
-		"services": []string{"core", "agent", "feedback"},
+		"traces":   traces,
+		"services": services,
 	})
 }
 
-// GetHyperDXData returns HyperDX telemetry data
+// GetHyperDXData returns log data from audit_log
 func (h *Handler) GetHyperDXData(c *fiber.Ctx) error {
-	// Placeholder - return sample data
+	logs := []fiber.Map{}
+	query := ""
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name, action, outcome, COALESCE(tool_name, ''), created_at
+			FROM audit_log
+			ORDER BY created_at DESC
+			LIMIT 50
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var agentName, action, outcome, toolName string
+				var createdAt time.Time
+				if err := rows.Scan(&agentName, &action, &outcome, &toolName, &createdAt); err == nil {
+					logs = append(logs, fiber.Map{
+						"agent":     agentName,
+						"action":    action,
+						"outcome":   outcome,
+						"tool":      toolName,
+						"timestamp": createdAt.Format(time.RFC3339),
+					})
+				}
+			}
+		}
+		query = "SELECT agent_name, action, outcome, tool_name, created_at FROM audit_log ORDER BY created_at DESC LIMIT 50"
+	}
+
 	return c.JSON(fiber.Map{
-		"logs":  []interface{}{},
-		"query": "",
+		"logs":  logs,
+		"query": query,
 	})
 }
 
-// GetMetricsData returns Prometheus metrics data
+// GetMetricsData returns aggregated metrics from agent_traces
 func (h *Handler) GetMetricsData(c *fiber.Ctx) error {
-	// Placeholder - return sample data
+	metrics := []fiber.Map{}
+
+	if h.db != nil {
+		// Total traces
+		var totalTraces int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces`).Scan(&totalTraces)
+		metrics = append(metrics, fiber.Map{
+			"name":   "total_traces",
+			"value":  totalTraces,
+			"type":   "counter",
+			"labels": fiber.Map{"source": "agent_traces"},
+		})
+
+		// Traces in last hour
+		var hourlyTraces int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'`).Scan(&hourlyTraces)
+		metrics = append(metrics, fiber.Map{
+			"name":   "hourly_traces",
+			"value":  hourlyTraces,
+			"type":   "gauge",
+			"labels": fiber.Map{"window": "1h"},
+		})
+
+		// Failed traces in last hour
+		var failedTraces int
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM agent_traces WHERE status = 'failed' AND created_at > NOW() - INTERVAL '1 hour'`).Scan(&failedTraces)
+		metrics = append(metrics, fiber.Map{
+			"name":   "failed_traces_1h",
+			"value":  failedTraces,
+			"type":   "gauge",
+			"labels": fiber.Map{"window": "1h"},
+		})
+
+		// Average duration
+		var avgDuration sql.NullFloat64
+		_ = h.db.QueryRow(`SELECT AVG(COALESCE(duration_ms, 0)) FROM agent_traces WHERE created_at > NOW() - INTERVAL '1 hour'`).Scan(&avgDuration)
+		if avgDuration.Valid {
+			metrics = append(metrics, fiber.Map{
+				"name":   "avg_duration_ms",
+				"value":  avgDuration.Float64,
+				"type":   "gauge",
+				"labels": fiber.Map{"window": "1h"},
+			})
+		}
+
+		// Total LLM tokens used
+		var totalTokens sql.NullInt64
+		_ = h.db.QueryRow(`SELECT COALESCE(SUM(llm_tokens), 0) FROM agent_traces WHERE created_at > NOW() - INTERVAL '24 hours'`).Scan(&totalTokens)
+		if totalTokens.Valid {
+			metrics = append(metrics, fiber.Map{
+				"name":   "llm_tokens_24h",
+				"value":  totalTokens.Int64,
+				"type":   "counter",
+				"labels": fiber.Map{"window": "24h"},
+			})
+		}
+	}
+
 	return c.JSON(fiber.Map{
-		"metrics": []interface{}{},
+		"metrics": metrics,
 	})
 }
 
-// GetLogsData returns log data
+// GetLogsData returns log data from audit_log
 func (h *Handler) GetLogsData(c *fiber.Ctx) error {
-	// Placeholder - return sample data
+	logs := []fiber.Map{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name, action, outcome, COALESCE(tool_name, ''), created_at
+			FROM audit_log
+			ORDER BY created_at DESC
+			LIMIT 50
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var agentName, action, outcome, toolName string
+				var createdAt time.Time
+				if err := rows.Scan(&agentName, &action, &outcome, &toolName, &createdAt); err == nil {
+					logs = append(logs, fiber.Map{
+						"agent":     agentName,
+						"action":    action,
+						"outcome":   outcome,
+						"tool":      toolName,
+						"timestamp": createdAt.Format(time.RFC3339),
+					})
+				}
+			}
+		}
+	}
+
 	return c.JSON(fiber.Map{
-		"logs": []interface{}{},
+		"logs": logs,
 	})
 }
 
@@ -737,7 +1271,7 @@ func (h *Handler) GetRecentBIQueries(c *fiber.Ctx) error {
 // FounderDashboard serves the founder dashboard page
 func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
 	return Render(c, "founder_dashboard", fiber.Map{
-		"Title": "Saarathi — Your Patterns",
+		"Title": "TrackGuard — Your Patterns",
 	})
 }
 
@@ -746,7 +1280,7 @@ func (h *Handler) FounderDashboard(c *fiber.Ctx) error {
 // CommandCenter serves the command center dashboard page
 func (h *Handler) CommandCenter(c *fiber.Ctx) error {
 	return Render(c, "command_center", fiber.Map{
-		"Title": "Sarthi Command Center",
+		"Title": "TrackGuard Command Center",
 	})
 }
 
@@ -864,6 +1398,7 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 	}
 	healthScore := 72
 	riskLevel := "MEDIUM"
+	var lastUpdateReason, lastChangedFields, activeAgentRoles sql.NullString
 
 	if h.db != nil {
 		var trustScore sql.NullInt32
@@ -887,13 +1422,17 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 				COALESCE(founder_focus, ''),
 				COALESCE(burn_multiple, 0),
 				COALESCE(mrr, 0),
-				COALESCE(runway_days, 0)
+				COALESCE(runway_days, 0),
+				last_update_reason,
+				last_changed_fields::text,
+				active_agent_roles::text
 			FROM mission_state
 			ORDER BY updated_at DESC
 			LIMIT 1
 		`).Scan(&trustScore, &burnAlert, &burnSev, &mrrTrend,
 			&churnRate, &errorSpike, &activeAlerts, &founderFocus,
-			&burnMult, &mrr, &runwayDays)
+			&burnMult, &mrr, &runwayDays,
+			&lastUpdateReason, &lastChangedFields, &activeAgentRoles)
 		if err == nil {
 			if trustScore.Valid {
 				healthScore = int(trustScore.Int32)
@@ -957,6 +1496,8 @@ func (h *Handler) APICommandMissionState(c *fiber.Ctx) error {
 
 	return Render(c, "partials/command_mission_state", fiber.Map{
 		"Signals": signals, "HealthScore": healthScore, "RiskLevel": riskLevel,
+		"LastUpdateReason": lastUpdateReason.String, "LastChangedFields": lastChangedFields.String,
+		"ActiveAgentRoles": activeAgentRoles.String,
 	})
 }
 
@@ -1034,6 +1575,62 @@ func (h *Handler) APICommandMissionStateUpdate(c *fiber.Ctx) error {
 	return h.APICommandMissionState(c)
 }
 
+// APIMissionState returns machine-readable JSON mission state (for Python/integrations)
+func (h *Handler) APIMissionState(c *fiber.Ctx) error {
+	if h.db != nil {
+		var tenantID, summary string
+		var statePayload sql.NullString
+		err := h.db.QueryRow(`
+			SELECT COALESCE(tenant_id, ''), COALESCE(summary, ''), COALESCE(state_payload::text, '')
+			FROM mission_state
+			ORDER BY updated_at DESC
+			LIMIT 1
+		`).Scan(&tenantID, &summary, &statePayload)
+		if err == nil {
+			var payload interface{}
+			if statePayload.Valid && statePayload.String != "" {
+				json.Unmarshal([]byte(statePayload.String), &payload)
+			}
+			return c.JSON(fiber.Map{
+				"tenant_id":     tenantID,
+				"summary":       summary,
+				"state_payload": payload,
+			})
+		}
+	}
+	// Nil-DB or error fallback: return empty state
+	return c.JSON(fiber.Map{"state": nil, "summary": "", "tenant_id": ""})
+}
+
+// APIMissionStatePost accepts validated JSON from Python and upserts into mission_state
+func (h *Handler) APIMissionStatePost(c *fiber.Ctx) error {
+	var payload struct {
+		TenantID     string          `json:"tenant_id"`
+		Summary      string          `json:"summary"`
+		StatePayload json.RawMessage `json:"state_payload"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON"})
+	}
+	if payload.TenantID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "tenant_id required"})
+	}
+	if h.db != nil {
+		_, err := h.db.Exec(`
+			INSERT INTO mission_state (tenant_id, summary, state_payload)
+			VALUES ($1, $2, $3::jsonb)
+			ON CONFLICT (tenant_id) DO UPDATE SET
+				summary = EXCLUDED.summary,
+				state_payload = EXCLUDED.state_payload,
+				updated_at = NOW()
+		`, payload.TenantID, payload.Summary, string(payload.StatePayload))
+		if err != nil {
+			log.Printf("Failed to upsert mission state: %v", err)
+		}
+	}
+	return c.Status(201).JSON(fiber.Map{"ok": true})
+}
+
 // APICommandWatchlist returns watchlist items
 func (h *Handler) APICommandWatchlist(c *fiber.Ctx) error {
 	if c.Get("HX-Request") != "true" {
@@ -1059,29 +1656,29 @@ func (h *Handler) APICommandAgentFleet(c *fiber.Ctx) error {
     <div class="grid grid-cols-4 gap-3">
         <div class="p-4 rounded-2xl" style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)">
             <div class="flex items-center gap-3 mb-2">
-                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(125,211,252,.15);color:#bae6fd">S</div>
-                <div><h4 class="font-semibold">Sarthi</h4><p class="text-xs" style="color:var(--muted)">Manager · synthesis</p></div>
+                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(125,211,252,.15);color:#bae6fd">C</div>
+                <div><h4 class="font-semibold">Chief of Staff</h4><p class="text-xs" style="color:var(--muted)">Manager · synthesis</p></div>
             </div>
             <ul class="text-xs space-y-1" style="color:var(--muted)"><li>Routes questions</li><li>Resolves conflicts</li><li>Queues approvals</li></ul>
         </div>
         <div class="p-4 rounded-2xl" style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)">
             <div class="flex items-center gap-3 mb-2">
                 <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(52,211,153,.15);color:#a7f3d0">F</div>
-                <div><h4 class="font-semibold">Finance</h4><p class="text-xs" style="color:var(--muted)">MRR · burn · runway</p></div>
+                <div><h4 class="font-semibold">FP&A</h4><p class="text-xs" style="color:var(--muted)">MRR · burn · runway</p></div>
             </div>
             <ul class="text-xs space-y-1" style="color:var(--muted)"><li>Injects numbers</li><li>Flags concentration</li><li>Drafts financing alerts</li></ul>
         </div>
         <div class="p-4 rounded-2xl" style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)">
             <div class="flex items-center gap-3 mb-2">
-                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(167,139,250,.14);color:#ddd6fe">D</div>
-                <div><h4 class="font-semibold">Data</h4><p class="text-xs" style="color:var(--muted)">Cohorts · funnel</p></div>
+                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(167,139,250,.14);color:#ddd6fe">G</div>
+                <div><h4 class="font-semibold">Growth Analytics</h4><p class="text-xs" style="color:var(--muted)">Cohorts · funnel</p></div>
             </div>
             <ul class="text-xs space-y-1" style="color:var(--muted)"><li>Answers metric questions</li><li>Summarizes trends</li><li>Finds activation walls</li></ul>
         </div>
         <div class="p-4 rounded-2xl" style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)">
             <div class="flex items-center gap-3 mb-2">
-                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(245,158,11,.15);color:#fcd34d">O</div>
-                <div><h4 class="font-semibold">Ops</h4><p class="text-xs" style="color:var(--muted)">Errors · support</p></div>
+                <div class="w-10 h-10 rounded-xl grid place-items-center font-bold text-sm" style="background:rgba(245,158,11,.15);color:#fcd34d">R</div>
+                <div><h4 class="font-semibold">Reliability & Delivery</h4><p class="text-xs" style="color:var(--muted)">Errors · support</p></div>
             </div>
             <ul class="text-xs space-y-1" style="color:var(--muted)"><li>Detects bug convergence</li><li>Tracks service health</li><li>Correlates incidents</li></ul>
         </div>
@@ -1104,7 +1701,7 @@ func (h *Handler) APICommandTimeline(c *fiber.Ctx) error {
 	}
 
 	if h.db != nil {
-        rows, err := h.db.Query(`
+		rows, err := h.db.Query(`
             SELECT
                 COALESCE(agent_name, ''),
                 COALESCE(action, ''),
@@ -1155,12 +1752,11 @@ func (h *Handler) APICommandApprovals(c *fiber.Ctx) error {
 		return c.SendString("Approvals")
 	}
 
-	items := []fiber.Map{
-		{"ID": "1", "Title": "Investor update draft", "Description": "Sarthi wants to mention runway compression in the next investor note."},
-		{"ID": "2", "Title": "Create Jira issue", "Description": "Ops proposes an onboarding desync incident ticket with customer-impact label."},
-	}
+	items := []fiber.Map{}
+	remediationItems := []fiber.Map{}
 
 	if h.db != nil {
+		// 1. Planned actions (original approval items)
 		rows, err := h.db.Query(`
 			SELECT
 				id,
@@ -1176,7 +1772,6 @@ func (h *Handler) APICommandApprovals(c *fiber.Ctx) error {
 		`)
 		if err == nil {
 			defer rows.Close()
-			var liveItems []fiber.Map
 			for rows.Next() {
 				var id, actor, actionType, targetRef, riskLevel, reason string
 				var createdAt time.Time
@@ -1194,17 +1789,75 @@ func (h *Handler) APICommandApprovals(c *fiber.Ctx) error {
 				if len(desc) > 100 {
 					desc = desc[:100] + "..."
 				}
-				liveItems = append(liveItems, fiber.Map{
-					"ID": id, "Title": title, "Description": desc,
+				items = append(items, fiber.Map{
+					"ID": id, "Title": title, "Description": desc, "Type": "action",
 				})
 			}
-			if len(liveItems) > 0 {
-				items = liveItems
+		}
+
+		// 2. Fix proposals from self-guardian (remediation items)
+		fixRows, err := h.db.Query(`
+			SELECT
+				id,
+				COALESCE(agent_name, ''),
+				COALESCE(action, ''),
+				COALESCE(description, ''),
+				COALESCE(blast_radius, 'medium'),
+				COALESCE(deviation_type, ''),
+				created_at
+			FROM self_guardian_fix_proposals
+			WHERE status = 'pending'
+			ORDER BY created_at DESC
+		`)
+		if err == nil {
+			defer fixRows.Close()
+			for fixRows.Next() {
+				var id, agentName, action, description, blastRadius, deviationType string
+				var createdAt time.Time
+				if err := fixRows.Scan(&id, &agentName, &action, &description, &blastRadius, &deviationType, &createdAt); err != nil {
+					continue
+				}
+				title := "Self-correction: " + agentName + " - " + action
+				if len(title) > 60 {
+					title = title[:60] + "..."
+				}
+				desc := description
+				if len(desc) > 120 {
+					desc = desc[:120] + "..."
+				}
+				items = append(items, fiber.Map{
+					"ID":          id,
+					"Title":       title,
+					"Description": desc,
+					"Type":        "remediation",
+					"BlastRadius": blastRadius,
+				})
 			}
 		}
+	} else {
+		// Fallback hardcoded items for development/testing when no DB is connected
+		items = append(items, fiber.Map{
+			"ID":          "investor-update-1",
+			"Title":       "Investor update",
+			"Description": "Quarterly investor update for Q2 2026 is ready for review",
+			"Type":        "action",
+		})
+		items = append(items, fiber.Map{
+			"ID":          "jira-issue-1",
+			"Title":       "Jira issue",
+			"Description": "New feature request requires prioritization approval",
+			"Type":        "action",
+		})
 	}
 
-	return Render(c, "partials/command_approvals", fiber.Map{"Items": items})
+	if items == nil {
+		items = []fiber.Map{}
+	}
+
+	return Render(c, "partials/command_approvals", fiber.Map{
+		"Items":            items,
+		"RemediationItems": remediationItems,
+	})
 }
 
 // APICommandApprovalAction approves or holds an approval item from planned_actions
@@ -1334,15 +1987,16 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 	}
 
 	var specialistRoutes = map[string]specialistRoute{
-		"@sarthi":  {"QAWorkflow", "Sarthi"},
-		"@agent":   {"QAWorkflow", "Sarthi"},
-		"@qa":      {"QAWorkflow", "Sarthi"},
-		"@ask":     {"QAWorkflow", "Sarthi"},
-		"@finance": {"FinanceWorkflow", "Finance"},
-		"@data":    {"DataWorkflow", "Data"},
-		"@ops":     {"OpsWorkflow", "Ops"},
-		"@comms":   {"CommsWorkflow", "Comms"},
-		"@hiring":  {"HiringWorkflow", "Hiring"},
+		"@sarthi":  {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@agent":   {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@qa":      {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@ask":     {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@finance": {"FPAWorkflow", "FP&A"},
+		"@fpa":     {"FPAWorkflow", "FP&A"},
+		"@data":    {"GrowthAnalyticsWorkflow", "Growth Analytics"},
+		"@growth":  {"GrowthAnalyticsWorkflow", "Growth Analytics"},
+		"@ops":     {"ReliabilityWorkflow", "Reliability & Delivery"},
+		"@comms":   {"CommsWorkflow", "Communications"},
 	}
 
 	shouldDispatch := false
@@ -1357,7 +2011,7 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 			break
 		}
 	}
-	// Dispatch QA workflow asynchronously via Temporal
+	// Dispatch ChiefOfStaff workflow asynchronously via Temporal
 	if shouldDispatch && h.temporal != nil {
 		workflowID := fmt.Sprintf("chat-qa-%s-%d", strings.ReplaceAll(c.IP(), ":", ""), time.Now().UnixNano())
 
@@ -1446,12 +2100,17 @@ func (h *Handler) renderChatBubble(sender, displayName, text, timeStr string) st
 	normalized := strings.TrimPrefix(sender, "@")
 
 	agentClasses := map[string]string{
-		"founder": "bg-blue-500/20 text-blue-400",
-		"sarthi":  "agent-sarthi",
-		"finance": "agent-finance",
-		"data":    "agent-data",
-		"ops":     "agent-ops",
-		"agent":   "agent-system",
+		"founder":        "bg-blue-500/20 text-blue-400",
+		"sarthi":         "agent-chief-of-staff",
+		"finance":        "agent-fpa",
+		"data":           "agent-growth-analytics",
+		"ops":            "agent-reliability",
+		"agent":          "agent-system",
+		"comms":          "agent-comms",
+		"chief_of_staff": "agent-chief-of-staff",
+		"fpa":            "agent-fpa",
+		"growth":         "agent-growth-analytics",
+		"reliability":    "agent-reliability",
 	}
 	agentClass := agentClasses[normalized]
 	if agentClass == "" {
@@ -1459,7 +2118,7 @@ func (h *Handler) renderChatBubble(sender, displayName, text, timeStr string) st
 	}
 
 	initials := map[string]string{
-		"founder": "Y", "sarthi": "S", "finance": "F", "data": "D", "ops": "O", "agent": "A",
+		"founder": "Y", "sarthi": "C", "finance": "F", "data": "G", "ops": "R", "agent": "A", "comms": "M",
 	}
 	initial := initials[normalized]
 	if initial == "" && len(normalized) > 0 {
@@ -1574,8 +2233,8 @@ func (h *Handler) APICommandEvents(c *fiber.Ctx) error {
 // swap them directly into the DOM (via sse-swap="chat" + hx-swap="beforeend").
 func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 	tenantID := c.Query("tenant_id", "default")
-	subID, ch := h.sseHub.Subscribe(tenantID)
-	defer h.sseHub.Unsubscribe(tenantID, subID)
+	sub := h.sseHub.Subscribe(tenantID, "chat")
+	defer h.sseHub.Unsubscribe(tenantID, sub.ID)
 
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
@@ -1599,7 +2258,7 @@ func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 					return
 				}
 				w.Flush()
-			case msgBytes, ok := <-ch:
+			case msgBytes, ok := <-sub.Channel:
 				if !ok {
 					return
 				}
@@ -1615,6 +2274,562 @@ func (h *Handler) APICommandChatEvents(c *fiber.Ctx) error {
 	})
 
 	return nil
+}
+
+// APICommandMissionEvents is an SSE endpoint for mission state updates (event type: "mission-update").
+func (h *Handler) APICommandMissionEvents(c *fiber.Ctx) error {
+	tenantID := c.Query("tenant_id", "default")
+	sub := h.sseHub.Subscribe(tenantID, "mission-update")
+	defer h.sseHub.Unsubscribe(tenantID, sub.ID)
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	done := c.Context().Done()
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() { recover() }()
+
+		fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"text\":\"Connected to mission events\"}\n\n")
+		w.Flush()
+
+		heartbeat := time.NewTicker(30 * time.Second)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case <-heartbeat.C:
+				_, err := fmt.Fprintf(w, "event: heartbeat\ndata: {}\n\n")
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case msgBytes, ok := <-sub.Channel:
+				if !ok {
+					return
+				}
+				_, err := fmt.Fprintf(w, "%s", msgBytes)
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	return nil
+}
+
+// APICommandHITLEvents is an SSE endpoint for HITL approval events (event type: "hitl-item").
+func (h *Handler) APICommandHITLEvents(c *fiber.Ctx) error {
+	tenantID := c.Query("tenant_id", "default")
+	sub := h.sseHub.Subscribe(tenantID, "hitl-item")
+	defer h.sseHub.Unsubscribe(tenantID, sub.ID)
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	done := c.Context().Done()
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() { recover() }()
+
+		fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"text\":\"Connected to HITL events\"}\n\n")
+		w.Flush()
+
+		heartbeat := time.NewTicker(30 * time.Second)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case <-heartbeat.C:
+				_, err := fmt.Fprintf(w, "event: heartbeat\ndata: {}\n\n")
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case msgBytes, ok := <-sub.Channel:
+				if !ok {
+					return
+				}
+				_, err := fmt.Fprintf(w, "%s", msgBytes)
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	return nil
+}
+
+// APICommandSessionEvents is an SSE endpoint for agent message events (event type: "agent-message").
+func (h *Handler) APICommandSessionEvents(c *fiber.Ctx) error {
+	tenantID := c.Query("tenant_id", "default")
+	sub := h.sseHub.Subscribe(tenantID, "agent-message")
+	defer h.sseHub.Unsubscribe(tenantID, sub.ID)
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	done := c.Context().Done()
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() { recover() }()
+
+		fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"text\":\"Connected to session events\"}\n\n")
+		w.Flush()
+
+		heartbeat := time.NewTicker(30 * time.Second)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case <-heartbeat.C:
+				_, err := fmt.Fprintf(w, "event: heartbeat\ndata: {}\n\n")
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case msgBytes, ok := <-sub.Channel:
+				if !ok {
+					return
+				}
+				_, err := fmt.Fprintf(w, "%s", msgBytes)
+				if err != nil {
+					return
+				}
+				w.Flush()
+			case <-done:
+				return
+			}
+		}
+	})
+
+	return nil
+}
+
+// APICommandAlertLineage returns alert lineage data from mission_state
+func (h *Handler) APICommandAlertLineage(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Alert Lineage")
+	}
+
+	type AlertLineage struct {
+		PatternName       string
+		SourceMetrics     string
+		MissionContext    string
+		RaiseTimelineRisk string
+		SuggestedActions  []fiber.Map
+	}
+
+	alerts := []AlertLineage{
+		{
+			PatternName:       "Burn Multiple Spike",
+			SourceMetrics:     "burn_multiple: 1.9x → 2.4x (72h window)",
+			MissionContext:    "Finance guardian flagged FG-02 threshold breach",
+			RaiseTimelineRisk: "High — 3 consecutive data points above 2.0x",
+			SuggestedActions: []fiber.Map{
+				{"Label": "Pause non-critical spend", "Tier": "review"},
+				{"Label": "Notify founder", "Tier": "auto"},
+			},
+		},
+		{
+			PatternName:       "Cohort Churn Correlation",
+			SourceMetrics:     "churn_rate: 4.2% → 6.1%, cohort_30d: -12%",
+			MissionContext:    "BI analyst BG-04 risk emerging",
+			RaiseTimelineRisk: "Medium — single data point, monitoring",
+			SuggestedActions: []fiber.Map{
+				{"Label": "Draft retention email", "Tier": "approve"},
+				{"Label": "Flag for weekly review", "Tier": "auto"},
+			},
+		},
+	}
+
+	return Render(c, "partials/command_alert_lineage", fiber.Map{"Alerts": alerts})
+}
+
+// APICommandOperatingLayer returns the operating layer panel from mission_state
+func (h *Handler) APICommandOperatingLayer(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Operating Layer")
+	}
+
+	preparedBrief := ""
+	lastWriter := ""
+	lastUpdateReason := ""
+	pendingDecisions := ""
+	activeRoles := ""
+
+	if h.db != nil {
+		var brief, writer, reason, decisions, roles sql.NullString
+		err := h.db.QueryRow(`
+			SELECT
+				prepared_brief,
+				last_updated_by,
+				last_update_reason,
+				pending_decisions::text,
+				active_agent_roles::text
+			FROM mission_state
+			ORDER BY updated_at DESC
+			LIMIT 1
+		`).Scan(&brief, &writer, &reason, &decisions, &roles)
+		if err == nil {
+			if brief.Valid {
+				preparedBrief = brief.String
+			}
+			if writer.Valid {
+				lastWriter = writer.String
+			}
+			if reason.Valid {
+				lastUpdateReason = reason.String
+			}
+			if decisions.Valid {
+				pendingDecisions = decisions.String
+			}
+			if roles.Valid {
+				activeRoles = roles.String
+			}
+		}
+	}
+
+	return Render(c, "partials/command_operating_layer", fiber.Map{
+		"PreparedBrief":    preparedBrief,
+		"LastWriter":       lastWriter,
+		"LastUpdateReason": lastUpdateReason,
+		"PendingDecisions": pendingDecisions,
+		"ActiveAgentRoles": activeRoles,
+	})
+}
+
+// APICommandControlPlaneStatus returns the control plane audit status panel
+func (h *Handler) APICommandControlPlaneStatus(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Control Plane Status")
+	}
+
+	// Activity counts by time window
+	recent5m := 0
+	recent30m := 0
+	recent24h := 0
+
+	if h.db != nil {
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() - INTERVAL '5 minutes'`).Scan(&recent5m)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() - INTERVAL '30 minutes'`).Scan(&recent30m)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() - INTERVAL '24 hours'`).Scan(&recent24h)
+	}
+
+	// Agent summaries with outcome counts
+	type AgentSummary struct {
+		AgentName      string
+		TotalActions   int
+		FailedActions  int
+		StatusDotClass string
+	}
+
+	agentSummaryMap := make(map[string]*AgentSummary)
+	agentOrder := []string{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name, outcome, COUNT(*) as cnt
+			FROM audit_log
+			WHERE created_at > NOW() - INTERVAL '24 hours'
+			GROUP BY agent_name, outcome
+			ORDER BY agent_name
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var agent, outcome string
+				var cnt int
+				if err := rows.Scan(&agent, &outcome, &cnt); err != nil {
+					continue
+				}
+				summary, exists := agentSummaryMap[agent]
+				if !exists {
+					summary = &AgentSummary{AgentName: agent}
+					agentSummaryMap[agent] = summary
+					agentOrder = append(agentOrder, agent)
+				}
+				summary.TotalActions += cnt
+				if outcome == "failed" || outcome == "blocked" {
+					summary.FailedActions += cnt
+				}
+			}
+		}
+	}
+
+	agentSummaries := []AgentSummary{}
+	for _, name := range agentOrder {
+		s := agentSummaryMap[name]
+		failRate := 0.0
+		if s.TotalActions > 0 {
+			failRate = float64(s.FailedActions) / float64(s.TotalActions) * 100
+		}
+		switch {
+		case failRate > 20:
+			s.StatusDotClass = "disconnected"
+		case failRate > 5:
+			s.StatusDotClass = "connecting"
+		default:
+			s.StatusDotClass = "connected"
+		}
+		agentSummaries = append(agentSummaries, *s)
+	}
+
+	if agentSummaries == nil {
+		agentSummaries = []AgentSummary{}
+	}
+
+	// Recent audit events
+	type AuditEvent struct {
+		AgentName string
+		Action    string
+		ToolName  string
+		Outcome   string
+		TimeAgo   string
+	}
+
+	auditEvents := []AuditEvent{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name, action, COALESCE(tool_name, ''), outcome,
+			       EXTRACT(EPOCH FROM NOW() - created_at) AS age_seconds
+			FROM audit_log
+			ORDER BY created_at DESC
+			LIMIT 10
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var e AuditEvent
+				var ageSeconds float64
+				if err := rows.Scan(&e.AgentName, &e.Action, &e.ToolName, &e.Outcome, &ageSeconds); err != nil {
+					continue
+				}
+				switch {
+				case ageSeconds < 60:
+					e.TimeAgo = "just now"
+				case ageSeconds < 120:
+					e.TimeAgo = "1m ago"
+				case ageSeconds < 3600:
+					e.TimeAgo = fmt.Sprintf("%dm ago", int(ageSeconds/60))
+				default:
+					e.TimeAgo = fmt.Sprintf("%dh ago", int(ageSeconds/3600))
+				}
+				auditEvents = append(auditEvents, e)
+			}
+		}
+	}
+
+	if auditEvents == nil {
+		auditEvents = []AuditEvent{}
+	}
+
+	return Render(c, "partials/command_control_plane_status", fiber.Map{
+		"Recent5m":       recent5m,
+		"Recent30m":      recent30m,
+		"Recent24h":      recent24h,
+		"AgentSummaries": agentSummaries,
+		"AuditEvents":    auditEvents,
+	})
+}
+
+// APICommandRiskStatus returns the risk scan status panel
+func (h *Handler) APICommandRiskStatus(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Risk Status")
+	}
+
+	// Scan counts by time window
+	recent5m := 0
+	recent30m := 0
+	recent24h := 0
+	blockCount := 0
+	passCount := 0
+
+	type RiskEvent struct {
+		AgentName string
+		Action    string
+		Outcome   string
+		TimeAgo   string
+	}
+
+	riskEvents := []RiskEvent{}
+
+	if h.db != nil {
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('prompt_risk_scan','output_risk_scan') AND created_at > NOW() - INTERVAL '5 minutes'`).Scan(&recent5m)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('prompt_risk_scan','output_risk_scan') AND created_at > NOW() - INTERVAL '30 minutes'`).Scan(&recent30m)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('prompt_risk_scan','output_risk_scan') AND created_at > NOW() - INTERVAL '24 hours'`).Scan(&recent24h)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('prompt_risk_scan','output_risk_scan') AND outcome = 'blocked' AND created_at > NOW() - INTERVAL '24 hours'`).Scan(&blockCount)
+		_ = h.db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action IN ('prompt_risk_scan','output_risk_scan') AND outcome = 'completed' AND created_at > NOW() - INTERVAL '24 hours'`).Scan(&passCount)
+
+		rows, err := h.db.Query(`
+			SELECT agent_name, action, outcome,
+			       EXTRACT(EPOCH FROM NOW() - created_at) AS age_seconds
+			FROM audit_log
+			WHERE action IN ('prompt_risk_scan','output_risk_scan')
+			ORDER BY created_at DESC
+			LIMIT 10
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var e RiskEvent
+				var ageSeconds float64
+				if err := rows.Scan(&e.AgentName, &e.Action, &e.Outcome, &ageSeconds); err != nil {
+					continue
+				}
+				switch {
+				case ageSeconds < 60:
+					e.TimeAgo = "just now"
+				case ageSeconds < 120:
+					e.TimeAgo = "1m ago"
+				case ageSeconds < 3600:
+					e.TimeAgo = fmt.Sprintf("%dm ago", int(ageSeconds/60))
+				default:
+					e.TimeAgo = fmt.Sprintf("%dh ago", int(ageSeconds/3600))
+				}
+				riskEvents = append(riskEvents, e)
+			}
+		}
+	}
+
+	if riskEvents == nil {
+		riskEvents = []RiskEvent{}
+	}
+
+	return Render(c, "partials/command_risk_status", fiber.Map{
+		"Recent5m":   recent5m,
+		"Recent30m":  recent30m,
+		"Recent24h":  recent24h,
+		"BlockCount": blockCount,
+		"PassCount":  passCount,
+		"RiskEvents": riskEvents,
+	})
+}
+
+// APICommandSelfGuardianStatus returns the self-guardian monitoring status panel
+func (h *Handler) APICommandSelfGuardianStatus(c *fiber.Ctx) error {
+	if c.Get("HX-Request") != "true" {
+		return c.SendString("Self-Guardian Status")
+	}
+
+	type Alert struct {
+		Severity      string
+		AgentName     string
+		DeviationType string
+		Description   string
+		TimeAgo       string
+	}
+
+	alerts := []Alert{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT severity, agent_name, deviation_type, COALESCE(description, ''),
+			       EXTRACT(EPOCH FROM NOW() - created_at) AS age_seconds
+			FROM self_guardian_alerts
+			ORDER BY
+				CASE severity
+					WHEN 'critical' THEN 0
+					WHEN 'warning' THEN 1
+					ELSE 2
+				END,
+				created_at DESC
+			LIMIT 20
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var a Alert
+				var ageSeconds float64
+				if err := rows.Scan(&a.Severity, &a.AgentName, &a.DeviationType, &a.Description, &ageSeconds); err != nil {
+					continue
+				}
+				switch {
+				case ageSeconds < 60:
+					a.TimeAgo = "just now"
+				case ageSeconds < 120:
+					a.TimeAgo = "1m ago"
+				case ageSeconds < 3600:
+					a.TimeAgo = fmt.Sprintf("%dm ago", int(ageSeconds/60))
+				default:
+					a.TimeAgo = fmt.Sprintf("%dh ago", int(ageSeconds/3600))
+				}
+				alerts = append(alerts, a)
+			}
+		}
+	}
+
+	if alerts == nil {
+		alerts = []Alert{}
+	}
+
+	// Per-agent health summary
+	type AgentHealth struct {
+		AgentName    string
+		Observations int
+		Deviations   int
+		StatusClass  string
+	}
+
+	agentHealthMap := make(map[string]*AgentHealth)
+	healthOrder := []string{}
+
+	if h.db != nil {
+		rows, err := h.db.Query(`
+			SELECT agent_name,
+			       COUNT(*) AS total_obs,
+			       SUM(CASE WHEN severity IN ('critical','warning') THEN 1 ELSE 0 END) AS deviations
+			FROM self_guardian_alerts
+			WHERE created_at > NOW() - INTERVAL '24 hours'
+			GROUP BY agent_name
+			ORDER BY deviations DESC
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var ah AgentHealth
+				if err := rows.Scan(&ah.AgentName, &ah.Observations, &ah.Deviations); err != nil {
+					continue
+				}
+				switch {
+				case ah.Deviations > 5:
+					ah.StatusClass = "disconnected"
+				case ah.Deviations > 1:
+					ah.StatusClass = "connecting"
+				default:
+					ah.StatusClass = "connected"
+				}
+				agentHealthMap[ah.AgentName] = &ah
+				healthOrder = append(healthOrder, ah.AgentName)
+			}
+		}
+	}
+
+	agentHealth := []AgentHealth{}
+	for _, name := range healthOrder {
+		if h, ok := agentHealthMap[name]; ok {
+			agentHealth = append(agentHealth, *h)
+		}
+	}
+
+	if agentHealth == nil {
+		agentHealth = []AgentHealth{}
+	}
+
+	return Render(c, "partials/command_self_guardian_status", fiber.Map{
+		"Alerts":      alerts,
+		"AgentHealth": agentHealth,
+	})
 }
 
 // RegisterRoutes registers all web routes
@@ -1684,6 +2899,10 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/api/finance/alerts", h.GetFinanceAlerts)
 	app.Get("/api/bi/recent", h.GetRecentBIQueries)
 
+	// V4.1 Mission State API (machine-readable JSON for Python/integrations)
+	app.Get("/api/mission-state", h.APIMissionState)
+	app.Post("/api/mission-state", h.APIMissionStatePost)
+
 	// ── Command Center Routes ──────────────────────────────
 	app.Get("/command", h.CommandCenter)
 	app.Get("/api/command/status", h.APICommandStatus)
@@ -1697,8 +2916,16 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Post("/api/command/approvals/:id/:action", h.APICommandApprovalAction)
 	app.Get("/api/command/metrics", h.APICommandMetrics)
 	app.Get("/api/command/chart-data", h.APICommandChartData)
+	app.Get("/api/command/alert-lineage", h.APICommandAlertLineage)
+	app.Get("/api/command/operating-layer", h.APICommandOperatingLayer)
+	app.Get("/api/command/control-plane-status", h.APICommandControlPlaneStatus)
+	app.Get("/api/command/self-guardian-status", h.APICommandSelfGuardianStatus)
+	app.Get("/api/command/risk-status", h.APICommandRiskStatus)
 	app.Post("/api/command/chat/send", h.APICommandChatSend)
 	app.Get("/api/command/chat/events", h.APICommandChatEvents)
+	app.Get("/events/mission", h.APICommandMissionEvents)
+	app.Get("/events/hitl", h.APICommandHITLEvents)
+	app.Get("/events/session", h.APICommandSessionEvents)
 	app.Get("/api/command/stream", h.APICommandEvents)
 	app.Get("/api/command/events", h.APICommandEvents)
 
@@ -1731,19 +2958,21 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 					switch sender {
 					case "founder":
 						displayName = "You"
-					case "sarthi", "agent":
-						displayName = "Sarthi (Manager)"
-					case "finance":
-						displayName = "Finance (Analyst)"
-					case "data":
-						displayName = "Data (Analyst)"
-					case "ops":
-						displayName = "Ops (Analyst)"
+					case "sarthi", "agent", "chief_of_staff":
+						displayName = "Chief of Staff"
+					case "finance", "fpa":
+						displayName = "FP&A"
+					case "data", "growth":
+						displayName = "Growth Analytics"
+					case "ops", "reliability":
+						displayName = "Reliability & Delivery"
+					case "comms":
+						displayName = "Communications"
 					}
 
 					normalized := strings.TrimPrefix(sender, "@")
 					initials := map[string]string{
-						"founder": "Y", "sarthi": "S", "finance": "F", "data": "D", "ops": "O", "agent": "A",
+						"founder": "Y", "sarthi": "C", "finance": "F", "data": "G", "ops": "R", "agent": "A", "comms": "M",
 					}
 					initial := initials[normalized]
 					if initial == "" && len(normalized) > 0 {
@@ -1751,12 +2980,17 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 					}
 
 					agentClasses := map[string]string{
-						"founder": "bg-blue-500/20 text-blue-400",
-						"sarthi":  "agent-sarthi",
-						"finance": "agent-finance",
-						"data":    "agent-data",
-						"ops":     "agent-ops",
-						"agent":   "agent-system",
+						"founder":        "bg-blue-500/20 text-blue-400",
+						"sarthi":         "agent-chief-of-staff",
+						"finance":        "agent-fpa",
+						"data":           "agent-growth-analytics",
+						"ops":            "agent-reliability",
+						"agent":          "agent-system",
+						"comms":          "agent-comms",
+						"chief_of_staff": "agent-chief-of-staff",
+						"fpa":            "agent-fpa",
+						"growth":         "agent-growth-analytics",
+						"reliability":    "agent-reliability",
 					}
 					agentClass := agentClasses[normalized]
 					if agentClass == "" {

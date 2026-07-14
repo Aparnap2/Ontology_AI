@@ -1,4 +1,4 @@
-# Sarthi Python AI Worker
+# TrackGuard Python AI Worker
 FROM python:3.13-slim AS builder
 
 WORKDIR /app

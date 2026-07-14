@@ -7,13 +7,23 @@ import pytest
 from pydantic import ValidationError
 
 
+_MOCK_LINEAGE = {
+    "pattern_id": "test-pattern",
+    "source_metrics": ["mrr"],
+    "mission_context": ["test"],
+    "raise_timeline_risk": "low",
+    "suggested_tool_ids": [],
+    "owner_agent": "test",
+}
+
+
 class TestGuardianMessage:
     """GuardianMessage schema tests."""
-    
+
     def test_insight_max_200_words(self):
         """Insight must reject more than 200 words."""
         from src.schemas.guardian import GuardianMessage
-        
+
         # 200 words should pass
         long_text = " ".join(["word"] * 200)
         msg = GuardianMessage(
@@ -22,13 +32,14 @@ class TestGuardianMessage:
             urgency_horizon="today",
             one_action="Take action",
             injected_numbers=["100", "50"],
+            lineage=_MOCK_LINEAGE,
         )
         assert len(msg.insight.split()) == 200
-    
+
     def test_insight_rejects_over_200_words(self):
         """Insight with >200 words should raise ValidationError."""
         from src.schemas.guardian import GuardianMessage
-        
+
         too_long = " ".join(["word"] * 201)
         with pytest.raises(ValidationError):
             GuardianMessage(
@@ -37,12 +48,13 @@ class TestGuardianMessage:
                 urgency_horizon="today",
                 one_action="Take action",
                 injected_numbers=["100"],
+                lineage=_MOCK_LINEAGE,
             )
-    
+
     def test_one_action_single_action(self):
         """one_action must be exactly ONE action - no conjunctions."""
         from src.schemas.guardian import GuardianMessage
-        
+
         # Single action should pass
         msg = GuardianMessage(
             pattern_name="test",
@@ -50,13 +62,14 @@ class TestGuardianMessage:
             urgency_horizon="today",
             one_action="Do this",
             injected_numbers=[],
+            lineage=_MOCK_LINEAGE,
         )
         assert "Do this" == msg.one_action
-    
+
     def test_one_action_rejects_conjunctions(self):
         """one_action with 'and' or 'then' should raise."""
         from src.schemas.guardian import GuardianMessage
-        
+
         with pytest.raises(ValidationError):
             GuardianMessage(
                 pattern_name="test",
@@ -64,18 +77,20 @@ class TestGuardianMessage:
                 urgency_horizon="today",
                 one_action="Do this and then that",
                 injected_numbers=[],
+                lineage=_MOCK_LINEAGE,
             )
-    
+
     def test_injected_numbers_optional(self):
         """injected_numbers can be empty list."""
         from src.schemas.guardian import GuardianMessage
-        
+
         msg = GuardianMessage(
             pattern_name="test",
             insight="Test",
             urgency_horizon="today",
             one_action="Do it",
             injected_numbers=[],
+            lineage=_MOCK_LINEAGE,
         )
         assert msg.injected_numbers == []
 

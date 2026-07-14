@@ -1,4 +1,4 @@
--- Sarthi Command Center tables
+-- TrackGuard Command Center tables
 
 -- Mission state (compiled operational state from Python AI layer)
 CREATE TABLE IF NOT EXISTS mission_state (

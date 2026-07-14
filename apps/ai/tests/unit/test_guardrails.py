@@ -456,9 +456,13 @@ class TestAlertGateExtended:
     """Alert gate extended stages (authority, risk, privacy)."""
 
     def setup_method(self):
-        """Reset trust battery state before each test."""
+        """Reset trust battery and dedup state before each test."""
         from src.services.trust_battery import reset_profiles
         reset_profiles()
+        # Reset dedup to avoid cross-test collisions
+        from src.services.alert_gate import AlertGate
+        gate = AlertGate("tenant-001")
+        gate.reset_dedup()
 
     def _make_basic_alert(self, **overrides: str | bool) -> dict:
         """Create a basic alert dict that passes schema validation."""

@@ -365,21 +365,27 @@ class TestEndToEndSessionFlow:
     def test_trust_battery_skips_degraded_agent(self):
         """Degraded agent is skipped in full flow."""
         from src.session.relevance_gate import get_triggered_agents
-        from src.services.trust_battery import update_trust_score
+        from src.services.trust_battery import update_trust_score, reset_profiles
 
-        # Degrade the agent
-        for _ in range(3):
-            update_trust_score("test-tenant", "Finance Guardian", "false_positive")
+        try:
+            # Degrade the agent
+            for _ in range(3):
+                update_trust_score("test-tenant", "Finance Guardian", "false_positive")
 
-        # Try to get triggered agents
-        agents = get_triggered_agents(
-            message="What's my burn rate?",
-            tenant_id="test-tenant",
-        )
+            # Try to get triggered agents
+            agents = get_triggered_agents(
+                message="What's my burn rate?",
+                tenant_id="test-tenant",
+            )
 
-        # Finance Guardian should be degraded (priority 999) and skipped
-        # Note: The actual behavior depends on the mock state
-        assert isinstance(agents, list)
+            # Finance Guardian should be degraded (priority 999) and skipped
+            # Note: The actual behavior depends on the mock state
+            assert isinstance(agents, list)
+        finally:
+            # Clean up global trust state to avoid cross-test pollution
+            reset_profiles()
+            import src.session.relevance_gate as rg
+            rg._trust_battery = None
 
 
 class TestContextAlignment:

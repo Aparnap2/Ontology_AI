@@ -1,4 +1,4 @@
--- Sarthi v1.0 Demo Seed Data
+-- TrackGuard Demo Seed Data
 -- Run: psql "$DATABASE_URL" -f scripts/seed_data.sql
 
 -- Seed demo tenant
