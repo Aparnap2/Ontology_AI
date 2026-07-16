@@ -39,7 +39,7 @@ class TestHITLIntegration:
         """requires_hitl must default to False."""
         from src.schemas.specialist_response import SpecialistResponse
         resp = SpecialistResponse(
-            specialist="Chief of Staff",
+            specialist="ChiefOfStaff",
             workflow_name="ChiefOfStaffWorkflow",
             summary="test",
             detailed_response="test",
@@ -50,7 +50,7 @@ class TestHITLIntegration:
         """planned_action_id must be optional (default None)."""
         from src.schemas.specialist_response import SpecialistResponse
         resp = SpecialistResponse(
-            specialist="Chief of Staff",
+            specialist="ChiefOfStaff",
             workflow_name="ChiefOfStaffWorkflow",
             summary="test",
             detailed_response="test",

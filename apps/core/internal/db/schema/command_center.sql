@@ -36,11 +36,22 @@ CREATE TABLE IF NOT EXISTS planned_actions (
     status VARCHAR(20) DEFAULT 'planned',
     created_at TIMESTAMP DEFAULT NOW(),
     executed_at TIMESTAMP,
-    error TEXT
+    error TEXT,
+    -- V5.1 extensions (PRD §12.6 / PLAN §4): non-destructive, nullable.
+    -- Existing columns above are preserved — DO NOT drop or rename.
+    engagement_id TEXT,
+    target_type TEXT,
+    target_id TEXT,
+    requested_by TEXT,
+    approved_by TEXT,
+    reason TEXT,
+    temporal_workflow_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_planned_actions_status ON planned_actions(status);
 CREATE INDEX IF NOT EXISTS idx_planned_actions_tenant ON planned_actions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_planned_actions_engagement ON planned_actions(engagement_id);
+CREATE INDEX IF NOT EXISTS idx_planned_actions_status_created ON planned_actions(status, created_at DESC);
 
 -- Agent traces (from Python AI trace_store)
 CREATE TABLE IF NOT EXISTS agent_traces (

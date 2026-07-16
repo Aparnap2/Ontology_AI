@@ -1,103 +1,76 @@
-"""TDD tests for OntologyAI V4.2 — Ontology Schema Module (Task 1).
+"""TDD tests for OntologyAI V5.1 — Ontology Schema Module (PRD §12).
 
-These tests are written FIRST and must FAIL until the schema modules
-under ``apps/ai/src/ontology/`` are implemented.
-
+These tests assert the six canonical Object Types and the 11 link types.
 Run:
     cd /home/aparna/Desktop/iterate_swarm/apps/ai
     uv run pytest tests/unit/test_ontology_schema.py -v
 """
 import pytest
-from datetime import datetime
 from pydantic import ValidationError
 
 from src.ontology.object_types import (
-    Customer,
-    Deal,
-    RevenueMetric,
-    Incident,
+    Party,
+    Engagement,
+    MoneyEvent,
+    Issue,
     Message,
     PlannedAction,
+    OBJECT_TYPES,
 )
-from src.ontology.link_types import LINK_TYPES, resolve_link
+from src.ontology.link_types import LINK_TYPES, resolve_link, LinkType
 
 
 # ---------------------------------------------------------------------------
 # Object Type: valid construction
 # ---------------------------------------------------------------------------
 class TestObjectTypeValidConstruction:
-    """Each Object Type must construct a valid instance without error."""
-
-    def test_customer_valid(self):
-        c = Customer(
-            id="cust-1",
-            name="Acme Corp",
-            mrr=1200.0,
-            health_score=0.85,
-            last_contact_at=datetime(2026, 7, 1, 12, 0, 0),
+    def test_party_valid(self):
+        p = Party(
+            id="p-1", kind="customer", name="Acme", status="active",
+            owner="alice", contact_points=["email:a@x.com"], notes=None,
+            source_refs=["src1"],
         )
-        assert c.id == "cust-1"
-        assert c.mrr == 1200.0
+        assert p.id == "p-1"
+        assert p.kind == "customer"
 
-    def test_customer_optional_last_contact_none(self):
-        c = Customer(
-            id="cust-2",
-            name="Globex",
-            mrr=300.0,
-            health_score=0.4,
-            last_contact_at=None,
+    def test_engagement_valid(self):
+        e = Engagement(
+            id="e-1", kind="deal", title="Big Deal", status="active",
+            owner="bob", value=50000.0, due_date=None, notes=None,
+            source_refs=[],
         )
-        assert c.last_contact_at is None
+        assert e.value == 50000.0
 
-    def test_deal_valid(self):
-        d = Deal(
-            id="deal-1",
-            stage="negotiation",
-            value=50000.0,
-            close_probability=0.6,
-            owner="alice",
+    def test_money_event_valid(self):
+        m = MoneyEvent(
+            id="m-1", kind="receivable", amount=1000.0, currency="USD",
+            status="open", due_date=None, occurred_at=None,
+            counterparty_id=None, notes=None, source_refs=[],
         )
-        assert d.stage == "negotiation"
-        assert d.value == 50000.0
+        assert m.amount == 1000.0
 
-    def test_revenue_metric_valid(self):
-        r = RevenueMetric(
-            period="2026-07",
-            mrr=90000.0,
-            burn=40000.0,
-            runway_days=18,
-        )
-        assert r.runway_days == 18
-        assert isinstance(r.runway_days, int)
-
-    def test_incident_valid(self):
-        i = Incident(
-            id="inc-1",
-            severity="high",
-            opened_at=datetime(2026, 7, 10, 9, 0, 0),
-            resolved_at=None,
-            root_cause="db failover",
+    def test_issue_valid(self):
+        i = Issue(
+            id="i-1", kind="delay", severity="high", status="open",
+            opened_at=None, resolved_at=None, owner=None,
+            summary="Shipment delayed", notes=None, source_refs=[],
         )
         assert i.severity == "high"
-        assert i.resolved_at is None
 
     def test_message_valid(self):
-        m = Message(
-            id="msg-1",
-            channel="slack",
-            thread_id="thread-9",
-            sentiment="positive",
-            drafted_by="bot",
+        msg = Message(
+            id="msg-1", channel="email", thread_id=None, timestamp=None,
+            direction="inbound", summary="Asking about invoice",
+            sentiment="neutral", needs_action=True, source_refs=[],
         )
-        assert m.channel == "slack"
+        assert msg.needs_action is True
 
     def test_planned_action_valid(self):
         a = PlannedAction(
-            id="act-1",
-            type="refund",
-            blast_radius="low",
-            status="pending",
-            requested_by="bob",
+            id="a-1", type="create_note", title="Note", blast_radius="low",
+            status="draft", requested_by="bob",
+            target_object_type="Party", target_id="p-1", rationale="x",
+            requires_approval=False, execution_payload=None, source_refs=[],
         )
         assert a.blast_radius == "low"
 
@@ -106,71 +79,30 @@ class TestObjectTypeValidConstruction:
 # Object Type: strict + extra="forbid" rejects unknown fields
 # ---------------------------------------------------------------------------
 class TestObjectTypeRejectsExtraFields:
-    """Strict models must reject unknown/extra fields with ValidationError."""
-
-    def test_customer_rejects_extra(self):
+    def test_party_rejects_extra(self):
         with pytest.raises(ValidationError):
-            Customer(
-                id="cust-3",
-                name="Initech",
-                mrr=100.0,
-                health_score=0.5,
-                last_contact_at=None,
-                unknown_field="boom",
+            Party(
+                id="p", kind="customer", name="X", status="active",
+                owner=None, contact_points=[], notes=None, source_refs=[],
+                surprise="boom",
             )
 
-    def test_deal_rejects_extra(self):
+    def test_money_event_rejects_extra(self):
         with pytest.raises(ValidationError):
-            Deal(
-                id="deal-2",
-                stage="lead",
-                value=10.0,
-                close_probability=0.1,
-                owner="carol",
-                extra="nope",
-            )
-
-    def test_revenue_metric_rejects_extra(self):
-        with pytest.raises(ValidationError):
-            RevenueMetric(
-                period="2026-08",
-                mrr=1.0,
-                burn=1.0,
-                runway_days=1,
-                surprise=True,
-            )
-
-    def test_incident_rejects_extra(self):
-        with pytest.raises(ValidationError):
-            Incident(
-                id="inc-2",
-                severity="low",
-                opened_at=datetime(2026, 7, 1),
-                resolved_at=None,
-                root_cause="x",
-                note="extra",
-            )
-
-    def test_message_rejects_extra(self):
-        with pytest.raises(ValidationError):
-            Message(
-                id="msg-2",
-                channel="email",
-                thread_id="t",
-                sentiment="neutral",
-                drafted_by="human",
-                spam=False,
+            MoneyEvent(
+                id="m", kind="payable", amount=1.0, currency="USD",
+                status="open", due_date=None, occurred_at=None,
+                counterparty_id=None, notes=None, source_refs=[], extra=1,
             )
 
     def test_planned_action_rejects_extra(self):
         with pytest.raises(ValidationError):
             PlannedAction(
-                id="act-2",
-                type="email",
-                blast_radius="medium",
-                status="done",
-                requested_by="dan",
-                priority=1,
+                id="a", type="x", title="t", blast_radius="low",
+                status="draft", requested_by="bob",
+                target_object_type="Party", target_id="p", rationale="r",
+                requires_approval=False, execution_payload=None,
+                source_refs=[], priority=1,
             )
 
 
@@ -178,86 +110,83 @@ class TestObjectTypeRejectsExtraFields:
 # Object Type: strict typing rejects wrong types
 # ---------------------------------------------------------------------------
 class TestObjectTypeStrictTyping:
-    """Strict mode must reject type-coercion of wrong types."""
-
-    def test_customer_mrr_wrong_type(self):
+    def test_party_contact_points_wrong_type(self):
         with pytest.raises(ValidationError):
-            Customer(
-                id="cust-4",
-                name="Umbrella",
-                mrr="not-a-float",  # strict: no coercion
-                health_score=0.5,
-                last_contact_at=None,
+            Party(
+                id="p", kind="customer", name="X", status="active",
+                owner=None, contact_points="not-a-list", notes=None,
+                source_refs=[],
             )
 
-    def test_revenue_metric_runway_wrong_type(self):
+    def test_money_event_amount_wrong_type(self):
         with pytest.raises(ValidationError):
-            RevenueMetric(
-                period="2026-09",
-                mrr=1.0,
-                burn=1.0,
-                runway_days="eighteen",  # strict: must be int
+            MoneyEvent(
+                id="m", kind="payable", amount="not-a-float", currency="USD",
+                status="open", due_date=None, occurred_at=None,
+                counterparty_id=None, notes=None, source_refs=[],
             )
 
     def test_planned_action_blast_radius_literal(self):
         with pytest.raises(ValidationError):
             PlannedAction(
-                id="act-3",
-                type="call",
-                blast_radius="critical",  # not in Literal set
-                status="pending",
-                requested_by="eve",
+                id="a", type="x", title="t", blast_radius="critical",
+                status="draft", requested_by="bob",
+                target_object_type="Party", target_id="p", rationale="r",
+                requires_approval=False, execution_payload=None, source_refs=[],
+            )
+
+    def test_party_kind_literal(self):
+        with pytest.raises(ValidationError):
+            Party(
+                id="p", kind="alien", name="X", status="active",
+                owner=None, contact_points=[], notes=None, source_refs=[],
             )
 
 
 # ---------------------------------------------------------------------------
-# LINK_TYPES registry
+# OBJECT_TYPES registry contains exactly the six canonical types
+# ---------------------------------------------------------------------------
+class TestObjectTypeRegistry:
+    def test_exactly_six_types(self):
+        assert set(OBJECT_TYPES.keys()) == {
+            "Party", "Engagement", "MoneyEvent", "Issue", "Message", "PlannedAction",
+        }
+
+
+# ---------------------------------------------------------------------------
+# LINK_TYPES registry — exactly 11 canonical links
 # ---------------------------------------------------------------------------
 class TestLinkTypesRegistry:
-    """LINK_TYPES must contain exactly the four specified links."""
+    EXPECTED = {
+        "party_engagement", "engagement_money_event", "engagement_issue",
+        "message_party", "message_engagement", "issue_planned_action",
+        "money_event_planned_action", "party_planned_action",
+        "engagement_planned_action", "workflow_action",
+        "workflow_object_dependency",
+    }
 
-    def test_all_four_links_present(self):
-        assert "incident_affects_customer" in LINK_TYPES
-        assert "deal_belongs_to_customer" in LINK_TYPES
-        assert "message_relates_to_deal" in LINK_TYPES
-        assert "action_targets_object" in LINK_TYPES
+    def test_all_eleven_present(self):
+        assert set(LINK_TYPES.keys()) == self.EXPECTED
 
-    def test_cardinality_strings(self):
-        assert LINK_TYPES["incident_affects_customer"][2] == "many_to_many"
-        assert LINK_TYPES["deal_belongs_to_customer"][2] == "many_to_one"
-        assert LINK_TYPES["message_relates_to_deal"][2] == "many_to_one"
-        assert LINK_TYPES["action_targets_object"][2] == "polymorphic"
+    def test_each_is_linktype_with_required_fields(self):
+        for name, lt in LINK_TYPES.items():
+            assert isinstance(lt, LinkType)
+            assert lt.name == name
+            assert lt.source_type
+            assert lt.target_type
+            assert lt.cardinality
+            assert lt.semantic_meaning
 
-    def test_source_target_types(self):
-        assert LINK_TYPES["incident_affects_customer"][0] == "Incident"
-        assert LINK_TYPES["incident_affects_customer"][1] == "Customer"
-        assert LINK_TYPES["deal_belongs_to_customer"] == (
-            "Deal",
-            "Customer",
-            "many_to_one",
-        )
-        assert LINK_TYPES["message_relates_to_deal"] == (
-            "Message",
-            "Deal",
-            "many_to_one",
-        )
-        assert LINK_TYPES["action_targets_object"] == (
-            "PlannedAction",
-            "*",
-            "polymorphic",
-        )
+    def test_party_engagement_link(self):
+        lt = LINK_TYPES["party_engagement"]
+        assert lt.source_type == "Party"
+        assert lt.target_type == "Engagement"
 
 
 # ---------------------------------------------------------------------------
 # resolve_link helper
 # ---------------------------------------------------------------------------
 class FakeDB:
-    """Minimal mock of the db interface expected by resolve_link.
-
-    Expected interface: an object exposing
-        fetch_links(source_type: str, source_id: str, link_name: str) -> list[str]
-    """
-
     def __init__(self, mapping=None):
         self._mapping = mapping or {}
 
@@ -266,29 +195,21 @@ class FakeDB:
 
 
 class TestResolveLink:
-    """resolve_link queries the (injectable) db for linked object IDs."""
-
     def test_unknown_link_raises_keyerror(self):
         with pytest.raises(KeyError):
             resolve_link("unknown_link", "x")
 
     def test_resolves_linked_ids_from_fake_db(self):
-        fake_db = FakeDB(
-            {
-                ("Deal", "deal-1", "deal_belongs_to_customer"): ["cust-1", "cust-2"],
-            }
-        )
-        result = resolve_link("deal_belongs_to_customer", "deal-1", db=fake_db)
-        assert result == ["cust-1", "cust-2"]
+        fake_db = FakeDB({
+            ("Party", "p-1", "party_engagement"): ["e-1", "e-2"],
+        })
+        result = resolve_link("party_engagement", "p-1", db=fake_db)
+        assert result == ["e-1", "e-2"]
 
     def test_returns_empty_when_no_links(self):
-        fake_db = FakeDB()
-        result = resolve_link("deal_belongs_to_customer", "deal-99", db=fake_db)
-        assert result == []
+        assert resolve_link("party_engagement", "p-99", db=FakeDB()) == []
 
     def test_callable_db_interface_accepted(self):
         def fake_fetch(source_type, source_id, link_name):
-            return ["cust-x"]
-
-        result = resolve_link("deal_belongs_to_customer", "deal-7", db=fake_fetch)
-        assert result == ["cust-x"]
+            return ["e-x"]
+        assert resolve_link("party_engagement", "p-7", db=fake_fetch) == ["e-x"]

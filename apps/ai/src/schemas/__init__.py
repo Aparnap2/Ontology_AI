@@ -15,6 +15,8 @@ from src.schemas.desk_results import (
 )
 
 from src.schemas.specialist_response import SpecialistResponse
+from src.schemas.workflow_spec import WorkflowSpec
+from src.schemas.sop import SOP, SOPStep
 
 __all__ = [
     "HitlRisk",
@@ -26,4 +28,7 @@ __all__ = [
     "KnowledgeManagerResult",
     "DeskResult",
     "SpecialistResponse",
+    "WorkflowSpec",
+    "SOP",
+    "SOPStep",
 ]

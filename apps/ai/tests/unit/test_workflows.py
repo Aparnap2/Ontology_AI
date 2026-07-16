@@ -102,6 +102,11 @@ class TestWorkerRegistration:
 # =============================================================================
 
 
+@pytest.mark.skipif(
+    os.getenv("LEGACY_FDE_MODULES") != "on",
+    reason="PulseWorkflow is a legacy V4.2 module, off the V5.1 active roster "
+    "(gated behind LEGACY_FDE_MODULES=on)",
+)
 class TestPulseWorkflowLogic:
     """Tests for PulseWorkflow logic."""
 
@@ -169,6 +174,11 @@ class TestPulseWorkflowLogic:
 # =============================================================================
 
 
+@pytest.mark.skipif(
+    os.getenv("LEGACY_FDE_MODULES") != "on",
+    reason="QAWorkflow is a legacy V4.2 module, off the V5.1 active roster "
+    "(gated behind LEGACY_FDE_MODULES=on)",
+)
 class TestQAWorkflowLogic:
     """Tests for QAWorkflow logic."""
 
