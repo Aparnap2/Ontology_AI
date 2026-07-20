@@ -107,6 +107,37 @@ ACTION_REGISTRY: dict[str, ActionRegistryEntry] = {
         default_blast_radius="high",
         requires_approval=True,
     ),
+    # BABOK strategy artifact actions (V5.1 extension)
+    "generate_current_state": ActionRegistryEntry(
+        type="generate_current_state",
+        title_template="Generate current state description for {target_id}",
+        default_blast_radius="low",
+        requires_approval=False,
+    ),
+    "generate_objectives": ActionRegistryEntry(
+        type="generate_objectives",
+        title_template="Generate business objectives for {target_id}",
+        default_blast_radius="low",
+        requires_approval=False,
+    ),
+    "generate_risk_analysis": ActionRegistryEntry(
+        type="generate_risk_analysis",
+        title_template="Generate risk analysis for {target_id}",
+        default_blast_radius="low",
+        requires_approval=False,
+    ),
+    "generate_change_strategy": ActionRegistryEntry(
+        type="generate_change_strategy",
+        title_template="Generate change strategy for {target_id}",
+        default_blast_radius="medium",
+        requires_approval=True,
+    ),
+    "record_evaluation": ActionRegistryEntry(
+        type="record_evaluation",
+        title_template="Record solution evaluation for {target_id}",
+        default_blast_radius="low",
+        requires_approval=False,
+    ),
 }
 
 

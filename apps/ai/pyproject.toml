@@ -56,6 +56,7 @@ dependencies = [
     "ollama>=0.6.2",
     "google-genai>=2.2.0",
     "hubspot-api-client",
+    "pytest>=8.0.0",
 ]
 
 [project.optional-dependencies]
@@ -87,4 +88,5 @@ include = ["src*"]
 dev = [
     "langfuse>=4.6.1",
     "mypy>=1.19.1",
+    "pytest>=9.0.2",
 ]

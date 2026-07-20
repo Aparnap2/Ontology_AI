@@ -15,6 +15,17 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+# ── Internal counter for deterministic ID generation ───────────────────
+_SEQUENCE: int = 0
+
+
+def _next_seq() -> int:
+    """Return the next integer in a monotonic sequence for artifact IDs."""
+    global _SEQUENCE
+    _SEQUENCE += 1
+    return _SEQUENCE
+
+
 class Party(BaseModel):
     """A person or organization relevant to the business (PRD §12.1)."""
 

@@ -1,8 +1,9 @@
 """OntologyAI V5.1 — Workflow registry (PRD §7 / §25).
 
-Exposes EXACTLY 6 active workflows:
+Exposes EXACTLY 7 active workflows:
     ChiefOfStaffWorkflow, DiscoveryWorkflow, OntologyMappingWorkflow,
-    TruthAnalysisWorkflow, WorkflowBuilderWorkflow, GovernanceWorkflow
+    TruthAnalysisWorkflow, WorkflowBuilderWorkflow, GovernanceWorkflow,
+    StrategyWorkflow
 
 Legacy FDE modules (Pulse/Investor/FPA/GrowthAnalytics/Reliability/Comms/etc.)
 are NOT in the active roster. They are gated behind the ``LEGACY_FDE_MODULES``
@@ -13,15 +14,16 @@ from __future__ import annotations
 
 import os
 
-# ── Active V5.1 workflow roster (exactly 6) ──────────────────────────────
+# ── Active V5.1 workflow roster (exactly 7) ──────────────────────────────
 from src.workflows.chief_of_staff_workflow import ChiefOfStaffWorkflow
 from src.workflows.discovery_workflow import DiscoveryWorkflow
 from src.workflows.ontology_mapping_workflow import OntologyMappingWorkflow
 from src.workflows.truth_analysis_workflow import TruthAnalysisWorkflow
 from src.workflows.workflow_builder_workflow import WorkflowBuilderWorkflow
 from src.workflows.governance_workflow import GovernanceWorkflow
+from src.workflows.strategy_workflow import StrategyWorkflow
 
-# Active roster: name -> class. Exactly 6 entries.
+# Active roster: name -> class. Exactly 7 entries.
 ACTIVE_WORKFLOWS: dict[str, type] = {
     "ChiefOfStaffWorkflow": ChiefOfStaffWorkflow,
     "DiscoveryWorkflow": DiscoveryWorkflow,
@@ -29,6 +31,7 @@ ACTIVE_WORKFLOWS: dict[str, type] = {
     "TruthAnalysisWorkflow": TruthAnalysisWorkflow,
     "WorkflowBuilderWorkflow": WorkflowBuilderWorkflow,
     "GovernanceWorkflow": GovernanceWorkflow,
+    "StrategyWorkflow": StrategyWorkflow,
 }
 
 # Alias used by some call sites / tests.
@@ -47,6 +50,7 @@ ROUTE_MAP: dict[str, type] = {
     "@truth": TruthAnalysisWorkflow,
     "@build": WorkflowBuilderWorkflow,
     "@govern": GovernanceWorkflow,
+    "@strategy": StrategyWorkflow,
     # Backward compatibility
     "@sarthi": ChiefOfStaffWorkflow,
 }
@@ -58,6 +62,7 @@ __all__ = [
     "TruthAnalysisWorkflow",
     "WorkflowBuilderWorkflow",
     "GovernanceWorkflow",
+    "StrategyWorkflow",
     "ACTIVE_WORKFLOWS",
     "WORKFLOW_REGISTRY",
     "ROUTE_MAP",

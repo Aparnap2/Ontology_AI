@@ -1,0 +1,12 @@
+<div class="card p-4 fade-in">
+    <h2 class="font-semibold text-sm md:text-base mb-3">Conversations</h2>
+    <div class="space-y-2" hx-get="/api/command/chat" hx-trigger="load" hx-swap="innerHTML">
+        <p class="text-xs" style="color:var(--text-muted)">Loading conversation thread…</p>
+    </div>
+    <form class="mt-3 flex gap-2" hx-post="/api/command/chat/send" hx-target="#ws-conv-msg" hx-swap="beforeend">
+        <input class="input-dark flex-1" name="message" placeholder="Message an agent… use @sarthi, @finance, @data, @ops, @comms" />
+        <input type="hidden" name="mention" value="@all" />
+        <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+    <div id="ws-conv-msg" class="mt-2 space-y-2"></div>
+</div>

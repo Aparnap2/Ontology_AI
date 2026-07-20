@@ -24,7 +24,7 @@ func main() {
 	temporalAddr := flag.String("temporal", "localhost:7233", "Temporal address")
 	namespace := flag.String("namespace", "default", "Temporal namespace")
 	aiGRPCAddr := flag.String("ai-grpc", "localhost:50051", "Python AI service gRPC address")
-	taskQueue := flag.String("queue", "feedback-queue", "Task queue name")
+	taskQueue := flag.String("queue", temporal.ResolveTaskQueue(), "Task queue name")
 
 	flag.Parse()
 

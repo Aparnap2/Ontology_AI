@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.1/dist/htmx-ext-sse.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-surface: #0f1117;
+            --bg-card: #1a1d27;
+            --bg-card-hover: #222637;
+            --border: #2a2e3a;
+            --text: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --text-muted: #6b7280;
+            --accent-blue: #7dd3fc;
+            --accent-green: #34d399;
+            --accent-yellow: #fbbf24;
+            --accent-red: #f87171;
+            --accent-purple: #a78bfa;
+            --accent-cyan: #22d3ee;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg-surface); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; }
+        .nav-link { display:flex; align-items:center; gap:0.5rem; padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.8125rem; color:var(--text-secondary); transition:all .15s ease; cursor:pointer; }
+        .nav-link:hover { background: rgba(125,211,252,0.08); color: var(--text); }
+        .nav-link.active { background: rgba(125,211,252,0.15); color: var(--accent-blue); }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:0.375rem; padding:0.375rem 0.75rem; border-radius:0.5rem; font-size:0.75rem; font-weight:500; cursor:pointer; border:none; }
+        .btn-primary { background: rgba(125,211,252,0.15); color: var(--accent-blue); border:1px solid rgba(125,211,252,0.2); }
+        .btn-primary:hover { background: rgba(125,211,252,0.25); }
+        .btn-approve { background: rgba(52,211,153,0.15); color: var(--accent-green); border:1px solid rgba(52,211,153,0.2); }
+        .btn-hold { background: rgba(251,191,36,0.15); color: var(--accent-yellow); border:1px solid rgba(251,191,36,0.2); }
+        .input-dark { background: var(--bg-surface); border:1px solid var(--border); color:var(--text); border-radius:0.5rem; padding:0.5rem 0.75rem; font-size:0.8125rem; outline:none; }
+        .input-dark:focus { border-color: var(--accent-blue); }
+        .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; }
+        .status-dot.connected { background: var(--accent-green); box-shadow:0 0 8px rgba(52,211,153,0.5); }
+        .status-dot.connecting { background: var(--accent-yellow); }
+        .status-dot.disconnected { background: var(--accent-red); }
+        .node-trigger { background: rgba(125,211,252,0.15); border:1px solid rgba(125,211,252,0.3); color:var(--accent-blue); }
+        .node-action { background: rgba(52,211,153,0.15); border:1px solid rgba(52,211,153,0.3); color:var(--accent-green); }
+        .node-logic { background: rgba(167,139,250,0.15); border:1px solid rgba(167,139,250,0.3); color:var(--accent-purple); }
+        .node-io { background: rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.3); color:var(--accent-yellow); }
+        .palette-item { cursor:grab; user-select:none; }
+        .fade-in { animation: fadeIn .3s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to {opacity:1; transform:translateY(0);} }
+    </style>
+</head>
+<body>
+<div class="max-w-[1600px] mx-auto px-3 md:px-4 py-3 md:py-4" hx-ext="sse" sse-connect="/api/workspace/events">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 md:w-10 md:h-10 rounded-xl grid place-items-center font-bold text-base md:text-lg" style="background:rgba(125,211,252,0.12);color:var(--accent-blue)">S</div>
+            <div>
+                <h1 class="text-base md:text-xl font-bold tracking-tight">IterateSwarm Workspace</h1>
+                <p class="text-[10px] md:text-xs" style="color:var(--text-muted)">Engagement mode · {{.State.WorkspaceMode}}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 text-xs" style="color:var(--text-muted)">
+            <span class="status-dot connecting" id="ws-conn-dot"></span>
+            <span id="ws-conn-text">⟳ Live</span>
+            <button class="btn btn-primary" hx-post="/api/workspace/mode" hx-vals='{"mode":"dashboard"}' hx-target="body" hx-swap="none">Exit Workspace</button>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+
+        <!-- Sidebar nav -->
+        <nav class="card p-3 h-fit lg:sticky lg:top-4">
+            <p class="text-[10px] uppercase tracking-wider mb-2" style="color:var(--text-muted)">Screens</p>
+            <div class="space-y-1">
+                {{range $key, $name := .Screens}}
+                <div class="nav-link" data-screen="{{$key}}" onclick="loadScreen('{{$key}}')">
+                    <span>{{$name}}</span>
+                </div>
+                {{end}}
+            </div>
+        </nav>
+
+        <!-- Screen content -->
+        <main id="workspace-screen" class="min-h-[60vh]">
+            <div hx-get="/workspace/dashboard" hx-trigger="load" hx-swap="innerHTML" class="card p-6 text-center" style="color:var(--text-muted)">
+                <span class="text-sm">Loading dashboard…</span>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+function loadScreen(screen) {
+    document.querySelectorAll('.nav-link').forEach(function(el){ el.classList.remove('active'); });
+    var active = document.querySelector('.nav-link[data-screen="'+screen+'"]');
+    if (active) active.classList.add('active');
+    var main = document.getElementById('workspace-screen');
+    main.innerHTML = '<div class="card p-6 text-center" style="color:var(--text-muted)"><span class="text-sm">Loading…</span></div>';
+    fetch('/workspace/'+screen).then(function(r){ return r.text(); }).then(function(html){
+        main.innerHTML = html;
+    });
+}
+// Mark dashboard active on load
+document.addEventListener('DOMContentLoaded', function(){
+    var d = document.querySelector('.nav-link[data-screen="dashboard"]');
+    if (d) d.classList.add('active');
+});
+</script>
+</body>
+</html>

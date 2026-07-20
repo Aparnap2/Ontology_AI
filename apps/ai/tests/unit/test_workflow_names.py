@@ -17,17 +17,18 @@ EXPECTED_WORKFLOWS = {
     "TruthAnalysisWorkflow",
     "WorkflowBuilderWorkflow",
     "GovernanceWorkflow",
+    "StrategyWorkflow",
 }
 
 
 class TestWorkflowRoster:
-    def test_exactly_six_active_workflows(self):
-        assert len(ACTIVE_WORKFLOWS) == 6
+    def test_exactly_seven_active_workflows(self):
+        assert len(ACTIVE_WORKFLOWS) == 7
 
     def test_exact_names_match_prd(self):
         assert set(ACTIVE_WORKFLOWS.keys()) == EXPECTED_WORKFLOWS
 
-    def test_registry_has_all_six(self):
+    def test_registry_has_all_seven(self):
         for name in EXPECTED_WORKFLOWS:
             assert name in WORKFLOW_REGISTRY
             assert WORKFLOW_REGISTRY[name] is not None

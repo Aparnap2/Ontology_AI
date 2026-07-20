@@ -1,0 +1,11 @@
+<div class="card p-4 fade-in">
+    <h2 class="font-semibold text-sm md:text-base mb-3">Settings</h2>
+    <div class="space-y-3 max-w-md">
+        <label class="block text-xs" style="color:var(--text-muted)">Workspace mode</label>
+        <div class="flex gap-2">
+            <button class="btn btn-primary" hx-post="/api/workspace/mode" hx-vals='{"mode":"dashboard"}' hx-target="body" hx-swap="none">Dashboard</button>
+            <button class="btn btn-approve" hx-post="/api/workspace/mode" hx-vals='{"mode":"workspace"}' hx-target="body" hx-swap="none">Workspace</button>
+        </div>
+        <p class="text-xs" style="color:var(--text-muted)">Toggling mode persists to <code>engagement_states.workspace_mode</code> and broadcasts over SSE.</p>
+    </div>
+</div>

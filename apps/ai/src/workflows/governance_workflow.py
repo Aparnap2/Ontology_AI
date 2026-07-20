@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from src.runtime.deployers import DeployerResult, deploy_custom_agent, deploy_to_n8n, deploy_to_windmill
 from src.schemas.specialist_response import SpecialistResponse
 from src.ontology.object_types import PlannedAction
 from src.ontology.workflow_drafts import ExecutableWorkflowDraft
@@ -150,6 +151,44 @@ class GovernanceWorkflow:
     def complete_draft(self, draft: ExecutableWorkflowDraft) -> None:
         """Set a draft to 'completed' — governance-exclusive."""
         draft.set_status_via_governance("completed")
+
+    def deploy_draft(
+        self,
+        draft: ExecutableWorkflowDraft,
+        credentials: dict[str, Any],
+    ) -> DeployerResult:
+        """Deploy a governance-activated draft to the target runtime.
+
+        This is the ONLY sanctioned path for deploying compiled workflows.
+        The draft MUST be in "activated" status (set by governance).
+
+        Args:
+            draft: An ExecutableWorkflowDraft with status="activated".
+            credentials: Runtime-specific credentials dict.
+
+        Returns:
+            A DeployerResult with the deployment outcome.
+
+        Raises:
+            ValueError: If the draft is not yet activated.
+        """
+        if draft.status != "activated":
+            raise ValueError(
+                f"draft '{draft.id}' has status={draft.status!r}; "
+                "only 'activated' drafts may be deployed. "
+                "Use GovernanceWorkflow.activate_draft() first."
+            )
+
+        runtime = draft.runtime
+        payload = draft.export_payload or draft.model_dump(mode="json")
+
+        if runtime == "n8n":
+            return deploy_to_n8n(payload, credentials)
+        if runtime == "windmill":
+            return deploy_to_windmill(payload, credentials)
+        if runtime in ("custom_agent", "adk_go", "pydantic_ai", "python_agent"):
+            return deploy_custom_agent(payload, credentials)
+        raise ValueError(f"Unknown runtime: {runtime}")
 
 
 def set_export_payload_via_compiler(draft: ExecutableWorkflowDraft, payload: dict) -> None:

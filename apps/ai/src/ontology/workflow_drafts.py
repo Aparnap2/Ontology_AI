@@ -31,7 +31,7 @@ class ExecutableWorkflowDraft(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     id: str
-    runtime: Literal["n8n", "custom_agent"]
+    runtime: Literal["n8n", "custom_agent", "windmill"]
     name: str
     source_workflow_spec_id: str
     status: Literal[

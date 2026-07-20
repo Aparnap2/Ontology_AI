@@ -804,7 +804,7 @@ func TestRouteMap_AllAliasesResolve(t *testing.T) {
 	h := NewHandler(nil, nil)
 	app.Post("/api/command/chat/send", h.APICommandChatSend)
 
-	aliases := []string{"@sarthi", "@agent", "@qa", "@ask", "@finance", "@fpa", "@data", "@growth", "@ops", "@comms"}
+	aliases := []string{"@sarthi", "@agent", "@qa", "@ask", "@chief", "@discover", "@map", "@truth", "@build", "@govern", "@strategy", "@finance", "@fpa", "@data", "@growth", "@ops", "@comms"}
 	for _, alias := range aliases {
 		req := httptest.NewRequest("POST", "/api/command/chat/send",
 			strings.NewReader(fmt.Sprintf("message=hello&mention=%s", alias)))

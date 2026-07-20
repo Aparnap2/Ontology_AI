@@ -1,0 +1,43 @@
+<div class="card p-4 fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-sm md:text-base">Workflow Builder</h2>
+        <button class="btn btn-primary" hx-post="/api/workspace/workflow-drafts" hx-vals='{"name":"Untitled workflow","runtime":"n8n","draft":{"nodes":[],"edges":[]}}' hx-target="#ws-draft-list" hx-swap="afterbegin">+ New Draft</button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4">
+        <!-- Node palette (12-node vocabulary) -->
+        <aside class="card p-3 h-fit">
+            <p class="text-[10px] uppercase tracking-wider mb-2" style="color:var(--text-muted)">Node Palette</p>
+            <div class="space-y-1 text-xs">
+                <div class="palette-item node-trigger p-2 rounded" draggable="true" data-type="trigger" data-kind="webhook">⚡ Webhook (trigger)</div>
+                <div class="palette-item node-trigger p-2 rounded" draggable="true" data-type="trigger" data-kind="schedule">⏰ Schedule (trigger)</div>
+                <div class="palette-item node-trigger p-2 rounded" draggable="true" data-type="trigger" data-kind="manual">🔘 Manual (trigger)</div>
+                <div class="palette-item node-action p-2 rounded" draggable="true" data-type="action" data-kind="http">🌐 HTTP Request (action)</div>
+                <div class="palette-item node-action p-2 rounded" draggable="true" data-type="action" data-kind="transform">🔧 Transform (action)</div>
+                <div class="palette-item node-action p-2 rounded" draggable="true" data-type="action" data-kind="notify">📣 Notify (action)</div>
+                <div class="palette-item node-logic p-2 rounded" draggable="true" data-type="logic" data-kind="if">❓ If (logic)</div>
+                <div class="palette-item node-logic p-2 rounded" draggable="true" data-type="logic" data-kind="switch">🔀 Switch (logic)</div>
+                <div class="palette-item node-logic p-2 rounded" draggable="true" data-type="logic" data-kind="loop">🔁 Loop (logic)</div>
+                <div class="palette-item node-io p-2 rounded" draggable="true" data-type="io" data-kind="read">📥 Read (io)</div>
+                <div class="palette-item node-io p-2 rounded" draggable="true" data-type="io" data-kind="write">📤 Write (io)</div>
+                <div class="palette-item node-io p-2 rounded" draggable="true" data-type="io" data-kind="store">🗄️ Store (io)</div>
+            </div>
+        </aside>
+
+        <!-- Canvas -->
+        <section>
+            <div id="ws-canvas" class="card p-3 min-h-[360px] relative overflow-auto" style="background:repeating-linear-gradient(45deg,transparent,transparent 19px,rgba(255,255,255,0.02) 20px)">
+                <p class="text-xs" style="color:var(--text-muted)">Drag nodes from the palette onto the canvas. Nodes render from <code>draft_json</code>.</p>
+                <!-- Nodes are rendered server-side from the selected draft -->
+                <div id="ws-nodes" hx-get="/api/workspace/workflow-drafts" hx-trigger="load" hx-swap="innerHTML"></div>
+            </div>
+            <div class="flex items-center gap-2 mt-3">
+                <button class="btn btn-approve" hx-post="/api/workspace/workflow-drafts/DRAFT_ID/compile" hx-target="#ws-compile-status" hx-swap="innerHTML">Export to n8n</button>
+                <span id="ws-compile-status" class="text-xs" style="color:var(--text-muted)"></span>
+            </div>
+        </section>
+    </div>
+
+    <!-- Draft list -->
+    <div id="ws-draft-list" class="mt-4 space-y-2" hx-get="/api/workspace/workflow-drafts" hx-trigger="load" hx-swap="innerHTML"></div>
+</div>

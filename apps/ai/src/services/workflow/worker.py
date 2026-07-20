@@ -6,7 +6,7 @@ Registers all workflows and activities with Temporal.
 Note: Activities communicate with memory-service and decision-engine via
 Redpanda events, NOT in-process Python imports.
 
-Task queue: TRACKGUARD-MAIN-QUEUE
+Task queue: ONTOLOGYAI-MAIN-QUEUE (env-overridable, legacy fallback)
 """
 from __future__ import annotations
 
@@ -17,10 +17,12 @@ import os
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from src.orchestration.queue import resolve_task_queue
+
 log = logging.getLogger("ontology_ai.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
+TASK_QUEUE = resolve_task_queue()
 MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 
 

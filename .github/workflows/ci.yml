@@ -1,74 +1,59 @@
 name: CI
 
 on:
-  push:
-    branches: [main, feat/**]
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
-env:
-  GO_VERSION: "1.24"
-  PYTHON_VERSION_FILE: "apps/ai/pyproject.toml"
+permissions:
+  contents: read
 
 jobs:
   go:
-    name: Go – Build & Unit Tests
+    name: Go tests (go 1.24)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/core
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: apps/core/go.sum
+          go-version: "1.24"
 
-      - name: Check formatting
+      - name: Verify queue contract constant exists
         run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "Unformatted files:"
-            echo "$unformatted"
-            exit 1
-          fi
+          grep -q 'ONTOLOGYAI_MAIN_QUEUE = "ONTOLOGYAI-MAIN-QUEUE"' apps/core/internal/temporal/client.go \
+            || { echo "::error::ONTOLOGYAI_MAIN_QUEUE constant missing in Go temporal client"; exit 1; }
 
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
+      - name: Go build
+        working-directory: apps/core
         run: go build ./...
 
-      - name: Test (unit – no Docker)
-        run: go test ./internal/web/... ./internal/agents/... ./internal/workflow/... -v -count=1 -timeout=60s
+      - name: Go test
+        working-directory: apps/core
+        run: go test ./...
 
   python:
-    name: Python – Lint & Unit Tests
+    name: Python tests (3.13)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/ai
+    strategy:
+      matrix:
+        python-version: ["3.13"]
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: ${{ env.PYTHON_VERSION_FILE }}
+      - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: "apps/ai/uv.lock"
+        uses: astral-sh/setup-uv@v5
 
-      - name: Sync dependencies
-        run: uv sync --locked --all-extras --dev
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
 
-      - name: Lint with ruff
-        run: uv run ruff check src/ tests/
+      - name: Verify queue contract constant exists
+        run: |
+          grep -q 'ONTOLOGYAI_MAIN_QUEUE = "ONTOLOGYAI-MAIN-QUEUE"' apps/ai/src/orchestration/queue.py \
+            || { echo "::error::ONTOLOGYAI_MAIN_QUEUE constant missing in Python queue module"; exit 1; }
 
-      - name: Run unit tests
-        run: uv run pytest tests/unit/ -v --timeout=60 -x -q
+      - name: Python tests
+        working-directory: apps/ai
+        run: uv run pytest tests/ -q

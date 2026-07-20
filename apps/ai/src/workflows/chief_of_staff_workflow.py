@@ -52,6 +52,12 @@ _INTENT_KEYWORDS: dict[str, str] = {
     "handoff": "handoff",
     "summary": "handoff",
     "export": "handoff",
+    "strategy": "strategy",
+    "objective": "strategy",
+    "current.state": "strategy",
+    "change.strategy": "strategy",
+    "risk.analysis": "strategy",
+    "evaluate": "strategy",
 }
 
 
@@ -74,6 +80,7 @@ class ChiefOfStaffCore:
             "@truth": "truth_analysis",
             "@build": "workflow_design",
             "@govern": "governance_review",
+            "@strategy": "strategy",
         }.items():
             if alias in low:
                 return intent
@@ -93,6 +100,7 @@ class ChiefOfStaffCore:
         from src.workflows.truth_analysis_workflow import TruthAnalysisWorkflow
         from src.workflows.workflow_builder_workflow import WorkflowBuilderWorkflow
         from src.workflows.governance_workflow import GovernanceWorkflow
+        from src.workflows.strategy_workflow import StrategyWorkflow
 
         mapping = {
             "discovery": [DiscoveryWorkflow],
@@ -100,6 +108,7 @@ class ChiefOfStaffCore:
             "truth_analysis": [TruthAnalysisWorkflow],
             "workflow_design": [WorkflowBuilderWorkflow],
             "governance_review": [GovernanceWorkflow],
+            "strategy": [StrategyWorkflow],
             "handoff": [WorkflowBuilderWorkflow, GovernanceWorkflow],
         }
         return mapping.get(intent, [DiscoveryWorkflow])

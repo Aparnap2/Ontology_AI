@@ -842,6 +842,8 @@ Steps:
 
 # 17. Runtime selection logic
 
+> **Locked decision (see §20.4):** n8n is the **invisible execution runtime** — it is reached only through the deterministic compiler + API/webhook, never through an exposed n8n editor in the first release (OEM/Embed license required). The client-facing canvas is OntologyAI-owned and persists every edit into `ExecutableWorkflowDraft`. The 12-node canonical vocabulary (§20.4.6) is the authoring surface; it maps to n8n during compilation.
+
 ## 17.1 n8n should be preferred when
 
 - trigger/condition/action can be explicitly specified,
@@ -872,6 +874,12 @@ Examples:
 
 LLM may propose workflow structure.
 Deterministic compiler code must build final runtime payload.
+
+## 17.4 deployment target rule
+
+- Approved drafts compile to n8n JSON via `runtime/n8n_compiler.py`.
+- Deploy to the **client's own n8n instance** or a **managed n8n runtime only after** the appropriate commercial agreement.
+- Run state, errors, and activation status are reflected back into OntologyAI read-only; the native n8n editor is not surfaced to clients in V5.1 first release.
 
 ---
 
@@ -992,7 +1000,7 @@ It must support both:
 - workflow cards
 - spec detail modal
 - SOP preview
-- runtime target badge (`n8n` / `custom_agent`)
+- runtime target badge (`n8n` / `adk_go` / `pydantic_ai` / `python_agent`)
 - compile/export actions
 
 ### Governance panel
@@ -1047,8 +1055,11 @@ Layers:
    - artifact storage
 
 5. **Runtime/export layer**
-   - n8n export compiler
-   - custom agent config compiler
+- n8n export compiler
+- ADK-Go compiler
+- PydanticAI compiler
+- smolagents compiler
+- custom agent config compiler
    - governance activation gate
 
 6. **Observability and controls**
@@ -1064,7 +1075,7 @@ Layers:
 - central control plane with domain-specialist workflows,
 - source-aligned storage plus semantic overlay,
 - governance before side effects,
-- runtime-specific export behind deterministic compilers.
+- runtime-specific export behind deterministic compilers (4 targets via `RuntimeCompiler` ABC).
 
 ## 20.3 Control plane behavior
 
@@ -1074,6 +1085,108 @@ The control plane should:
 - own workflow registration,
 - own approvals and activation rights,
 - expose a single user-facing interface.
+
+## 20.4 Architecture Decision — Runtime & Canvas (locked V5.1)
+
+This decision is **final and locked** for V5.1 (committed in PR #33, branch `feature/ontologyai-v5.1`). It does not replace any earlier V5.1 decision (the 6-workflow roster, the 6 object types, governance exclusivity, and compiler purity all remain in force). It clarifies *which layers we build versus which we reuse*.
+
+### 20.4.1 Core principle
+
+**Do NOT build the workflow engine or canvas from scratch.** Reuse **n8n** as the execution/runtime layer, but build **OntologyAI's own client-facing AI workspace and live workflow canvas** on top of the canonical `ExecutableWorkflowDraft` model.
+
+### 20.4.2 Final architecture split
+
+| Layer | Decision | Why |
+|---|---|---|
+| Client experience | Build your own | Differentiation: conversation, transcript extraction, evidence, AI suggestions, FDE collaboration, governance, pilot creation |
+| Workflow data model | Build your own typed canonical model | Lets the AI generate/validate/explain/version/govern workflows deterministically |
+| Compiler layer | Build your own `RuntimeCompiler` ABC + factory | 4 deterministic compilers (n8n, ADK-Go, PydanticAI, smolagents) from one canonical draft |
+| Execution runtime | Reuse n8n first | n8n provides execution, integrations, retries, scheduling, credentials, ops tooling |
+| Agent orchestration | Keep existing Temporal/Python | 6 workflow roles, typed shared state, governance, deterministic compilers already exist |
+| Agent framework | Use one, not two | Do not add ADK merely because fashionable; smolagents only sandboxed utility |
+
+### 20.4.3 Do NOT embed the n8n editor (licensing constraint)
+
+- **Do NOT expose the native n8n editor directly to clients in the first release.** The n8n OEM/Embed license is required to surface the native editor to external users; this is out of scope for V5.1 first release.
+- Build an **OntologyAI workflow canvas** that *looks and behaves like* a simplified n8n canvas (node graph, connections, properties panel) but is fully OntologyAI-owned.
+- Save every edit into OntologyAI's own `ExecutableWorkflowDraft` (the single source of truth).
+- Compile an approved draft to n8n JSON via the deterministic `n8n_compiler.py`.
+- Deploy to **either**:
+  - the client's own n8n instance, **or**
+  - a managed n8n runtime **only after** the appropriate commercial agreement is in place.
+- Show run state, errors, and activation status back inside OntologyAI (read-only reflection of the runtime, not a live editor).
+
+### 20.4.4 Recommended V5.1 stack ownership
+
+**OntologyAI owns:**
+- shared client + FDE workspace,
+- chat / meeting-transcript ingestion,
+- file / SOP / document intake + provenance,
+- evidence extraction + ambiguity questions,
+- ontology + truth-map generation,
+- workflow canvas + node editor,
+- AI-proposed nodes / branches / approvals / fallbacks,
+- governance + approval UI,
+- workflow versioning + pilot-readiness checks,
+- compile / export button.
+
+**n8n owns:**
+- trigger execution,
+- integrations / connectors,
+- scheduled runs / queues / retries,
+- credential handling on the client instance where possible,
+- webhook / API integration for deployed pilots.
+
+**Python owns:**
+- extraction pipelines,
+- retrieval,
+- typed schema validation,
+- deterministic workflow compilation,
+- policy evaluation + approval gates,
+- agent coordination,
+- audit trail + provenance.
+
+### 20.4.5 Multi-runtime compiler rule (ADR-008)
+
+- **Temporal + typed Python domain logic = system backbone.**
+- **ADK = optional orchestration enhancement** — adopt only if it materially improves the current orchestration; do **not** add merely because it is fashionable.
+- **smolagents = sandboxed utility worker** — document exploration, safe spreadsheet/data transforms, connector research, isolated code analysis. Code generated by an agent **must NOT** run with access to production network, credentials, database, or the n8n instance.
+- **n8n = workflow execution runtime** (automation, integrations, scheduling).
+- **ADK-Go = Go-native agent runtime** (for clients on Go stacks).
+- **PydanticAI = typed Python agent runtime** (typed outputs, tool-heavy Python agents).
+- **smolagents = sandboxed utility agent runtime** (code-first, isolated tasks).
+- **OntologyAI UI = the product.**
+- All four runtimes are reached only through deterministic compilers from the canonical `ExecutableWorkflowDraft`. See [ADR-008](./docs/adr/ADR-008-multi-runtime-compilers.md).
+
+### 20.4.6 Canonical node vocabulary (12 nodes)
+
+The V5.1 canvas uses a **small, high-quality canonical node vocabulary**. New integrations and dozens of bespoke nodes come later. Each canonical node maps to n8n during compilation.
+
+1. **Trigger** — entry point / schedule / webhook.
+2. **Human input / form** — collect structured input from a person.
+3. **AI extraction or classification** — LLM-based extraction/labeling (LLM-in-safe-lane only).
+4. **Condition / branch** — deterministic routing on data.
+5. **HTTP / API action** — call an external endpoint.
+6. **Send message** — outbound notification (governance-gated).
+7. **Create / update record** — write to a system of record.
+8. **Approval gate** — HITL checkpoint (maps to `GovernanceWorkflow`).
+9. **Delay / schedule** — wait or defer.
+10. **Transform data** — deterministic reshape/map.
+11. **Error / fallback** — exception path.
+12. **End / success metric** — terminal node + measured outcome.
+
+### 20.4.7 "Finish the product" pilot path (success criteria narrative)
+
+1. FDE and client enter a shared workspace.
+2. Client explains an operational pain point in chat, or joins a meeting whose transcript is ingested.
+3. AI extracts actors, systems, events, existing steps, exceptions, missing facts.
+4. Client uploads SOPs / templates / exports / examples as evidence.
+5. OntologyAI asks only important unresolved questions.
+6. Workflow canvas appears and updates live with proposed triggers, steps, branches, owners, approvals, fallback paths.
+7. Client / FDE edits or accepts the proposed workflow.
+8. Governance marks actions needing approval.
+9. OntologyAI compiles the approved workflow to the appropriate runtime target (n8n JSON, ADK-Go source, PydanticAI agent, or smolagents worker).
+10. Workflow deployed to the client's n8n instance or exported as an importable pilot package.
 
 ---
 
@@ -1087,7 +1200,7 @@ The stack should stay close to your existing system wherever possible, because t
 |---|---|
 | Primary AI app | Python |
 | Control / gateway | Go (existing server and routes where already present) |
-| Workflow orchestration | Existing workflow runtime / wrappers already present |
+| Workflow orchestration | Existing Temporal + Python runtime (system backbone) |
 | Scheduling | APScheduler |
 | Validation | Pydantic / Pydantic AI |
 | State + transactional data | PostgreSQL |
@@ -1095,9 +1208,11 @@ The stack should stay close to your existing system wherever possible, because t
 | Vector / episodic memory | Qdrant |
 | Semantic / temporal graph | Neo4j + Graphiti |
 | Observability | Langfuse |
-| UI | HTMX or simple server-rendered UI, optionally layered with a richer front-end later |
-| Workflow export target | n8n |
-| Custom agent runtime | internal config-driven runtime |
+| UI | OntologyAI-owned client workspace + live workflow canvas (HTMX / server-rendered, layered later); **n8n editor not exposed to clients** |
+| Workflow data model | `ExecutableWorkflowDraft` (canonical, OntologyAI-owned) |
+| Workflow execution runtime | n8n (invisible; reached via deterministic compiler + API/webhook) |
+| Agent runtimes | ADK-Go (Go-native agents), PydanticAI (typed Python agents), smolagents (sandboxed utility) — all reached via `RuntimeCompiler` ABC + factory |
+| Agent framework | Temporal + typed Python = backbone; ADK optional enhancement only; smolagents sandboxed utility only |
 | Transport / streaming | existing SSE transport |
 | Deployment | existing Docker / Compose / k3d patterns |
 
@@ -1112,7 +1227,8 @@ The stack should stay close to your existing system wherever possible, because t
 - It reuses proven parts of Sarthi,
 - it fits the thin-LLM/fat-code pattern,
 - it supports typed contracts and governance,
-- it is credible for an FDE portfolio project. [file:556][file:489]
+- it is credible for an FDE portfolio project, [file:556][file:489]
+- it follows the locked §20.4 split: build the client experience + canonical model + canvas; reuse n8n as the invisible execution runtime; keep Temporal/Python as the backbone; treat ADK as optional and smolagents as sandboxed-only.
 
 ---
 
@@ -1229,7 +1345,12 @@ Create or standardize:
 - `apps/ai/src/workflows/truth_analysis_workflow.py`
 - `apps/ai/src/workflows/workflow_builder_workflow.py`
 - `apps/ai/src/workflows/governance_workflow.py`
+- `apps/ai/src/runtime/base.py` (`RuntimeCompiler` ABC)
 - `apps/ai/src/runtime/n8n_compiler.py`
+- `apps/ai/src/runtime/n8n.py` (`N8NCompiler` wrapper)
+- `apps/ai/src/runtime/adk_go_compiler.py`
+- `apps/ai/src/runtime/pydantic_ai_compiler.py`
+- `apps/ai/src/runtime/python_agent_compiler.py`
 - `apps/ai/src/runtime/custom_agent_compiler.py`
 
 ## 23.2 Existing modules to refactor, not duplicate
@@ -1408,8 +1529,13 @@ Allowed for one version window:
 - [ ] Deterministic patch merge exists
 - [ ] Governance is sole executor of final external side effects
 - [ ] UI supports chat, uploads, connectors, ontology, workflows, approvals, artifacts
-- [ ] Runtime compiler exists for n8n
-- [ ] Runtime compiler exists for custom agent config
+- [ ] RuntimeCompiler ABC exists in `runtime/base.py`
+- [ ] Runtime compiler exists for n8n (`N8NCompiler`)
+- [ ] Runtime compiler exists for ADK-Go (`ADKGoCompiler`)
+- [ ] Runtime compiler exists for PydanticAI (`PydanticAICompiler`)
+- [ ] Runtime compiler exists for smolagents/python_agent (`PythonAgentCompiler`)
+- [ ] Runtime compiler factory `get_compiler()` routes correctly
+- [ ] `test_runtime_compilers.py` (15 tests) passes
 - [ ] Artifacts export successfully
 - [ ] Existing reusable infrastructure preserved
 
@@ -1457,6 +1583,7 @@ Allowed for one version window:
 - `test_governance_workflow.py`
 - `test_n8n_compiler.py`
 - `test_custom_agent_compiler.py`
+- `test_runtime_compilers.py` (15 tests: ABC contract, ADK-Go, PydanticAI, PythonAgent, factory)
 - `test_workflow_names.py`
 - `test_route_map.py`
 - `test_hitl_governance.py`
@@ -1476,7 +1603,8 @@ Test at minimum:
 - graceful handling of missing data,
 - artifact generation shape,
 - executable draft state transitions,
-- deterministic compiler output,
+- deterministic compiler output (all 4 targets),
+- multi-runtime factory correctness,
 - zero regression in old reusable infrastructure.
 
 ## 28.3 Integration tests
@@ -1532,9 +1660,14 @@ Test at minimum:
 5. Implement governance restrictions.
 
 ## Phase 5 — Runtime compilers
-1. Implement n8n compiler.
-2. Implement custom agent config compiler.
-3. Ensure deterministic export payload generation.
+1. Implement `RuntimeCompiler` ABC (`runtime/base.py`).
+2. Implement n8n compiler (`N8NCompiler` wrapper in `runtime/n8n.py`).
+3. Implement ADK-Go compiler (`runtime/adk_go_compiler.py`).
+4. Implement PydanticAI compiler (`runtime/pydantic_ai_compiler.py`).
+5. Implement smolagents/python_agent compiler (`runtime/python_agent_compiler.py`).
+6. Implement `get_compiler()` factory (`runtime/__init__.py`).
+7. Write `test_runtime_compilers.py` (15 tests) — TDD: RED (failing imports) → GREEN (all pass).
+8. Ensure deterministic export payload generation for all 4 targets.
 
 ## Phase 6 — UI and artifacts
 1. Update workspace views.

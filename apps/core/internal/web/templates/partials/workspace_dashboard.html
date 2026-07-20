@@ -1,0 +1,10 @@
+<div class="card p-4 fade-in">
+    <h2 class="font-semibold text-sm md:text-base mb-3">Dashboard</h2>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card p-3"><p class="text-xs" style="color:var(--text-muted)">Mode</p><p class="font-semibold">{{.State.WorkspaceMode}}</p></div>
+        <div class="card p-3"><p class="text-xs" style="color:var(--text-muted)">Phase</p><p class="font-semibold">{{.State.Phase}}</p></div>
+        <div class="card p-3"><p class="text-xs" style="color:var(--text-muted)">Drafts</p><p class="font-semibold" hx-get="/api/workspace/workflow-drafts" hx-trigger="load" hx-swap="none">—</p></div>
+        <div class="card p-3"><p class="text-xs" style="color:var(--text-muted)">Approvals</p><p class="font-semibold" hx-get="/api/workspace/approvals" hx-trigger="load" hx-swap="none">—</p></div>
+    </div>
+    <p class="text-xs mt-3" style="color:var(--text-muted)">Use the sidebar to open any of the 11 workspace screens. Live updates stream over SSE.</p>
+</div>

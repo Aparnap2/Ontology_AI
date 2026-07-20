@@ -1,5 +1,5 @@
 """
-OntologyAI Temporal Worker — V4.1 Canonical Names.
+OntologyAI Temporal Worker — V5.1 Canonical Names.
 
 Registers:
   Workflows: PulseWorkflow, InvestorWorkflow, ChiefOfStaffWorkflow,
@@ -7,10 +7,10 @@ Registers:
              CommsWorkflow, SelfAnalysisWorkflow, EvalLoopWorkflow,
              CompressionWorkflow, WeightDecayWorkflow, MemoryMaintenanceWorkflow
   Activities: run_pulse_agent, run_anomaly_agent,
-              run_investor_agent, run_qa_agent,
-              send_slack_message
+               run_investor_agent, run_qa_agent,
+               send_slack_message
 
-Task queue: TRACKGUARD-MAIN-QUEUE
+Task queue: ONTOLOGYAI-MAIN-QUEUE (env-overridable, legacy fallback)
 """
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ import os
 
 from temporalio.client import Client
 from temporalio.worker import Worker
+
+from src.orchestration.queue import ONTOLOGYAI_MAIN_QUEUE, resolve_task_queue
 
 # Canonical workflow imports (V4.1)
 from src.workflows.pulse_workflow import PulseWorkflow
@@ -42,6 +44,7 @@ from src.activities.run_investor_agent import run_investor_agent
 from src.activities.run_qa_agent import run_qa_agent
 from src.activities.send_slack_message import send_slack_message
 from src.activities.run_guardian_watchlist import run_guardian_watchlist
+from src.activities.compile_n8n_workflow import compile_n8n_workflow
 from src.activities.memory_maintenance import decay_memory_weights, expire_old_memories, optimize_memory_performance
 from src.workflows.fpa_workflow import run_finance_guardian
 from src.workflows.growth_analytics_workflow import run_bi_analyst
@@ -51,7 +54,7 @@ from src.workflows.comms_workflow import run_comms_specialist
 log = logging.getLogger("ontology_ai.worker")
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
+TASK_QUEUE = resolve_task_queue()
 MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 
 
@@ -89,6 +92,7 @@ async def create_worker() -> Worker:
             run_bi_analyst,
             run_ops_watch,
             run_comms_specialist,
+            compile_n8n_workflow,
         ],
         max_concurrent_activities=MAX_CONCURRENT,
     )

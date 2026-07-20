@@ -1,0 +1,22 @@
+# Step 1: Use the official Windmill image as the source for binaries
+FROM ghcr.io/windmill-labs/windmill:latest AS windmill_base
+
+# Step 2: Build a fresh, clean runtime container using Python Slim (Debian glibc)
+FROM python:3.11-slim
+
+# Copy the core Windmill execution server & dependency binaries
+COPY --from=windmill_base /usr/local/bin/windmill /usr/local/bin/windmill
+COPY --from=windmill_base /usr/local/bin/nsjail /usr/local/bin/nsjail
+
+# Install Go compiler & runtime dependencies cleanly 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    golang \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up the expected execution environment variables
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Keep Windmill's native execution command
+ENTRYPOINT ["windmill"]

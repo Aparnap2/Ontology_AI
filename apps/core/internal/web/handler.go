@@ -75,6 +75,7 @@ type Handler struct {
 	temporal      *temporal.Client
 	wg            sync.WaitGroup
 	sseHub        *SSEHub
+	creds         *CredentialStore
 }
 
 // NewHandler creates a new web handler
@@ -103,6 +104,7 @@ func NewHandler(db *sql.DB, temporalClient *temporal.Client) *Handler {
 		chatBroadcast: make(chan fiber.Map, 100),
 		temporal:      temporalClient,
 		sseHub:        NewSSEHub(),
+		creds:         NewCredentialStore(),
 	}
 }
 
@@ -1987,16 +1989,23 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 	}
 
 	var specialistRoutes = map[string]specialistRoute{
-		"@sarthi":  {"ChiefOfStaffWorkflow", "Chief of Staff"},
-		"@agent":   {"ChiefOfStaffWorkflow", "Chief of Staff"},
-		"@qa":      {"ChiefOfStaffWorkflow", "Chief of Staff"},
-		"@ask":     {"ChiefOfStaffWorkflow", "Chief of Staff"},
-		"@finance": {"FPAWorkflow", "FP&A"},
-		"@fpa":     {"FPAWorkflow", "FP&A"},
-		"@data":    {"GrowthAnalyticsWorkflow", "Growth Analytics"},
-		"@growth":  {"GrowthAnalyticsWorkflow", "Growth Analytics"},
-		"@ops":     {"ReliabilityWorkflow", "Reliability & Delivery"},
-		"@comms":   {"CommsWorkflow", "Communications"},
+		"@sarthi":   {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@agent":    {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@qa":       {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@ask":      {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@chief":    {"ChiefOfStaffWorkflow", "Chief of Staff"},
+		"@discover": {"DiscoveryWorkflow", "Discovery"},
+		"@map":      {"OntologyMappingWorkflow", "Ontology Mapping"},
+		"@truth":    {"TruthAnalysisWorkflow", "Truth Analysis"},
+		"@build":    {"WorkflowBuilderWorkflow", "Workflow Builder"},
+		"@govern":   {"GovernanceWorkflow", "Governance"},
+		"@strategy": {"StrategyWorkflow", "Strategy"},
+		"@finance":  {"FPAWorkflow", "FP&A"},
+		"@fpa":      {"FPAWorkflow", "FP&A"},
+		"@data":     {"GrowthAnalyticsWorkflow", "Growth Analytics"},
+		"@growth":   {"GrowthAnalyticsWorkflow", "Growth Analytics"},
+		"@ops":      {"ReliabilityWorkflow", "Reliability & Delivery"},
+		"@comms":    {"CommsWorkflow", "Communications"},
 	}
 
 	shouldDispatch := false
@@ -2035,7 +2044,7 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 
 			opts := temporalclient.StartWorkflowOptions{
 				ID:        wID,
-				TaskQueue: "TRACKGUARD-MAIN-QUEUE",
+				TaskQueue: temporal.ResolveTaskQueue(),
 			}
 
 			run, err := handler.temporal.Client.ExecuteWorkflow(ctx, opts, r.workflowType, in)
@@ -2054,13 +2063,22 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 			}
 
 			ok, _ := result["ok"].(bool)
-			qaResult, _ := result["qa_result"].(map[string]interface{})
 			answer := ""
-			if qaResult != nil {
-				answer, _ = qaResult["answer"].(string)
+			// V6 SpecialistResponse format: summary / detailed_response
+			if s, _ := result["summary"].(string); s != "" {
+				answer = s
+			} else if s, _ := result["detailed_response"].(string); s != "" {
+				answer = s
 			}
+			// Legacy QA workflow format: qa_result.answer
 			if answer == "" {
-				answer, _ = qaResult["output_message"].(string)
+				if qr, _ := result["qa_result"].(map[string]interface{}); qr != nil {
+					if s, _ := qr["answer"].(string); s != "" {
+						answer = s
+					} else if s, _ := qr["output_message"].(string); s != "" {
+						answer = s
+					}
+				}
 			}
 			if answer == "" {
 				answer, _ = result["error"].(string)
@@ -2076,7 +2094,7 @@ func (h *Handler) APICommandChatSend(c *fiber.Ctx) error {
 			if handler.db != nil {
 				if err := handler.db.QueryRow(
 					`INSERT INTO chat_messages (sender, mention, message) VALUES ('agent', $1, $2) RETURNING created_at`,
-					"@founder", answer,
+					target, answer,
 				).Scan(&agentCreatedAt); err != nil {
 					log.Printf("Failed to persist agent response: %v", err)
 				}
@@ -2930,6 +2948,9 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/api/command/events", h.APICommandEvents)
 
 	// Chat panel partial — loads the chat HTML with HTMX SSE extension
+	// ── V5.1 Workspace Routes (gated by workspace_mode) ──
+	h.RegisterWorkspaceRoutes(app)
+
 	app.Get("/api/command/chat", func(c *fiber.Ctx) error {
 		type ChatMsg struct {
 			Sender      string

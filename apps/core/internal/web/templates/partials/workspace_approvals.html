@@ -1,0 +1,6 @@
+<div class="card p-4 fade-in">
+    <h2 class="font-semibold text-sm md:text-base mb-3">Approvals</h2>
+    <div class="space-y-2" hx-get="/api/workspace/approvals" hx-trigger="load, every 10s" hx-swap="innerHTML">
+        <p class="text-xs" style="color:var(--text-muted)">Loading approvals…</p>
+    </div>
+</div>

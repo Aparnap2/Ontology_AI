@@ -54,6 +54,7 @@ class SpecialistResponse(BaseModel, strict=True):
         "WorkflowBuilder",
         "Governance",
         "ChiefOfStaff",
+        "Strategy",
     ]
     workflow_name: Literal[
         "ChiefOfStaffWorkflow",
@@ -62,6 +63,7 @@ class SpecialistResponse(BaseModel, strict=True):
         "TruthAnalysisWorkflow",
         "WorkflowBuilderWorkflow",
         "GovernanceWorkflow",
+        "StrategyWorkflow",
     ]
     summary: str
     detailed_response: str

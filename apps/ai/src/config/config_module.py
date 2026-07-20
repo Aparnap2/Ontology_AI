@@ -17,7 +17,7 @@ class TemporalConfig(BaseModel):
     host: str = "localhost"
     port: int = 7233
     namespace: str = "default"
-    task_queue: str = "AI_TASK_QUEUE"
+    task_queue: str = "ONTOLOGYAI-MAIN-QUEUE"
 
     @property
     def address(self) -> str:

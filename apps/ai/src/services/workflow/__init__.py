@@ -17,6 +17,8 @@ from typing import Any
 
 from temporalio.client import Client
 
+from src.orchestration.queue import resolve_task_queue
+
 from .schemas import WORKFLOW_NAMES, WORKFLOW_REGISTRY
 from .events import get_workflow_publisher, close_workflow_events
 from .worker import create_worker, main as worker_main
@@ -48,7 +50,7 @@ except Exception:
     pass
 
 TEMPORAL_HOST = os.getenv("TEMPORAL_HOST", "localhost:7233")
-TASK_QUEUE = os.getenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
+TASK_QUEUE = resolve_task_queue()
 
 
 class WorkflowServiceError(Exception):
