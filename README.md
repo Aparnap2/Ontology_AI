@@ -1,7 +1,11 @@
 
 # OntologyAI — Palantir-Style Ontology for Small Businesses
 
-<img width="400" height="350" alt="CompressJPEG Online_img(500x500)" src="https://github.com/user-attachments/assets/e7335851-c65b-41ee-af90-9e3f009fad1d" />
+<p align="center">
+ 
+<img width="200" height="200" alt="ki-logo-1784785049927" src="https://github.com/user-attachments/assets/dbcd807b-06f5-4fc8-a8f8-f33a429b1951" />
+</p> 
+
 
 
 > OntologyAI builds a live Ontology of a small business from its existing tools, and lets AI specialists query and act on it — with every consequential action gated by human approval.
