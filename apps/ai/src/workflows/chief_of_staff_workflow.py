@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
+from src.agents.agent_bus import AgentBus
 from src.schemas.specialist_response import SpecialistResponse
 from src.schemas.engagement_state import EngagementState, merge_patch
 from src.ontology.object_types import OBJECT_TYPES
@@ -29,6 +30,10 @@ from src.ontology.object_types import OBJECT_TYPES
 
 # Deterministic intent classification keywords (PRD §16.1 step 3).
 _INTENT_KEYWORDS: dict[str, str] = {
+    # ── Wizard / setup intents (highest priority — PRD §25.2) ────────
+    "setup": "setup_ontology",
+    "wizard": "setup_ontology",
+    # ── Standard intents ────────────────────────────────────────────
     "discovery": "discovery",
     "discover": "discovery",
     "ingest": "discovery",
@@ -75,6 +80,7 @@ class ChiefOfStaffCore:
         low = (message or "").lower()
         # Explicit @alias routing hints take priority.
         for alias, intent in {
+            "@setup": "setup_ontology",
             "@discover": "discovery",
             "@map": "ontology_mapping",
             "@truth": "truth_analysis",
@@ -103,6 +109,7 @@ class ChiefOfStaffCore:
         from src.workflows.strategy_workflow import StrategyWorkflow
 
         mapping = {
+            "setup_ontology": [DiscoveryWorkflow],
             "discovery": [DiscoveryWorkflow],
             "ontology_mapping": [OntologyMappingWorkflow],
             "truth_analysis": [TruthAnalysisWorkflow],
@@ -134,6 +141,39 @@ class ChiefOfStaffCore:
         return EngagementState(**state)
 
     # ------------------------------------------------------------------
+    # Agent inbox drain (P2P bypass)
+    # ------------------------------------------------------------------
+    def _process_agent_inbox(
+        self, state: EngagementState
+    ) -> list[dict[str, Any]]:
+        """Drain and dispatch any unread inter-agent messages.
+
+        Reads ``agent_inbox``, marks unread messages as read, and returns
+        them for processing. This runs BEFORE intent classification so that
+        direct agent-to-agent signals bypass human input.
+        """
+        inbox = list(state.agent_inbox)
+        unread = AgentBus.drain(inbox)
+        if not unread:
+            return []
+
+        # Lazy import to avoid circular dependency (__init__ imports this module).
+        from src.workflows import AGENT_REGISTRY  # noqa: PLC0415
+
+        dispatched: list[dict[str, Any]] = []
+        for msg in unread:
+            target_wf = AGENT_REGISTRY.get(msg.recipient)
+            if target_wf is not None:
+                dispatched.append({
+                    "from": msg.sender,
+                    "to": msg.recipient,
+                    "type": msg.message_type,
+                    "payload": msg.payload,
+                    "thread_id": msg.thread_id,
+                })
+        return dispatched
+
+    # ------------------------------------------------------------------
     # Orchestrate
     # ------------------------------------------------------------------
     def orchestrate(
@@ -147,6 +187,14 @@ class ChiefOfStaffCore:
     ) -> SpecialistResponse:
         """Run the control plane and return a ChiefOfStaff SpecialistResponse."""
         eng_state = self.load_state(state, tenant_id, engagement_id, workspace_mode)
+
+        # Drain agent inbox before processing human input (P2P bypass).
+        inbox_messages = self._process_agent_inbox(eng_state)
+        if inbox_messages:
+            # If there are pending agent messages, they can trigger
+            # automated dispatch without re-classifying intent.
+            pass  # Future: route based on inbox message types
+
         intent = self.classify_intent(message)
         workflow_classes = self.route(intent)
 
@@ -241,6 +289,7 @@ class ChiefOfStaffCore:
             "workflow_design", "governance_review", "deployment_planning", "handoff",
         ]
         target = {
+            "setup_ontology": "discovery",
             "discovery": "discovery",
             "ontology_mapping": "ontology_mapping",
             "truth_analysis": "truth_analysis",

@@ -119,8 +119,13 @@ class GovernanceWorkflow:
             out["status"] = "pending_approval"
             out["requires_approval"] = True
         else:
-            # Low + allowed -> remains draft (auto-allowed, PRD §18.2).
-            out["status"] = "draft"
+            # Low + auto-allowed -> execute immediately, record audit (PRD §18.2).
+            out["status"] = "completed"
+            out["governance_audit"] = {
+                "auto_allowed": True,
+                "blast_radius": blast,
+                "ruling": "auto_execute",
+            }
         return out
 
     # ------------------------------------------------------------------

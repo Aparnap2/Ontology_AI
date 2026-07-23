@@ -159,8 +159,8 @@ class StrategyWorkflow:
         )
 
         return SpecialistResponse(
-            specialist="ChiefOfStaff",
-            workflow_name="ChiefOfStaffWorkflow",
+            specialist="Strategy",
+            workflow_name="StrategyWorkflow",
             summary=summary,
             detailed_response=summary,
             objects_read=["truth_findings"],

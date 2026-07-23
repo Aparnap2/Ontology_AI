@@ -1,0 +1,38 @@
+<div class="fade-in text-center py-6">
+    <div class="mb-4">
+        <div class="w-16 h-16 rounded-full mx-auto grid place-items-center"
+             style="background:rgba(52,211,153,0.15);color:var(--accent-green)">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+    </div>
+
+    <h4 class="font-semibold text-base mb-2" style="color:var(--text)">Setup launched!</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        The business map discovery process has been initiated for engagement <code>{{.EngagementID}}</code>.
+    </p>
+
+    <div class="card p-4 text-left mb-4" style="background:var(--bg-surface)">
+        <div class="space-y-2 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="status-dot connected"></span>
+                <span style="color:var(--text)">Discovery workflow dispatched</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="status-dot connected"></span>
+                <span style="color:var(--text)">Evidence intake ready</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span style="color:var(--text-muted)">→</span>
+                <span style="color:var(--text-muted)">Check the workspace for progress updates</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex justify-center gap-3">
+        <a href="/command" class="btn btn-primary text-xs px-4 py-2">
+            Go to Command Center
+        </a>
+    </div>
+</div>

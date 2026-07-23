@@ -1,9 +1,0 @@
-<div class="grid grid-cols-4 gap-4">
-  {{range $kpi := .KPIs}}
-  <div class="rounded-2xl p-4" style="background:linear-gradient(180deg, rgba(19,29,42,.94), rgba(14,22,33,.94));border:1px solid var(--border)">
-    <div class="text-xs uppercase tracking-widest" style="color:var(--faint)">{{$kpi.Label}}</div>
-    <div class="text-3xl font-extrabold tracking-tight mt-2" style="color:var(--text)">{{$kpi.Value}}</div>
-    <div class="text-sm mt-1 {{if eq $kpi.Trend "up"}}text-emerald-400{{else if eq $kpi.Trend "down"}}text-rose-400{{else}}text-amber-400{{end}}">{{$kpi.Delta}}</div>
-  </div>
-  {{end}}
-</div>

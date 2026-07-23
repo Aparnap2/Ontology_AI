@@ -1,0 +1,50 @@
+<div class="fade-in" id="step-approval">
+    <h4 class="font-semibold text-sm mb-3" style="color:var(--text)">Step 5: Approval & Launch</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        Review your setup and launch the business map discovery process.
+    </p>
+
+    <div class="space-y-3">
+        <div class="card p-3" style="background:var(--bg-surface)">
+            <p class="text-xs font-medium mb-2" style="color:var(--accent-blue)">Setup Summary</p>
+
+            <div class="space-y-2 text-xs">
+                {{if .Data}}
+                <div class="flex justify-between">
+                    <span style="color:var(--text-muted)">Business Goal:</span>
+                    <span style="color:var(--text)">{{.Data.BusinessGoalDisplay}}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span style="color:var(--text-muted)">Scope:</span>
+                    <span style="color:var(--text)">{{.Data.ScopeDisplay}}</span>
+                </div>
+                {{end}}
+                <div class="flex justify-between">
+                    <span style="color:var(--text-muted)">Engagement:</span>
+                    <span style="color:var(--text)">{{.EngagementID}}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span style="color:var(--text-muted)">Steps Completed:</span>
+                    <span style="color:var(--accent-green)">5 of 5 ✓</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between pt-2">
+            <button type="button" class="btn text-xs px-3 py-2"
+                    style="color:var(--text-muted);border:1px solid var(--border)"
+                    hx-get="/ontology-setup/{{.EngagementID}}/step/relationship_review"
+                    hx-target="#setup-step-content"
+                    hx-swap="innerHTML">
+                ← Back
+            </button>
+            <button type="button" class="btn text-xs px-4 py-2"
+                    style="background:rgba(52,211,153,0.15);color:var(--accent-green);border:1px solid rgba(52,211,153,0.2)"
+                    hx-post="/ontology-setup/{{.EngagementID}}/launch"
+                    hx-target="#setup-step-content"
+                    hx-swap="innerHTML">
+                Launch Business Map Setup →
+            </button>
+        </div>
+    </div>
+</div>

@@ -17,7 +17,7 @@ import json
 import pytest
 
 from src.ontology.workflow_drafts import ExecutableWorkflowDraft
-from src.runtime.windmill_compiler import WindmillCompiler, compile_windmill
+from src.runtime.experimental.windmill_compiler import WindmillCompiler, compile_windmill
 
 
 def _make_script_draft() -> ExecutableWorkflowDraft:

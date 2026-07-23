@@ -50,13 +50,13 @@ type ExecutableWorkflowDraft struct {
 
 // WorkflowSpec maps workflow_specs (PRD §22.3).
 type WorkflowSpec struct {
-	ID            uuid.UUID       `json:"id"`
-	TenantID      uuid.UUID       `json:"tenant_id"`
-	EngagementID  string          `json:"engagement_id"`
-	WorkflowName  string          `json:"workflow_name"`
-	Spec          json.RawMessage `json:"spec"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
+	ID           uuid.UUID       `json:"id"`
+	TenantID     uuid.UUID       `json:"tenant_id"`
+	EngagementID string          `json:"engagement_id"`
+	WorkflowName string          `json:"workflow_name"`
+	Spec         json.RawMessage `json:"spec"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 // Approval maps approvals (PRD §22.5).
@@ -113,25 +113,25 @@ type DataSource struct {
 // TargetRef, RiskLevel, RequiresApproval, Status, TemporalWorkflowID,
 // CreatedAt, ExecutedAt, Error) and adds the new engagement-scoped fields.
 type PlannedActionExtended struct {
-	ID                  uuid.UUID `json:"id"`
-	TenantID            string    `json:"tenant_id"`
-	Actor               string    `json:"actor"`
-	ActionType          string    `json:"action_type"`
-	TargetRef           string    `json:"target_ref"`
-	RiskLevel           string    `json:"risk_level"`
-	RequiresApproval    bool      `json:"requires_approval"`
-	ApprovalReason      string    `json:"approval_reason"`
-	Status              string    `json:"status"`
-	CreatedAt           time.Time `json:"created_at"`
-	ExecutedAt          time.Time `json:"executed_at"`
-	Error               string    `json:"error"`
-	TemporalWorkflowID  string    `json:"temporal_workflow_id"`
-	EngagementID        string    `json:"engagement_id"`
-	TargetType          string    `json:"target_type"`
-	TargetID            string    `json:"target_id"`
-	RequestedBy         string    `json:"requested_by"`
-	ApprovedBy          string    `json:"approved_by"`
-	Reason              string    `json:"reason"`
+	ID                 uuid.UUID `json:"id"`
+	TenantID           string    `json:"tenant_id"`
+	Actor              string    `json:"actor"`
+	ActionType         string    `json:"action_type"`
+	TargetRef          string    `json:"target_ref"`
+	RiskLevel          string    `json:"risk_level"`
+	RequiresApproval   bool      `json:"requires_approval"`
+	ApprovalReason     string    `json:"approval_reason"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"created_at"`
+	ExecutedAt         time.Time `json:"executed_at"`
+	Error              string    `json:"error"`
+	TemporalWorkflowID string    `json:"temporal_workflow_id"`
+	EngagementID       string    `json:"engagement_id"`
+	TargetType         string    `json:"target_type"`
+	TargetID           string    `json:"target_id"`
+	RequestedBy        string    `json:"requested_by"`
+	ApprovedBy         string    `json:"approved_by"`
+	Reason             string    `json:"reason"`
 }
 
 // ── engagement_states ─────────────────────────────────────────────────────

@@ -1,0 +1,22 @@
+<div id="ontology-setup-wizard" class="bg-gray-900 rounded-xl p-6 border border-gray-700">
+    <div class="text-center">
+        <div class="w-16 h-16 mx-auto mb-4 bg-green-600 rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+        <h2 class="text-2xl font-semibold text-white mb-2">Setup Complete!</h2>
+        <p class="text-gray-400 mb-4">
+            Engagement <strong class="text-white">{{.EngagementID}}</strong> has been configured.
+        </p>
+        <p class="text-gray-500 mb-6">
+            The Discovery workflow has been dispatched. You'll be notified when analysis is ready.
+        </p>
+        <button hx-get="/ontology-setup/{{.EngagementID}}"
+                hx-target="#ontology-setup-wizard"
+                hx-swap="outerHTML"
+                class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            Back to Start
+        </button>
+    </div>
+</div>

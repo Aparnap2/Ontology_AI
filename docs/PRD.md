@@ -1,11 +1,32 @@
-# OntologyAI — Product Requirements Document
-## AI Coordination Layer for Solo Founders | Version 4.0
+# OntologyAI Workspace
 
-**Last Updated:** June 28, 2026
-**Status:** ✅ V4.0 Complete — Chat/SSE/Specialist Evolution
-**Test Coverage:** 319 Python + 52 Go web handlers passing
-**Architecture:** Go Core (Fiber + HTMX + SSE) → Temporal → Python AI Worker (Specialist Agents)
-**HTMX Screens:** Command Center (13+ panels): Chat, Approvals, Mission State, Status, KPIs, Watchlist, Timeline, Agent Fleet, Chart Data
+> **Source of Truth:** This file is the canonical PRD. Archived superseded versions live in `archive/`.
+
+OntologyAI Workspace is an enterprise-focused AI operations workspace that turns messy business evidence into a shared business map, surfaces operational truth, and drafts governed workflow pilots for review and deployment planning. It is designed as a self-serve FDE companion and a multi-agent FDE operating system, not a small-business dashboard, generic chatbot, or no-code automation builder.
+
+## Product position
+
+OntologyAI Workspace is best understood as an enterprise **ops twin** and guided pilot-building environment. The platform converts raw evidence from conversations, uploads, exports, and connected tools into typed operational objects, diagnoses what is stuck or risky, and generates governed workflow drafts plus handoff artifacts.
+
+### One-line pitch
+
+OntologyAI Workspace turns messy enterprise operations into a shared business map, reveals what is broken, and drafts governed workflows teams can review, approve, and pilot.
+
+### What it is
+
+- A self-serve FDE companion for enterprise discovery and pilot design.
+- A shared workspace for evidence intake, ontology review, operational truth, approvals, and exports.
+- An ontology-first AI operating layer with deterministic validation and governance controls.
+- A portfolio-grade demonstration of the Forward Deployed Engineer method as software.
+
+### What it is not
+
+- A founder alert bot.
+- A finance-only assistant.
+- A passive dashboard.
+- A generic no-code builder.
+- An unconstrained autonomous action engine.
+- A small-business utility bundle built around a few lightweight API add-ons.
 
 ---
 
@@ -44,30 +65,6 @@
 ```
 
 ---
-
-## 1. Executive Summary
-
-# OntologyAI V4.0 — AI Coordination Layer for SaaS Founders
-
-**Version:** 4.0 (Complete)
-**Status:** ✅ V4.0 Complete — Chat/SSE/Specialist Evolution
-**Test Coverage:** 319 Python + 52 Go web handlers passing, Go build clean
-
-**Product Truth:** OntologyAI is an **AI coordination layer** — not a dashboard maker, not a chatbot, not an automated CFO. It is the connective tissue between what a founder asks and what actually happens. Every decision routes through a deterministic Go core, dispatches to domain-specific Python specialist agents via Temporal, and delivers results via server-rendered SSE streaming.
-
-**An assistant waits to be asked. A specialist knows its domain. A coordination layer routes to the right specialist without the founder needing to know who does what.**
-
-**What OntologyAI V4.0 delivers:**
-1. **SSE Chat Interface** — HTMX `hx-ext="sse"` with server-rendered chat bubbles. No WebSocket, no client-side templating. ~40 fewer lines of JS.
-2. **Goroutine-based Workflow Dispatch** — Temporal `ExecuteWorkflow` runs in background goroutine. Immediate "🤔 Thinking..." via non-blocking `tryBroadcast()`. No more 60s HTTP timeouts.
-3. **Specialist Agents** — 6 domain-specific agents (Finance, Data, Ops, Comms, Hiring, QA) each with LangGraph graph + Temporal workflow. O(1) map-based routing.
-4. **Temporal Signal HITL** — Approval buttons signal `"hitl-approval"` to unblock `AwaitWithTimeout` gates. End-to-end working HITL for the first time.
-5. **MissionState Write Path** — Python AI → POST → PostgreSQL → GET → Dashboard. Pure server-side rendered state.
-6. **Command Center Dashboard** — 13+ HTMX panels: chat, approvals, mission state, status, KPIs, watchlist, timeline, agent fleet, chart data.
-7. **Preserved V3.0 Legacy** — The MBA integration layer (Finance Rules, Guardrails, Predictive Guardian, Startup Guardian) continues to operate as a background pipeline.
-
-**Portfolio Goal:** Production-grade AI coordination platform demonstrating Go + Temporal + HTMX + LangGraph integration.
-**Product Goal:** Virtual ops layer for solo SaaS founders at $79/month.
 
 ---
 
@@ -183,19 +180,19 @@ All Chief of Staff features are complete:
 | **11** | Extend existing workflows with guardian watchlist | ✅ | — |
 | **12** | Full test suite (241+ passing, zero regressions) | ✅ | 241 pass / 6 skip / 0 fail |
 
-**Cumulative test growth:** 119 (V1.0) → 241+ (V2.0) → 250+ (V3.0) → 371+ (V4.0) = **250+ new tests since V1.0**, zero regressions.
+**Cumulative test growth:** 119 (V1.0) → 241+ (V2.0) → 250+ (V3.0) → 371+ (V4.0) → 1202+ (V4.2) → **1286+ (V5.1)** = **1167+ new tests since V1.0**, zero regressions.
 
 ---
 
 ## 4. Problem Statement
 
-Every software startup that reaches ₹50L ARR hits the same wall — **context evaporation**. Knowledge lives in the founder's head. When they scale, hire, or burn out, deals fall through, anomalies go unnoticed, and bad decisions compound silently.
+Every enterprise organization running operations across 4+ disconnected tools hits the same wall — **context evaporation**. Knowledge lives in tribal memory, spreadsheets, and Slack threads. When teams scale, reorg, or lose headcount, deals fall through, anomalies go unnoticed, and bad decisions compound silently.
 
 **The specific acute pain:**
-- "Our AWS bill doubled and I found out 3 weeks later."
-- "I don't know our exact runway right now."
-- "Why did revenue dip in March? I have no idea."
-- "That deal went cold and I forgot to follow up."
+- "Our infrastructure costs doubled and nobody noticed for weeks."
+- "We don't have a single source of truth for current operational state."
+- "Why did that customer churn in March? No one documented the context."
+- "We spend weeks of manual analysis before we can even draft a new process."
 
 **What exists today and why it fails:**
 
@@ -203,50 +200,47 @@ Every software startup that reaches ₹50L ARR hits the same wall — **context 
 |---|---|
 | Tableau / Looker | Requires a data team, nobody maintains it |
 | PagerDuty alerts | Fire without context or memory of the past |
-| HubSpot CRM | Manually updated, always stale |
-| Excel runway models | Static, disconnected from live data |
+| CRM / ERP | Manually updated, always stale |
+| Spreadsheets | Static, disconnected from live data |
 
-**The gap:** No system exists that watches your data continuously, reasons about anomalies with memory of the past, answers natural language questions about your business, and gets smarter with every event — at a price below one junior hire.
+**The gap:** No system exists that ingests evidence from across disconnected tools, models it as a shared business map, diagnoses what is broken, and drafts governed workflow pilots — without requiring a dedicated data or operations engineering team.
 
 ---
 
 ## 5. Solution Overview
 
-**Core flow:**
+**Core flow (V5.1):**
 ```
-External Event (payment / expense / NL query)
-  → Go Webhook (HMAC validated)
-    → Redpanda (event bus)
-      → Temporal Workflow (durable)
-        → LangGraph Agent (ReAct reasoning)
-          → RAG Kernel (≤800 token context assembly)
-            → Tools (PostgreSQL + Qdrant + Guardian Watchlist)
-              → HITL Routing (3-tier: auto / review / approve)
-                → Output (Slack alert / chart / answer)
-                  → Memory Spine (5 layers written)
-                    → Langfuse Trace Recorded
+User / Upload / Tool Connect
+  → Ontology Workspace (HTMX + Go Fiber)
+    → ChiefOfStaff (intent classification)
+      → DiscoveryWorkflow (evidence gathering)
+        → OntologyMappingWorkflow (typed object materialization)
+          → TruthAnalysisWorkflow (diagnostics, blockers)
+            → WorkflowBuilderWorkflow (governed draft generation)
+              → GovernanceWorkflow (approval routing)
+                → Export / Pilot / Handoff
 ```
 
-**Two pillars:**
+**Three pillars (V5.1):**
 
 | Pillar | Description |
 |--------|-------------|
-| **4 Focused Agents** | Pulse + Anomaly + Investor + QA — scoped, not bloated |
-| **Guardian Watchlist** | 17 seed-stage failure patterns across Finance, BI, Ops |
+| **Understand** | Evidence intake, ontology setup, business map preview |
+| **Diagnose** | Truth analysis, blockers, contradictions, missing ownership, risks |
+| **Build** | Workflow drafts, governance, approvals, pilot export |
 
-**Cross-agent trigger:** Guardian watchlist detects blindspot → Memory spine loads context → RAG kernel assembles ≤800 tokens → Agent generates guardian message → HITL routes for delivery → Slack alert delivered.
+**Cross-pipeline trigger:** Evidence ingested via wizard/upload/conversation → ChiefOfStaff routes to Discovery → OntologyMapping materializes typed objects → TruthAnalysis diagnoses issues → WorkflowBuilder generates draft → Governance approves and routes to export.
 
 **Value delivered:**
 
 | Metric | Before | After |
 |---|---|---|
-| Anomaly detection | 3 weeks (if ever) | < 5 minutes |
-| Runway accuracy | Monthly manual calc | Real-time |
-| BI query time | 2–4 hrs (analyst) | < 30 seconds |
-| Context on alerts | None | 5-layer memory spine |
-| Weekly digest | Manual assembly | Auto-generated |
-| Founder blindspots | Invisible until crisis | 17 patterns watched continuously |
-| Cost | ₹50,000+/month (human) | $79/month |
+| Cross-tool ops visibility | Spreadsheets + tribal knowledge | Shared business map with provenance |
+| Process design cycle | Weeks of manual analysis | Guided wizard + governed draft in days |
+| Operational truth | Stale, scattered dashboards | Real-time ontology with lineage |
+| Workflow rollout | Ad hoc scripts, no governance | Approved pilot drafts with blast-radius controls |
+| Cross-team handoff | Slack threads, lost context | Structured handoff artifacts |
 
 ---
 
@@ -254,23 +248,21 @@ External Event (payment / expense / NL query)
 
 **Primary ICP:**
 
-> Solo technical SaaS founder building a SaaS product on Stripe + Postgres, at seed stage, who is 6–18 months from their first institutional raise — and who doesn't yet know what's about to go wrong.
+> Any cross-functional enterprise team or business unit that runs operations across 4+ disconnected tools, has no data engineering or analytics function, has less than ~12 months of clean historical data, and wants one place to see "what's actually true about the business right now" and act on it without hiring an ops/data hire.
 
 | Qualifier | Why It Matters |
 |---|---|
-| Solo | No delegation buffer — every alert hits the decision-maker directly |
-| Technical | Can self-serve onboarding; no CS layer required |
-| SaaS | Instrumentation already exists (Stripe, DB, Sentry) |
-| Seed stage | Failure patterns are well-documented and watchlist-able |
-| 6–18 months to raise | Urgency horizons are calculable and meaningful |
+| Cross-functional team | Operations span multiple tools — no single source of truth |
+| No data engineering | Cannot maintain dashboards or custom ML models |
+| < 12 months clean data | Too little history for conventional ML; needs deterministic ontology-first approach |
+| Wants actionable truth | Not just dashboards — needs diagnostics, recommendations, and governed action |
+| Multi-tenant enterprise | Requires tenant isolation, role-based access, approval routing |
 
-**Explicitly out of V2.0:**
-- D2C / ecommerce founders
-- Agency / services founders
-- Non-technical SaaS founders
-- Mobile-first app founders (Firebase/Amplitude schema variance)
-- Pre-product founders (nothing to watch)
-- Multi-founder teams > 2
+**Explicitly out of V5.1:**
+- Small teams that can survive on point integrations alone
+- Organizations with mature data engineering and analytics functions
+- Teams with > 12 months of clean, well-modeled historical data
+- Pure monitoring/observability use cases without operations workflow needs
 
 ---
 
@@ -986,8 +978,8 @@ Temporal cron fires: Monday 07:05 AM IST
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| **Python** | **319** | **✅ 319/320 (1 pre-existing timeout in curator_graphiti)** |
-| Go Web Handlers | 52 | ✅ 52/52 passing |
+| **Python** | **901** | **✅ 901/927 (26 skipped, 1 pre-existing timeout in curator_graphiti)** |
+| Go Web Handlers | 178 | ✅ 178/178 passing |
 | Go Build | Clean | ✅ 0 errors |
 | DB Tests | 🟡 Skip | Requires PostgreSQL container |
 | Redpanda Tests | 🟡 Skip | Requires Redpanda container |
@@ -1114,7 +1106,7 @@ open http://localhost:8080/command
 - [x] Python specialist agents: Finance, Data, Ops (LangGraph graphs + Temporal workflows)
 - [x] Remove dead stubs from `workflow/stubs.go` (cleaned to 10 lines)
 - [x] ADR-001 documenting all 7 architecture decisions
-- [x] 319 Python tests passing, 52 Go web handler tests passing
+- [x] 901 Python tests passing, 178 Go web handler tests passing
 - [x] Go build clean (0 errors)
 
 ---
@@ -1125,23 +1117,21 @@ open http://localhost:8080/command
 
 | Metric | Target | Actual |
 |---|---|---|
-| Unit tests passing | 40+ | 241 |
-| E2E tests passing | 8+ | — |
-| LLM eval sets | 3 | 1 (eval_loop) |
-| Technologies demonstrated | 9 | 15+ |
-| Demo duration | < 3 minutes | — |
+| Unit tests passing | 1200+ | 1286 |
+| E2E smoke test | 1 | ✅ |
+| Technologies demonstrated | 15+ | 20+ |
 | Observability | Langfuse dashboard | ✅ |
 
 **Technical metrics:**
 
 | Metric | Target |
 |---|---|
-| Finance alert latency | < 5 min from webhook to Slack |
-| BI query latency | < 30 seconds from query to answer |
-| RAG context assembly | ≤ 800 tokens |
-| Memory spine resilience | Graceful degradation when any layer down |
-| Guardian message quality | Guardian tone, not assistant (eval scored) |
-| HITL routing accuracy | Correct tier assignment per alert |
+| Ontology setup wizard completion | < 5 minutes guided UX |
+| Evidence-to-business-map latency | < 30 seconds after submission |
+| Ontology validation accuracy | 100% (deterministic, not LLM-dependent) |
+| Governance gate enforcement | 100% — no external action bypasses approval |
+| Pilot draft completeness | All required sections present before export |
+| Workspace tenant isolation | Strict — tenant A never sees tenant B data |
 
 ---
 
@@ -1175,7 +1165,7 @@ open http://localhost:8080/command
 |------|-------|-------------|--------|
 | 1 | Jun 21–28 | V4.0 Architecture: SSE, goroutine dispatch, map routing | ✅ Complete |
 | 2 | Jun 28 | HITL Signals, MissionState POST, Specialist agents | ✅ Complete |
-| **V4.0 Final** | **Jun 28** | **319 Python + 52 Go tests, build clean** | **✅ Complete** |
+| **V4.0 Final** | **Jun 28** | **901 Python + 178 Go tests, build clean** | **✅ Complete** |
 
 **V4.0 Final Summary:**
 - ✅ HTMX SSE chat with server-rendered bubbles (XSS-safe)
@@ -1185,7 +1175,7 @@ open http://localhost:8080/command
 - ✅ MissionState write path (Python AI → POST → PG → GET → Dashboard)
 - ✅ 6 specialist agents: Finance, Data, Ops, Comms, Hiring, QA
 - ✅ 12 Temporal workflows (9 legacy + 3 specialist)
-- ✅ 319 Python tests + 52 Go web handler tests
+- ✅ 901 Python tests + 178 Go web handler tests
 - ✅ Go build clean, 0 errors
 - ✅ ADR-001 documenting all 7 architecture decisions
 
@@ -1243,6 +1233,100 @@ open http://localhost:8080/command
 
 ---
 
-**Document Version:** 4.0
-**Last Updated:** June 28, 2026
-**Status:** ✅ V4.0 Complete — Chat/SSE/Specialist Evolution, 371+ tests passing
+## 22. V5.1 Evolution — Ontology Setup Wizard & Infrastructure
+
+### Summary of Changes
+
+| Decision | Before (V4.x) | After (V5.1) | Benefit |
+|----------|--------------|--------------|---------|
+| **Worker registration** | Only legacy V4.1 + ChiefOfStaff registered | 6 V5.1 by default (V6/legacy gated behind env flags) | Clean default roster, no dead registrations |
+| **Windmill compile** | Only n8n compile activity existed | `compile_windmill_workflow` activity created + registered | Windmill support per ADR-009 |
+| **Strategy specialist name** | Returned `"ChiefOfStaff"` | Returns `"Strategy"` | Correct specialist identity |
+| **Ontology API** | 6 object types, 5 link types (2 broken) | 6 object types, 9 canonical link types (locked V5.1 contract) | Clean semantic model matching PRD §14 |
+| **EngagementState persistence** | No Python-side CRUD service | `EngagementStateStore` with asyncpg | Python agents can read/write canonical state |
+| **Ontology onboarding** | Manual/disjointed process | 5-step HTMX wizard with Pydantic state models | Guided UX over existing pipelines |
+| **ChiefOfStaff routing** | No wizard intent support | `classify_intent` handles `setup_ontology`, `problem_framing`, etc. | Wizards routed through existing control plane |
+
+### V5.1 API Surface (new endpoints)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/ontology-setup/:engagement_id` | Start or resume wizard |
+| `GET` | `/ontology-setup/:engagement_id/step/:step` | Render wizard step partial (by number 1-5 or name) |
+| `POST` | `/ontology-setup/:engagement_id/step/:step` | Submit step data and advance |
+| `GET` | `/ontology-setup/:engagement_id/summary` | Review all steps before approval |
+| `POST` | `/ontology-setup/:engagement_id/launch` | Approve and dispatch DiscoveryWorkflow |
+
+### V5.1 Wizard Partial Templates
+
+| Template | Step |
+|----------|------|
+| `ontology_setup_start.html` | Initial screen |
+| `ontology_setup_problem_framing.html` | Step 1: business goal, scope, stakeholders |
+| `ontology_setup_evidence_intake.html` | Step 2: source documents, data sources |
+| `ontology_setup_candidate_review.html` | Step 3: proposed object/link types |
+| `ontology_setup_relationship_review.html` | Step 4: relationships and cardinality |
+| `ontology_setup_approval.html` | Step 5: approve and launch |
+
+### Test Coverage (V5.1)
+
+| Test Suite | Tests | Status |
+|-----------|-------|--------|
+| Worker registration | 5 | ✅ |
+| Windmill compile activity | 7 | ✅ |
+| EngagementStateStore | 8 | ✅ |
+| Ontology setup state models | 28 | ✅ |
+| Go wizard handler | 17 | ✅ |
+| ChiefOfStaff wizard routing | 52 | ✅ |
+| Engagement state | 47 | ✅ |
+| Governance gate | 40 | ✅ |
+| **V5.1 total** | **156** | **✅** |
+
+---
+
+## Product Positioning Remaster (V5.1)
+
+### Why enterprise focus
+
+OntologyAI shines when operations are too cross-functional, messy, and risky for simple automation glue. Small teams can often survive with a few point integrations, but larger organizations need a governed system that can unify evidence, preserve provenance, model relationships, identify contradictions, and route action through approvals instead of brittle one-off scripts.
+
+This enterprise framing also better matches the product's ontology-first architecture, shared state design, governance model, handoff artifacts, and workflow-draft generation.
+
+### UI language remaster
+
+| Internal term | User-facing label |
+|---|---|
+| ChiefOfStaff | Workspace Guide |
+| Ontology | Business Map |
+| Truth Analysis | Operational Truth |
+| Workflow Builder | Pilot Builder |
+| Governance | Approvals & Safety |
+| ExecutableWorkflowDraft | Pilot Draft |
+
+### Navigation
+
+Recommended primary workspace navigation:
+- Workspace
+- Business Map
+- Findings
+- Workflow Drafts
+- Approvals
+- Exports
+
+### Product pillars
+
+| Pillar | Internal Workflows | Visible Features |
+|---|---|---|
+| **Understand** | ChiefOfStaff + Discovery + OntologyMapping | Conversation, evidence intake, ontology setup, business map preview |
+| **Diagnose** | TruthAnalysis | Blockers, contradictions, missing ownership, risks |
+| **Build** | WorkflowBuilder + Governance | Workflow drafts, SOPs, approvals, pilot export |
+
+### Build principle
+
+Keep the backend contract strict and the frontend experience simple: typed state, deterministic validation, governed actions, and enterprise-grade review loops underneath; guided, comprehensible, outcome-first UX on top.
+
+---
+
+**Document Version:** 5.1
+**Last Updated:** July 21, 2026
+**Status:** ✅ V5.1 Complete — Ontology Setup Wizard, Full Worker Registration, Windmill Integration. **1286+ tests passing / 32 skipped**

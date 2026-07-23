@@ -1,59 +1,89 @@
 """OntologyAI V5.1 — Workflow registry (PRD §7 / §25).
 
-Exposes EXACTLY 7 active workflows:
+Default roster is EXACTLY 6 V5.1 canonical workflows:
     ChiefOfStaffWorkflow, DiscoveryWorkflow, OntologyMappingWorkflow,
-    TruthAnalysisWorkflow, WorkflowBuilderWorkflow, GovernanceWorkflow,
-    StrategyWorkflow
+    TruthAnalysisWorkflow, WorkflowBuilderWorkflow, GovernanceWorkflow
+
+V6 StrategyWorkflow is gated behind ``ENABLE_V6_WORKFLOWS=on`` and is
+lazily imported (not loaded at module level) to keep the V5.1 contract clean.
 
 Legacy FDE modules (Pulse/Investor/FPA/GrowthAnalytics/Reliability/Comms/etc.)
-are NOT in the active roster. They are gated behind the ``LEGACY_FDE_MODULES``
-env flag and are not imported unless explicitly enabled, so existing imports
-elsewhere in the repo are not broken at module-load time.
+are gated behind ``LEGACY_FDE_MODULES=on``.
 """
 from __future__ import annotations
 
 import os
 
-# ── Active V5.1 workflow roster (exactly 7) ──────────────────────────────
+# ── Workflow imports (always importable at module level) ─────────────────
 from src.workflows.chief_of_staff_workflow import ChiefOfStaffWorkflow
 from src.workflows.discovery_workflow import DiscoveryWorkflow
 from src.workflows.ontology_mapping_workflow import OntologyMappingWorkflow
 from src.workflows.truth_analysis_workflow import TruthAnalysisWorkflow
 from src.workflows.workflow_builder_workflow import WorkflowBuilderWorkflow
 from src.workflows.governance_workflow import GovernanceWorkflow
-from src.workflows.strategy_workflow import StrategyWorkflow
 
-# Active roster: name -> class. Exactly 7 entries.
-ACTIVE_WORKFLOWS: dict[str, type] = {
-    "ChiefOfStaffWorkflow": ChiefOfStaffWorkflow,
-    "DiscoveryWorkflow": DiscoveryWorkflow,
-    "OntologyMappingWorkflow": OntologyMappingWorkflow,
-    "TruthAnalysisWorkflow": TruthAnalysisWorkflow,
-    "WorkflowBuilderWorkflow": WorkflowBuilderWorkflow,
-    "GovernanceWorkflow": GovernanceWorkflow,
-    "StrategyWorkflow": StrategyWorkflow,
-}
+
+def _build_active_workflows() -> dict[str, type]:
+    """Build the active workflow roster based on env flags.
+
+    Default: exactly 6 V5.1 canonical workflows.
+    V6 (StrategyWorkflow) added when ``ENABLE_V6_WORKFLOWS=on``.
+    """
+    base: dict[str, type] = {
+        "ChiefOfStaffWorkflow": ChiefOfStaffWorkflow,
+        "DiscoveryWorkflow": DiscoveryWorkflow,
+        "OntologyMappingWorkflow": OntologyMappingWorkflow,
+        "TruthAnalysisWorkflow": TruthAnalysisWorkflow,
+        "WorkflowBuilderWorkflow": WorkflowBuilderWorkflow,
+        "GovernanceWorkflow": GovernanceWorkflow,
+    }
+    if os.getenv("ENABLE_V6_WORKFLOWS") == "on":
+        from src.workflows.strategy_workflow import StrategyWorkflow  # noqa: PLC0415
+
+        base["StrategyWorkflow"] = StrategyWorkflow
+    return base
+
+
+# Active roster: dynamically built. Default = 6 entries.
+ACTIVE_WORKFLOWS: dict[str, type] = _build_active_workflows()
 
 # Alias used by some call sites / tests.
 WORKFLOW_REGISTRY: dict[str, type] = dict(ACTIVE_WORKFLOWS)
 
-# ── Route map (PRD §25) ─────────────────────────────────────────────────
-ROUTE_MAP: dict[str, type] = {
-    # Default routes -> ChiefOfStaff
-    "@ontologyai": ChiefOfStaffWorkflow,
-    "@agent": ChiefOfStaffWorkflow,
-    "@ask": ChiefOfStaffWorkflow,
-    "@chief": ChiefOfStaffWorkflow,
-    # Specialist aliases
-    "@discover": DiscoveryWorkflow,
-    "@map": OntologyMappingWorkflow,
-    "@truth": TruthAnalysisWorkflow,
-    "@build": WorkflowBuilderWorkflow,
-    "@govern": GovernanceWorkflow,
-    "@strategy": StrategyWorkflow,
-    # Backward compatibility
-    "@sarthi": ChiefOfStaffWorkflow,
+# Agent registry: maps agent display names to their workflow classes.
+# Used by AgentBus for peer-to-peer dispatch in ChiefOfStaff inbox drain.
+AGENT_REGISTRY: dict[str, type] = {
+    "ChiefOfStaff": ChiefOfStaffWorkflow,
+    "Discovery": DiscoveryWorkflow,
+    "OntologyMapper": OntologyMappingWorkflow,
+    "TruthAnalyst": TruthAnalysisWorkflow,
+    "WorkflowBuilder": WorkflowBuilderWorkflow,
+    "Governance": GovernanceWorkflow,
 }
+
+
+def _build_route_map() -> dict[str, type]:
+    """Build route map. V6 aliases included only when ENABLE_V6_WORKFLOWS=on."""
+    base: dict[str, type] = {
+        "@ontologyai": ChiefOfStaffWorkflow,
+        "@agent": ChiefOfStaffWorkflow,
+        "@ask": ChiefOfStaffWorkflow,
+        "@chief": ChiefOfStaffWorkflow,
+        "@discover": DiscoveryWorkflow,
+        "@map": OntologyMappingWorkflow,
+        "@truth": TruthAnalysisWorkflow,
+        "@build": WorkflowBuilderWorkflow,
+        "@govern": GovernanceWorkflow,
+        "@sarthi": ChiefOfStaffWorkflow,
+    }
+    if os.getenv("ENABLE_V6_WORKFLOWS") == "on":
+        from src.workflows.strategy_workflow import StrategyWorkflow  # noqa: PLC0415
+
+        base["@strategy"] = StrategyWorkflow
+    return base
+
+
+ROUTE_MAP: dict[str, type] = _build_route_map()
 
 __all__ = [
     "ChiefOfStaffWorkflow",
@@ -62,9 +92,9 @@ __all__ = [
     "TruthAnalysisWorkflow",
     "WorkflowBuilderWorkflow",
     "GovernanceWorkflow",
-    "StrategyWorkflow",
     "ACTIVE_WORKFLOWS",
     "WORKFLOW_REGISTRY",
+    "AGENT_REGISTRY",
     "ROUTE_MAP",
 ]
 

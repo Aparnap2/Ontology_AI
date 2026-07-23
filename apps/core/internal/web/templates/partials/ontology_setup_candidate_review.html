@@ -1,0 +1,47 @@
+<div class="fade-in" id="step-candidate_review">
+    <h4 class="font-semibold text-sm mb-3" style="color:var(--text)">Step 3: Candidate Review</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        Review proposed object types and link types for the business map.
+    </p>
+
+    <form hx-post="/ontology-setup/{{.EngagementID}}/step/candidate_review"
+          hx-target="#setup-step-content"
+          hx-swap="innerHTML"
+          class="space-y-3">
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Proposed Object Types</label>
+            <input type="text" name="proposed_object_types" class="input-dark w-full text-xs"
+                   placeholder="e.g. Party, Engagement, MoneyEvent, Issue"
+                   value="{{if .Data}}{{.Data.ProposedObjectTypes}}{{end}}">
+            <p class="text-[10px] mt-1" style="color:var(--text-muted)">Comma-separated list of object type names</p>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Proposed Link Types (JSON)</label>
+            <textarea name="proposed_link_types" rows="3" class="input-dark w-full text-xs font-mono"
+                      placeholder='[{"name":"party_engagement","source":"Party","target":"Engagement"}]'
+            >{{if .Data}}{{.Data.ProposedLinkTypes}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Your Feedback</label>
+            <textarea name="user_feedback" rows="2" class="input-dark w-full text-xs"
+                      placeholder="Any corrections or additions..."
+            >{{if .Data}}{{.Data.UserFeedback}}{{end}}</textarea>
+        </div>
+
+        <div class="flex justify-between pt-2">
+            <button type="button" class="btn text-xs px-3 py-2"
+                    style="color:var(--text-muted);border:1px solid var(--border)"
+                    hx-get="/ontology-setup/{{.EngagementID}}/step/evidence_intake"
+                    hx-target="#setup-step-content"
+                    hx-swap="innerHTML">
+                ← Back
+            </button>
+            <button type="submit" class="btn btn-primary text-xs px-4 py-2">
+                Continue →
+            </button>
+        </div>
+    </form>
+</div>

@@ -21,7 +21,7 @@ from typing import Any
 import httpx
 
 from src.runtime.n8n_client import N8nClientError, create_workflow
-from src.runtime.windmill_client import (
+from src.runtime.experimental.windmill_client import (
     WindmillClientError,
     create_flow,
     create_script,

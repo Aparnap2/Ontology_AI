@@ -143,10 +143,10 @@ func TestWorkspaceScreenPartial_ReturnsWorkflowBuilder(t *testing.T) {
 		t.Fatalf("Failed: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	checks := []string{"Workflow Builder", "Node Palette", "Export to n8n"}
+	checks := []string{"Pilot Builder", "Node Palette", "Export to n8n"}
 	for _, c := range checks {
 		if !strings.Contains(string(body), c) {
-			t.Errorf("FAIL: Expected %q in workflow builder, got %q", c, string(body))
+			t.Errorf("FAIL: Expected %q in pilot builder, got %q", c, string(body))
 		}
 	}
 }
@@ -303,8 +303,8 @@ func TestWorkspaceScreenPartial_ReturnsOntology(t *testing.T) {
 		t.Fatalf("Failed: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "Ontology") {
-		t.Errorf("FAIL: Expected Ontology screen, got %q", string(body))
+	if !strings.Contains(string(body), "Business Map") {
+		t.Errorf("FAIL: Expected Business Map screen, got %q", string(body))
 	}
 }
 
@@ -319,8 +319,8 @@ func TestWorkspaceScreenPartial_ReturnsTruthFindings(t *testing.T) {
 		t.Fatalf("Failed: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "Truth Findings") {
-		t.Errorf("FAIL: Expected Truth Findings screen, got %q", string(body))
+	if !strings.Contains(string(body), "Operational Truth") {
+		t.Errorf("FAIL: Expected Operational Truth screen, got %q", string(body))
 	}
 }
 
@@ -335,8 +335,8 @@ func TestWorkspaceScreenPartial_ReturnsExecutableDrafts(t *testing.T) {
 		t.Fatalf("Failed: %v", err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "Executable Drafts") {
-		t.Errorf("FAIL: Expected Executable Drafts screen, got %q", string(body))
+	if !strings.Contains(string(body), "Pilot Draft") {
+		t.Errorf("FAIL: Expected Pilot Draft screen, got %q", string(body))
 	}
 }
 

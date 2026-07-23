@@ -33,6 +33,10 @@ _ALLOWED_PATCH_KEYS = {
     "risk_analyses",
     "change_strategies",
     "solution_evaluations",
+    # Agent mesh: peer-to-peer message inbox
+    "agent_inbox",
+    # Immutable after creation, but listed so the explicit check fires
+    "workspace_mode",
 }
 
 # BABOK artifact list field names that require finalized-artifact protection.
@@ -66,7 +70,7 @@ PHASES = Literal[
     "handoff",
 ]
 
-WORKSPACE_MODES = Literal["dashboard", "workspace"]
+WORKSPACE_MODES = Literal["dashboard", "workspace", "fde_assisted"]
 
 
 def _now_iso() -> str:
@@ -100,6 +104,8 @@ class EngagementState(BaseModel):
     risk_analyses: list[dict] = []
     change_strategies: list[dict] = []
     solution_evaluations: list[dict] = []
+    # Agent mesh: peer-to-peer message inbox
+    agent_inbox: list[dict] = []
 
     # ── workspace_mode is immutable after creation (PRD §14.2) ──────────
     def model_post_init(self, __context) -> None:

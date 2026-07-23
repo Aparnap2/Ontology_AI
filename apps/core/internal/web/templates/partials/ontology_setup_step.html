@@ -1,0 +1,39 @@
+<div id="ontology-setup-wizard" class="bg-gray-900 rounded-xl p-6 border border-gray-700">
+    <h2 class="text-xl font-semibold text-white mb-2">Step {{.Step.Number}} of {{.TotalSteps}}: {{.Step.Title}}</h2>
+    <p class="text-gray-400 mb-6">{{.Step.Description}}</p>
+
+    <form hx-post="/ontology-setup/{{.EngagementID}}/step/{{.Step.Number}}"
+          hx-target="#ontology-setup-wizard"
+          hx-swap="outerHTML"
+          class="space-y-4">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+                {{.Step.Title}} Details
+            </label>
+            <textarea name="details"
+                      rows="4"
+                      class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter {{.Step.Title}} information..."></textarea>
+        </div>
+
+        <div class="flex justify-between">
+            {{if gt .Step.Number 1}}
+            <button type="button"
+                    hx-get="/ontology-setup/{{.EngagementID}}/step/{{sub .Step.Number 1}}"
+                    hx-target="#ontology-setup-wizard"
+                    hx-swap="outerHTML"
+                    class="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors">
+                ← Back
+            </button>
+            {{else}}
+            <div></div>
+            {{end}}
+
+            <button type="submit"
+                    class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                {{if eq .Step.Number .TotalSteps}}Launch →{{else}}Next →{{end}}
+            </button>
+        </div>
+    </form>
+</div>

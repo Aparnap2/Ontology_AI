@@ -1,29 +1,45 @@
-"""Tests for Authority Manifest updates — OntologyAI V4.1.
-
-Run FIRST — they should FAIL, then implement code to pass them.
-"""
+"""Tests for Authority Manifest — OntologyAI V5.1."""
 import pytest
 
 
 class TestAuthorityManifest:
-    """Authority manifest update tests."""
+    """Authority manifest V5.1 canonical agent tests."""
 
     CANONICAL_AGENTS = [
-        "Chief of Staff",
-        "FP&A",
-        "Growth Analytics",
-        "Reliability & Delivery",
-        "Communications",
+        "ChiefOfStaff",
+        "Discovery",
+        "OntologyMapper",
+        "TruthAnalyst",
+        "WorkflowBuilder",
+        "Governance",
     ]
 
-    def test_authority_manifest_has_core_specialist_agents(self):
-        """Authority manifest must have at least 3 core specialist agents."""
+    def test_authority_manifest_has_six_canonical_agents(self):
+        """Authority manifest must have exactly 6 V5.1 canonical agents."""
         from src.agents.authority_manifest import AUTHORITY_MANIFEST
         agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        found = [n for n in self.CANONICAL_AGENTS if n in agent_names]
-        assert len(found) >= 3, (
-            f"Expected at least 3 canonical agents, found {len(found)}: {found}"
+        assert len(agent_names) == 6, (
+            f"Expected 6 canonical agents, found {len(agent_names)}: {agent_names}"
         )
+
+    def test_authority_manifest_contains_all_canonical(self):
+        """All 6 V5.1 canonical agents must be present."""
+        from src.agents.authority_manifest import AUTHORITY_MANIFEST
+        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
+        for agent in self.CANONICAL_AGENTS:
+            assert agent in agent_names, (
+                f"Canonical agent '{agent}' not found in manifest: {agent_names}"
+            )
+
+    def test_authority_manifest_no_legacy_agents(self):
+        """Legacy agent names must not appear in V5.1 manifest."""
+        from src.agents.authority_manifest import AUTHORITY_MANIFEST
+        legacy_names = ["FP&A", "Growth Analytics", "Reliability & Delivery", "Communications", "Correlation Agent"]
+        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
+        for legacy in legacy_names:
+            assert legacy not in agent_names, (
+                f"Legacy agent '{legacy}' still present in manifest: {agent_names}"
+            )
 
     def test_authority_manifest_no_hiring(self):
         """Hiring must not appear in authority manifest."""
@@ -31,7 +47,7 @@ class TestAuthorityManifest:
         agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
         assert "Hiring" not in agent_names, f"Hiring still present: {agent_names}"
 
-    def test_authority_manifest_no_sarthi_prefix(self):
+    def test_authority_manifest_no_ontologyai_prefix(self):
         """Agent names must not use 'OntologyAI' prefix — use canonical names."""
         from src.agents.authority_manifest import AUTHORITY_MANIFEST
         for agent in AUTHORITY_MANIFEST:
@@ -41,42 +57,32 @@ class TestAuthorityManifest:
                 f"Must use canonical display name."
             )
 
-    def test_authority_manifest_comms_agent_exists(self):
-        """Communications agent must exist in authority manifest."""
-        from src.agents.authority_manifest import AUTHORITY_MANIFEST
-        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        assert "Communications" in agent_names, (
-            f"Communications agent not found in manifest: {agent_names}"
+    def test_authority_manifest_governance_external_facing(self):
+        """Governance must be external_facing with highest escalation tier."""
+        from src.agents.authority_manifest import AUTHORITY_MANIFEST, AUTHORITY_MAP
+        gov = AUTHORITY_MAP.get("Governance")
+        assert gov is not None, "Governance not found in AUTHORITY_MAP"
+        assert gov.external_facing is True, "Governance should be external_facing"
+        assert gov.escalation_tier == "blocked", (
+            f"Governance escalation_tier should be 'blocked', got '{gov.escalation_tier}'"
         )
 
-    def test_authority_manifest_chief_of_staff_exists(self):
-        """Chief of Staff must exist in authority manifest."""
-        from src.agents.authority_manifest import AUTHORITY_MANIFEST
-        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        assert "Chief of Staff" in agent_names, (
-            f"Chief of Staff not found in manifest: {agent_names}"
-        )
+    def test_get_authority_o1_dict_lookup(self):
+        """get_authority should use O(1) dict lookup (AUTHORITY_MAP)."""
+        from src.agents.authority_manifest import AUTHORITY_MAP
+        from src.agents.authority_manifest import get_authority
+        assert isinstance(AUTHORITY_MAP, dict), "AUTHORITY_MAP must be a dict"
+        for name in self.CANONICAL_AGENTS:
+            assert get_authority(name) is not None, (
+                f"get_authority('{name}') returned None"
+            )
+        assert get_authority("nonexistent") is None
 
-    def test_authority_manifest_fp_and_a_exists(self):
-        """FP&A must exist in authority manifest."""
+    def test_get_authority_all_domains_valid(self):
+        """Each canonical agent must have a domain in the V5.1 set."""
         from src.agents.authority_manifest import AUTHORITY_MANIFEST
-        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        assert "FP&A" in agent_names, (
-            f"FP&A not found in manifest: {agent_names}"
-        )
-
-    def test_authority_manifest_growth_analytics_exists(self):
-        """Growth Analytics must exist in authority manifest."""
-        from src.agents.authority_manifest import AUTHORITY_MANIFEST
-        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        assert "Growth Analytics" in agent_names, (
-            f"Growth Analytics not found in manifest: {agent_names}"
-        )
-
-    def test_authority_manifest_reliability_and_delivery_exists(self):
-        """Reliability & Delivery must exist in authority manifest."""
-        from src.agents.authority_manifest import AUTHORITY_MANIFEST
-        agent_names = [a.agent_name for a in AUTHORITY_MANIFEST]
-        assert "Reliability & Delivery" in agent_names, (
-            f"Reliability & Delivery not found in manifest: {agent_names}"
-        )
+        valid_domains = {"control_plane", "discovery", "ontology_mapping", "truth_analysis", "workflow_building", "governance"}
+        for agent in AUTHORITY_MANIFEST:
+            assert agent.domain in valid_domains, (
+                f"Agent '{agent.agent_name}' has invalid domain '{agent.domain}'"
+            )

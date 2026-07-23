@@ -1,0 +1,46 @@
+<div class="fade-in" id="step-problem_framing">
+    <h4 class="font-semibold text-sm mb-3" style="color:var(--text)">Step 1: Problem Framing</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        Define the business problem and scope for this business map.
+    </p>
+
+    <form hx-post="/ontology-setup/{{.EngagementID}}/step/problem_framing"
+          hx-target="#setup-step-content"
+          hx-swap="innerHTML"
+          class="space-y-3">
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Business Goal *</label>
+            <textarea name="business_goal" rows="2" class="input-dark w-full text-xs"
+                      placeholder="e.g. Reduce invoice processing time by 50%"
+                      required>{{if .Data}}{{.Data.BusinessGoal}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Scope Description *</label>
+            <textarea name="scope_description" rows="2" class="input-dark w-full text-xs"
+                      placeholder="e.g. AP department invoice workflows"
+                      required>{{if .Data}}{{.Data.ScopeDescription}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Key Stakeholders</label>
+            <input type="text" name="key_stakeholders" class="input-dark w-full text-xs"
+                   placeholder="e.g. CFO, AP Lead, Controller"
+                   value="{{if .Data}}{{.Data.KeyStakeholders}}{{end}}">
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Success Criteria</label>
+            <textarea name="success_criteria" rows="2" class="input-dark w-full text-xs"
+                      placeholder="e.g. 50% reduction in processing time within 3 months"
+            >{{if .Data}}{{.Data.SuccessCriteria}}{{end}}</textarea>
+        </div>
+
+        <div class="flex justify-end pt-2">
+            <button type="submit" class="btn btn-primary text-xs px-4 py-2">
+                Continue →
+            </button>
+        </div>
+    </form>
+</div>

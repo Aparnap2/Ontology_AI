@@ -18,7 +18,6 @@ import (
 var WorkspaceScreen = map[string]string{
 	"dashboard":         "Dashboard",
 	"conversations":     "Conversations",
-	"workflow-builder":  "Workflow Builder",
 	"data-sources":      "Data Sources",
 	"approvals":         "Approvals",
 	"agent-roster":      "Agent Roster",
@@ -27,9 +26,10 @@ var WorkspaceScreen = map[string]string{
 	"settings":          "Settings",
 	"help":              "Help",
 	"mission":           "Mission",
-	"ontology":          "Ontology",
-	"truth-findings":    "Truth Findings",
-	"executable-drafts": "Executable Drafts",
+	"ontology":          "Business Map",
+	"truth-findings":    "Operational Truth",
+	"workflow-builder":  "Pilot Builder",
+	"executable-drafts": "Pilot Draft",
 	"artifacts":         "Artifacts",
 	"credentials":       "Credentials",
 }

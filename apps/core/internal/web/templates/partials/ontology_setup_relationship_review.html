@@ -1,0 +1,46 @@
+<div class="fade-in" id="step-relationship_review">
+    <h4 class="font-semibold text-sm mb-3" style="color:var(--text)">Step 4: Relationship Review</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        Define relationships between business map object types.
+    </p>
+
+    <form hx-post="/ontology-setup/{{.EngagementID}}/step/relationship_review"
+          hx-target="#setup-step-content"
+          hx-swap="innerHTML"
+          class="space-y-3">
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Object Relationships (JSON)</label>
+            <textarea name="object_relationships" rows="4" class="input-dark w-full text-xs font-mono"
+                      placeholder='[{"from":"Party","to":"Engagement","type":"one-to-many"}]'
+            >{{if .Data}}{{.Data.ObjectRelationships}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Cardinality Notes</label>
+            <textarea name="cardinality_notes" rows="2" class="input-dark w-full text-xs"
+                      placeholder="e.g. A Party can have many Engagements"
+            >{{if .Data}}{{.Data.CardinalityNotes}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Your Feedback</label>
+            <textarea name="user_feedback" rows="2" class="input-dark w-full text-xs"
+                      placeholder="Any final adjustments before approval..."
+            >{{if .Data}}{{.Data.UserFeedback}}{{end}}</textarea>
+        </div>
+
+        <div class="flex justify-between pt-2">
+            <button type="button" class="btn text-xs px-3 py-2"
+                    style="color:var(--text-muted);border:1px solid var(--border)"
+                    hx-get="/ontology-setup/{{.EngagementID}}/step/candidate_review"
+                    hx-target="#setup-step-content"
+                    hx-swap="innerHTML">
+                ← Back
+            </button>
+            <button type="submit" class="btn btn-primary text-xs px-4 py-2">
+                Continue →
+            </button>
+        </div>
+    </form>
+</div>

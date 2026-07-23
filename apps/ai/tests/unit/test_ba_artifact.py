@@ -583,8 +583,9 @@ class TestStrategyWorkflow:
         assert "change_strategies" in patch
 
     def test_specialist_response_shape(self) -> None:
+        """StrategyWorkflow returns Strategy specialist identity (V6)."""
         wf = StrategyWorkflow()
         resp = wf.run("t1", "e1", [])
-        assert resp.specialist == "ChiefOfStaff"
-        assert resp.workflow_name == "ChiefOfStaffWorkflow"
+        assert resp.specialist == "Strategy"
+        assert resp.workflow_name == "StrategyWorkflow"
         assert resp.requires_hitl is True

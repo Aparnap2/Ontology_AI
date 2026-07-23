@@ -36,8 +36,8 @@ from src.runtime.n8n_compiler import compile_n8n
 from src.runtime.n8n import N8NCompiler
 from src.runtime.pydantic_ai_compiler import PydanticAICompiler
 from src.runtime.python_agent_compiler import PythonAgentCompiler
-from src.runtime.windmill_compiler import WindmillCompiler
-from src.runtime.windmill_client import WindmillClientError
+from src.runtime.experimental.windmill_compiler import WindmillCompiler
+from src.runtime.experimental.windmill_client import WindmillClientError
 
 # ── Compiler registry (V5.1 multi-runtime) ───────────────────────────────────
 _COMPILERS: dict[str, Type[RuntimeCompiler]] = {

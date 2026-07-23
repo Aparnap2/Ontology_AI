@@ -1,0 +1,37 @@
+<div id="ontology-setup-wizard" class="fade-in" style="max-width:720px;margin:0 auto">
+    <!-- Header -->
+    <div class="card p-4 mb-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="font-semibold text-base" style="color:var(--text)">Business Map Setup Wizard</h3>
+                <p class="text-xs mt-1" style="color:var(--text-muted)">
+                    Engagement <code>{{.EngagementID}}</code>
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] px-2 py-1 rounded-full"
+                      style="background:rgba(125,211,252,0.12);color:var(--accent-blue)">
+                    Step 1 of 5
+                </span>
+            </div>
+        </div>
+        <!-- Progress bar -->
+        <div class="mt-3 flex gap-1">
+            <div class="h-1 flex-1 rounded-full" style="background:var(--accent-blue)"></div>
+            <div class="h-1 flex-1 rounded-full" style="background:var(--border)"></div>
+            <div class="h-1 flex-1 rounded-full" style="background:var(--border)"></div>
+            <div class="h-1 flex-1 rounded-full" style="background:var(--border)"></div>
+            <div class="h-1 flex-1 rounded-full" style="background:var(--border)"></div>
+        </div>
+    </div>
+
+    <!-- Step content area -->
+    <div class="card p-4 mb-4" id="setup-step-content"
+         hx-get="/ontology-setup/{{.EngagementID}}/step/problem_framing"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="text-center py-8" style="color:var(--text-muted)">
+            <p class="text-sm">Loading step 1: Problem Framing...</p>
+        </div>
+    </div>
+</div>

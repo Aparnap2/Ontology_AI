@@ -133,7 +133,7 @@ class TestWindmillE2EWithRealLLM:
 
     def test_llm_proposal_compiles_to_windmill_script(self):
         """Single-step LLM proposal → WindmillCompiler → script target."""
-        from src.runtime.windmill_compiler import WindmillCompiler
+        from src.runtime.experimental.windmill_compiler import WindmillCompiler
 
         proposal = _llm_propose_workflow()
         steps = proposal.get("steps", [])
@@ -153,7 +153,7 @@ class TestWindmillE2EWithRealLLM:
 
     def test_llm_proposal_compiles_to_windmill_flow(self):
         """Multi-step LLM proposal → WindmillCompiler → flow target."""
-        from src.runtime.windmill_compiler import WindmillCompiler
+        from src.runtime.experimental.windmill_compiler import WindmillCompiler
 
         proposal = _llm_propose_workflow()
         draft = _build_draft_from_proposal(proposal)
@@ -170,7 +170,7 @@ class TestWindmillE2EWithRealLLM:
 
     def test_compiled_windmill_payload_is_valid_python(self):
         """The generated Python body in the compiled payload must compile."""
-        from src.runtime.windmill_compiler import WindmillCompiler
+        from src.runtime.experimental.windmill_compiler import WindmillCompiler
 
         proposal = _llm_propose_workflow()
         draft = _build_draft_from_proposal(proposal)
@@ -197,7 +197,7 @@ class TestWindmillE2EWithRealLLM:
         if not token:
             pytest.skip("No WINDMILL_TOKEN set in environment")
 
-        from src.runtime.windmill_compiler import WindmillCompiler
+        from src.runtime.experimental.windmill_compiler import WindmillCompiler
 
         proposal = _llm_propose_workflow()
         draft = _build_draft_from_proposal(proposal)
@@ -231,7 +231,7 @@ class TestWindmillE2EWithRealLLM:
         if not token:
             pytest.skip("No WINDMILL_TOKEN set in environment")
 
-        from src.runtime.windmill_compiler import WindmillCompiler
+        from src.runtime.experimental.windmill_compiler import WindmillCompiler
 
         proposal = _llm_propose_workflow()
         draft = _build_draft_from_proposal(proposal)

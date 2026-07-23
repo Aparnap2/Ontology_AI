@@ -30,7 +30,6 @@ def _safe_heartbeat(message: str) -> None:
 @activity.defn(name="compile_n8n_workflow")
 def compile_n8n_workflow(
     draft_dict: dict[str, Any],
-    *,
     activate: bool = False,
     execute: bool = False,
 ) -> dict[str, Any]:
@@ -40,6 +39,11 @@ def compile_n8n_workflow(
         draft_dict: Serialized :class:`ExecutableWorkflowDraft`.
         activate: Activate the workflow in n8n after creation.
         execute: Execute the workflow in n8n after creation.
+
+    Note:
+        Activate/execute are positional-or-keyword (not keyword-only) to
+        satisfy Temporal's ``@activity.defn`` constraint which rejects
+        keyword-only parameters.
 
     Returns:
         Result dict from ``n8n_client.compile_and_deploy`` (workflow_id,

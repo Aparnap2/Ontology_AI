@@ -1,1 +1,1 @@
-"""OntologyAI V4.2 — Ontology package marker."""
+"""OntologyAI V5.1 — Ontology package marker."""

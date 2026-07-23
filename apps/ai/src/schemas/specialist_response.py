@@ -47,6 +47,9 @@ class SpecialistResponse(BaseModel, strict=True):
         unresolved_questions: Open questions this response could not resolve.
     """
 
+    # V5.1 canonical: 6 specialists. V6 adds "Strategy" (gated behind
+    # ENABLE_V6_WORKFLOWS=on), included here so StrategyWorkflow can
+    # construct valid responses at runtime without conditional imports.
     specialist: Literal[
         "Discovery",
         "OntologyMapper",
@@ -56,6 +59,7 @@ class SpecialistResponse(BaseModel, strict=True):
         "ChiefOfStaff",
         "Strategy",
     ]
+    # V5.1 canonical: 6 workflow names. V6 adds "StrategyWorkflow".
     workflow_name: Literal[
         "ChiefOfStaffWorkflow",
         "DiscoveryWorkflow",

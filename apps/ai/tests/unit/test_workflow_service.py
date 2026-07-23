@@ -17,10 +17,19 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from typing import Any
 
-# Set test environment variables
-os.environ["TEMPORAL_HOST"] = "localhost:7233"
-os.environ["TEMPORAL_TASK_QUEUE"] = "TRACKGUARD-MAIN-QUEUE"
-os.environ["REDPANDA_URL"] = "localhost:9092"
+
+@pytest.fixture(autouse=True)
+def _test_workflow_service_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set test env vars scoped to this module (avoids leaking to other tests).
+
+    Previously these were set directly on ``os.environ`` at module level,
+    which leaked ``TEMPORAL_TASK_QUEUE=TRACKGUARD-MAIN-QUEUE`` to all
+    subsequent tests in the same process, causing
+    ``test_worker_task_queue_configured`` to see the legacy queue name.
+    """
+    monkeypatch.setenv("TEMPORAL_HOST", "localhost:7233")
+    monkeypatch.setenv("TEMPORAL_TASK_QUEUE", "TRACKGUARD-MAIN-QUEUE")
+    monkeypatch.setenv("REDPANDA_URL", "localhost:9092")
 
 
 # =============================================================================
@@ -432,6 +441,64 @@ class TestAPSchedulerDevMode:
             "APScheduler should not be imported in workflow service. "
             "It should only be used in dev mode."
         )
+
+
+# =============================================================================
+# TestWorkerModuleRegistration (merged from deleted test_workflows.py +
+# test_workflows_v2.py — validates V5.1 canonical worker module)
+# =============================================================================
+
+
+class TestWorkerModuleRegistration:
+    """Tests that ``src.worker`` exposes the correct V5.1 canonical roster.
+
+    These were migrated from the consolidated ``test_workflows.py`` and
+    ``test_workflows_v2.py`` files (deleted). Legacy V4.2 workflows
+    (PulseWorkflow, QAWorkflow, SelfAnalysisWorkflow, …) are gated behind
+    ``LEGACY_FDE_MODULES=on`` and are *not* expected in the default module
+    scope — see ``test_workflow_names.py`` for roster-level assertions.
+    """
+
+    # -- From test_workflows.py :: TestWorkerRegistration ---------------------
+
+    def test_worker_task_queue_configured(self):
+        """V5.1 default task queue is ONTOLOGYAI-MAIN-QUEUE."""
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"TEMPORAL_TASK_QUEUE": "ONTOLOGYAI-MAIN-QUEUE"}, clear=True):
+            from src.orchestration.queue import resolve_task_queue
+            assert resolve_task_queue() == "ONTOLOGYAI-MAIN-QUEUE", (
+                "V5.1 default task queue is ONTOLOGYAI-MAIN-QUEUE"
+            )
+
+    # -- From test_workflows_v2.py :: TestWorkerRegistrationV2 ----------------
+
+    def test_worker_imports_canonical_workflows(self):
+        """V5.1 canonical workflows are exposed on the worker module."""
+        from src import worker
+
+        assert hasattr(worker, "ChiefOfStaffWorkflow")
+        assert hasattr(worker, "DiscoveryWorkflow")
+        assert hasattr(worker, "OntologyMappingWorkflow")
+        assert hasattr(worker, "TruthAnalysisWorkflow")
+        assert hasattr(worker, "WorkflowBuilderWorkflow")
+        assert hasattr(worker, "GovernanceWorkflow")
+
+    def test_worker_does_not_import_legacy_workflows_by_default(self):
+        """Legacy V4.2 workflows are NOT in the default worker module scope."""
+        from src import worker
+
+        assert not hasattr(worker, "SelfAnalysisWorkflow")
+        assert not hasattr(worker, "EvalLoopWorkflow")
+        assert not hasattr(worker, "CompressionWorkflow")
+        assert not hasattr(worker, "WeightDecayWorkflow")
+
+    def test_worker_imports_guardian_activity(self):
+        """Worker module exposes the guardian watchlist activity."""
+        from src import worker
+
+        assert hasattr(worker, "run_guardian_watchlist")
 
 
 if __name__ == "__main__":

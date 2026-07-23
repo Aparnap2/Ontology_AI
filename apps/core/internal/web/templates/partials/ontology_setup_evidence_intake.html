@@ -1,0 +1,46 @@
+<div class="fade-in" id="step-evidence_intake">
+    <h4 class="font-semibold text-sm mb-3" style="color:var(--text)">Step 2: Evidence Intake</h4>
+    <p class="text-xs mb-4" style="color:var(--text-muted)">
+        Provide source documents, data sources, and interview notes.
+    </p>
+
+    <form hx-post="/ontology-setup/{{.EngagementID}}/step/evidence_intake"
+          hx-target="#setup-step-content"
+          hx-swap="innerHTML"
+          class="space-y-3">
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Source Documents</label>
+            <textarea name="source_documents" rows="2" class="input-dark w-full text-xs"
+                      placeholder="e.g. /docs/ap-process.pdf, /docs/vendor-agreement.pdf"
+            >{{if .Data}}{{.Data.SourceDocuments}}{{end}}</textarea>
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Data Sources</label>
+            <input type="text" name="data_sources" class="input-dark w-full text-xs"
+                   placeholder="e.g. quickbooks, slack-archive, hubspot"
+                   value="{{if .Data}}{{.Data.DataSources}}{{end}}">
+        </div>
+
+        <div>
+            <label class="text-xs font-medium mb-1 block" style="color:var(--text-secondary)">Interview Notes</label>
+            <textarea name="interview_notes" rows="3" class="input-dark w-full text-xs"
+                      placeholder="Key observations and findings from stakeholder interviews..."
+            >{{if .Data}}{{.Data.InterviewNotes}}{{end}}</textarea>
+        </div>
+
+        <div class="flex justify-between pt-2">
+            <button type="button" class="btn text-xs px-3 py-2"
+                    style="color:var(--text-muted);border:1px solid var(--border)"
+                    hx-get="/ontology-setup/{{.EngagementID}}/step/problem_framing"
+                    hx-target="#setup-step-content"
+                    hx-swap="innerHTML">
+                ← Back
+            </button>
+            <button type="submit" class="btn btn-primary text-xs px-4 py-2">
+                Continue →
+            </button>
+        </div>
+    </form>
+</div>

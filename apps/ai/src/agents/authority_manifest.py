@@ -1,11 +1,18 @@
-"""Agent Authority Manifest — declarative capability/escalation registry.
+"""Agent Authority Manifest — V5.1 canonical agent roster.
 
 Defines each agent's domain, tool permissions, escalation tier, triggers,
-and MissionState fields it is allowed to write. Used by HITL routing,
-tool execution guards, and MissionState write-path validation.
+and EngagementState fields it is allowed to write. Used by HITL routing,
+tool execution guards, and EngagementState write-path validation.
 
-OntologyAI V4.1: All agent names use canonical display names.
+V5.1: Six canonical agents replacing the legacy V4.1 roster.
+- ChiefOfStaff (control_plane) — orchestrator / intent classifier
+- Discovery (discovery) — evidence gathering
+- OntologyMapper (ontology_mapping) — typed object materialization
+- TruthAnalyst (truth_analysis) — blockers, contradictions, risks
+- WorkflowBuilder (workflow_building) — governed draft generation
+- Governance (governance) — approval routing, external action exclusivity
 """
+
 from pydantic import BaseModel
 from typing import Literal
 
@@ -14,7 +21,14 @@ class AgentAuthority(BaseModel):
     agent_name: str
     role: str
     voice: str
-    domain: Literal["finance", "bi", "ops", "cofounder", "correlation"]
+    domain: Literal[
+        "control_plane",
+        "discovery",
+        "ontology_mapping",
+        "truth_analysis",
+        "workflow_building",
+        "governance",
+    ]
     can_emit_alerts: bool
     can_execute_tools: bool
     allowed_tool_ids: list[str]
@@ -28,106 +42,137 @@ class AgentAuthority(BaseModel):
 
 AUTHORITY_MANIFEST: list[AgentAuthority] = [
     AgentAuthority(
-        agent_name="Chief of Staff",
-        role="manager/cofounder",
-        voice="Founder's strategic thinking partner",
-        domain="cofounder",
+        agent_name="ChiefOfStaff",
+        role="Orchestrator and intent classifier",
+        voice="Strategic coordinator",
+        domain="control_plane",
         can_emit_alerts=True,
         can_execute_tools=True,
-        allowed_tool_ids=["draft_investor_update"],
-        escalation_tier="approve",
-        triggers=["manual", "schedule"],
-        writes_mission_fields=["founder_focus", "active_alerts", "prepared_brief"],
-        allowed_models=["gpt-4o"],
-        external_facing=True,
-        data_classification="external_investor",
-    ),
-    AgentAuthority(
-        agent_name="FP&A",
-        role="Finance specialist",
-        voice="Financial guardian",
-        domain="finance",
-        can_emit_alerts=True,
-        can_execute_tools=True,
-        allowed_tool_ids=["pause_failed_payment_retry"],
+        allowed_tool_ids=["classify_intent", "route_to_agent"],
         escalation_tier="review",
-        triggers=["FG-01", "FG-02", "FG-03", "FG-04", "FG-05", "FG-06"],
-        writes_mission_fields=["runway_days", "burn_alert", "burn_severity", "burn_multiple"],
-        allowed_models=["gpt-4o-mini"],
+        triggers=["manual", "incoming_message"],
+        writes_mission_fields=["phase", "operator_goal"],
+        allowed_models=["gpt-4o"],
         external_facing=False,
         data_classification="internal",
     ),
     AgentAuthority(
-        agent_name="Growth Analytics",
-        role="BI specialist",
-        voice="Data analyst",
-        domain="bi",
-        can_emit_alerts=True,
-        can_execute_tools=True,
-        allowed_tool_ids=["draft_investor_update"],
-        escalation_tier="auto",
-        triggers=["BG-01", "BG-02", "BG-03", "BG-04", "BG-05", "BG-06"],
-        writes_mission_fields=["mrr_trend", "churn_rate"],
-        allowed_models=["gpt-4o-mini"],
-        external_facing=False,
-        data_classification="internal",
-    ),
-    AgentAuthority(
-        agent_name="Reliability & Delivery",
-        role="Ops specialist",
-        voice="Operations watchdog",
-        domain="ops",
-        can_emit_alerts=True,
-        can_execute_tools=True,
-        allowed_tool_ids=["flag_churn_risk_customer", "schedule_customer_checkin"],
-        escalation_tier="auto",
-        triggers=["OG-01", "OG-02", "OG-03", "OG-04", "OG-05"],
-        writes_mission_fields=["churn_risk_users", "top_feature_ask", "error_spike"],
-        allowed_models=["gpt-4o-mini"],
-        external_facing=False,
-        data_classification="internal",
-    ),
-    AgentAuthority(
-        agent_name="Communications",
-        role="Communications specialist",
-        voice="Stakeholder communications manager",
-        domain="ops",
+        agent_name="Discovery",
+        role="Evidence gathering and research",
+        voice="Curious investigator",
+        domain="discovery",
         can_emit_alerts=False,
         can_execute_tools=True,
-        allowed_tool_ids=["draft_investor_update"],
+        allowed_tool_ids=[
+            "search_data_sources",
+            "query_knowledge_base",
+            "collect_evidence",
+        ],
         escalation_tier="auto",
-        triggers=["manual"],
-        writes_mission_fields=[],
-        allowed_models=["gpt-4o-mini"],
-        external_facing=True,
-        data_classification="external_investor",
-    ),
-    AgentAuthority(
-        agent_name="Correlation Agent",
-        role="Cross-domain synthesizer",
-        voice="Pattern detector",
-        domain="correlation",
-        can_emit_alerts=True,
-        can_execute_tools=False,
-        allowed_tool_ids=[],
-        escalation_tier="review",
-        triggers=["cross-domain"],
-        writes_mission_fields=["active_alerts"],
+        triggers=["discovery_needed", "new_engagement"],
+        writes_mission_fields=["discovery_notes", "data_sources", "freshness"],
         allowed_models=["gpt-4o-mini"],
         external_facing=False,
         data_classification="internal",
+    ),
+    AgentAuthority(
+        agent_name="OntologyMapper",
+        role="Ontology object and link materialization",
+        voice="Knowledge architect",
+        domain="ontology_mapping",
+        can_emit_alerts=False,
+        can_execute_tools=True,
+        allowed_tool_ids=[
+            "materialize_objects",
+            "materialize_links",
+            "validate_ontology",
+        ],
+        escalation_tier="auto",
+        triggers=["discovery_complete"],
+        writes_mission_fields=["ontology_objects", "ontology_links"],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
+    ),
+    AgentAuthority(
+        agent_name="TruthAnalyst",
+        role="Truth analysis, contradiction detection, and risk assessment",
+        voice="Devil's advocate",
+        domain="truth_analysis",
+        can_emit_alerts=True,
+        can_execute_tools=True,
+        allowed_tool_ids=["flag_contradiction", "assess_risk", "flag_blocker"],
+        escalation_tier="review",
+        triggers=["ontology_complete", "risk_check_needed"],
+        writes_mission_fields=[
+            "truth_findings",
+            "risk_analyses",
+            "unresolved_questions",
+        ],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
+    ),
+    AgentAuthority(
+        agent_name="WorkflowBuilder",
+        role="Governed workflow draft generation",
+        voice="Solution architect",
+        domain="workflow_building",
+        can_emit_alerts=False,
+        can_execute_tools=True,
+        allowed_tool_ids=[
+            "draft_workflow",
+            "generate_solution_outline",
+            "propose_change_strategy",
+        ],
+        escalation_tier="review",
+        triggers=["truth_analysis_complete", "workflow_requested"],
+        writes_mission_fields=[
+            "workflow_specs",
+            "executable_workflow_drafts",
+            "change_strategies",
+            "solution_evaluations",
+        ],
+        allowed_models=["gpt-4o-mini"],
+        external_facing=False,
+        data_classification="internal",
+    ),
+    AgentAuthority(
+        agent_name="Governance",
+        role="Approval routing and external action governance",
+        voice="Compliance guardian",
+        domain="governance",
+        can_emit_alerts=True,
+        can_execute_tools=True,
+        allowed_tool_ids=[
+            "route_for_approval",
+            "approve_action",
+            "reject_action",
+            "escalate_to_human",
+        ],
+        escalation_tier="blocked",
+        triggers=["approval_requested", "governance_check_needed"],
+        writes_mission_fields=["planned_actions", "phase"],
+        allowed_models=["gpt-4o"],
+        external_facing=True,
+        data_classification="restricted",
     ),
 ]
 
+# O(1) lookup dict built from AUTHORITY_MANIFEST
+AUTHORITY_MAP: dict[str, AgentAuthority] = {
+    a.agent_name: a for a in AUTHORITY_MANIFEST
+}
+_AUTHORITY_BY_NAME: dict[str, AgentAuthority] = AUTHORITY_MAP
+
 
 def get_authority(agent_name: str) -> AgentAuthority | None:
-    for a in AUTHORITY_MANIFEST:
-        if a.agent_name == agent_name:
-            return a
-    return None
+    """O(1) lookup of an agent's authority entry by canonical name."""
+    return AUTHORITY_MAP.get(agent_name)
 
 
 def can_execute_tool(agent_name: str, tool_id: str) -> bool:
+    """Return True iff *agent_name* is allowed to execute *tool_id*."""
     auth = get_authority(agent_name)
     if auth is None:
         return False
@@ -135,6 +180,7 @@ def can_execute_tool(agent_name: str, tool_id: str) -> bool:
 
 
 def get_writes_mission_fields(agent_name: str) -> list[str]:
+    """Return the EngagementState field names *agent_name* is allowed to patch."""
     auth = get_authority(agent_name)
     if auth is None:
         return []
