@@ -1021,6 +1021,7 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	app.Get("/events/session", h.APICommandSessionEvents)
 	app.Get("/api/command/stream", h.APICommandEvents)
 	app.Get("/api/command/events", h.APICommandEvents)
+	app.Get("/api/command/revenue/events", h.APICommandRevenueEvents)
 
 	// Chat panel partial — loads the chat HTML with HTMX SSE extension
 	// ── V5.1 Workspace Routes (gated by workspace_mode) ──

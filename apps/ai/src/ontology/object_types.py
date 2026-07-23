@@ -148,6 +148,22 @@ class PlannedAction(BaseModel):
     source_refs: list[str] = []
 
 
+class Shipment(BaseModel):
+    """A fulfillment shipment against an order (Revenue Protection vertical slice)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str
+    order_id: str
+    status: Literal["planned", "in_transit", "delivered", "partial", "returned"]
+    shipped_value: float
+    shipped_at: Optional[str] = None
+    carrier: Optional[str] = None
+    items: list[dict] = []
+    notes: Optional[str] = None
+    source_refs: list[str] = []
+
+
 # Registry of all canonical Object Types by name, used by governance/adapter
 # layers and tests. Exactly the six PRD §12 types.
 OBJECT_TYPES = {
@@ -157,4 +173,5 @@ OBJECT_TYPES = {
     "Issue": Issue,
     "Message": Message,
     "PlannedAction": PlannedAction,
+    "Shipment": Shipment,
 }

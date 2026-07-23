@@ -12,6 +12,7 @@ var V5_1_CANONICAL_OBJECT_TYPES = []string{
 	"Issue",
 	"Message",
 	"PlannedAction",
+	"Shipment",
 }
 
 // V5_1_CANONICAL_LINK_TYPES lists the 9 canonical directed relation types
@@ -27,6 +28,7 @@ var V5_1_CANONICAL_LINK_TYPES = []string{
 	"money_event_planned_action",
 	"party_planned_action",
 	"engagement_planned_action",
+	"order_shipment",
 }
 
 // APIWorkspaceOntology returns the V5.1 canonical ontology schema (PRD §14).

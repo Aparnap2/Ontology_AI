@@ -1,0 +1,28 @@
+<div id="revenue-protection-panel" class="bg-white rounded-lg shadow p-4">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-lg font-semibold text-gray-900">Revenue Protection</h2>
+    <span class="text-sm text-gray-500" id="revenue-finding-count">0 risks</span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
+          <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Value</th>
+          <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Shipped</th>
+          <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Delta</th>
+          <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Direction</th>
+          <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+        </tr>
+      </thead>
+      <tbody id="revenue-findings-body" class="divide-y divide-gray-200">
+        <tr id="revenue-empty-row">
+          <td colspan="6" class="px-4 py-8 text-center text-gray-400 text-sm">
+            No revenue risks detected. All orders match their shipments.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

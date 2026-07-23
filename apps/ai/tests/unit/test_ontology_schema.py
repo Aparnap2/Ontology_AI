@@ -144,17 +144,18 @@ class TestObjectTypeStrictTyping:
 
 
 # ---------------------------------------------------------------------------
-# OBJECT_TYPES registry contains exactly the six canonical types
+# OBJECT_TYPES registry contains exactly the seven canonical types
 # ---------------------------------------------------------------------------
 class TestObjectTypeRegistry:
-    def test_exactly_six_types(self):
+    def test_exactly_seven_types(self):
         assert set(OBJECT_TYPES.keys()) == {
-            "Party", "Engagement", "MoneyEvent", "Issue", "Message", "PlannedAction",
+            "Party", "Engagement", "MoneyEvent", "Issue", "Message",
+            "PlannedAction", "Shipment",
         }
 
 
 # ---------------------------------------------------------------------------
-# LINK_TYPES registry — exactly 11 canonical links
+# LINK_TYPES registry — exactly 12 canonical links
 # ---------------------------------------------------------------------------
 class TestLinkTypesRegistry:
     EXPECTED = {
@@ -162,10 +163,10 @@ class TestLinkTypesRegistry:
         "message_party", "message_engagement", "issue_planned_action",
         "money_event_planned_action", "party_planned_action",
         "engagement_planned_action", "workflow_action",
-        "workflow_object_dependency",
+        "workflow_object_dependency", "order_shipment",
     }
 
-    def test_all_eleven_present(self):
+    def test_all_twelve_present(self):
         assert set(LINK_TYPES.keys()) == self.EXPECTED
 
     def test_each_is_linktype_with_required_fields(self):

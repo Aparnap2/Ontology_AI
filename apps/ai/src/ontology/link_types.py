@@ -126,6 +126,14 @@ LINK_TYPES: dict[str, LinkType] = {
         semantic_meaning="A workflow depends on one or more ontology objects.",
         source_refs=["prd §13"],
     ),
+    "order_shipment": LinkType(
+        name="order_shipment",
+        source_type="Engagement",
+        target_type="Shipment",
+        cardinality="one_to_many",
+        semantic_meaning="An order (Engagement kind='order') is fulfilled by one or more shipments.",
+        source_refs=["revenue_protection_slice"],
+    ),
 }
 
 

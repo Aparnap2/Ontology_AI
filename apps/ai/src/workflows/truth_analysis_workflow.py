@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from src.agents.semantic_layer import explain_mismatch
 from src.schemas.specialist_response import SpecialistResponse
 from src.ontology.action_types import ActionRegistry
 from src.ontology.object_types import PlannedAction
@@ -60,6 +61,9 @@ class TruthAnalysisWorkflow:
         findings += self._check_unresolved_critical_issues(ontology_objects)
         findings += self._check_unacted_messages(ontology_objects)
         findings += self._check_orphaned(ontology_objects, ontology_links)
+
+        # Revenue Protection: Order↔Shipment mismatch detection
+        findings += self._check_order_shipment_mismatch(ontology_objects, ontology_links)
 
         # ── Candidate actions for action-worthy findings (deterministic) ──
         for f in findings:
@@ -199,6 +203,100 @@ class TruthAnalysisWorkflow:
                 })
         return out
 
+    _REVENUE_THRESHOLD = 0.05  # 5% — configurable threshold
+
+    def _check_order_shipment_mismatch(
+        self, objs: dict[str, list[dict]], links: Optional[list[dict]] = None
+    ) -> list[dict]:
+        """Detect Order↔Shipment value mismatches (Revenue Protection vertical slice).
+
+        Deterministic math check, optional LLM explanation. Compares each
+        Engagement(kind='order') value against total shipped_value of linked
+        Shipments. Returns findings with action_worthy=True when |delta| > threshold.
+        """
+        out: list[dict] = []
+        orders = [o for o in objs.get("Engagement", []) if o.get("kind") == "order"]
+        if not orders:
+            return out
+
+        # Build linked shipment IDs from order_shipment links
+        use_links = links is not None
+        linked_shipment_ids: set[str] = set()
+        if use_links:
+            linked_shipment_ids = {
+                l["target_id"] for l in links
+                if l.get("name") == "order_shipment"
+            }
+
+        # Index all shipments by order_id
+        shipments_by_order: dict[str, list[dict]] = {}
+        for s in objs.get("Shipment", []):
+            oid = s.get("order_id", "")
+            if oid:
+                shipments_by_order.setdefault(oid, []).append(s)
+
+        for order in orders:
+            order_id = order.get("id", "")
+            order_value = order.get("value") or 0.0
+
+            # Skip zero-value orders (division-safe guard)
+            if order_value <= 0:
+                continue
+
+            # Resolve linked shipments
+            if use_links:
+                # When links are provided, only consider shipments explicitly linked
+                order_links = {
+                    l["target_id"] for l in links
+                    if l.get("name") == "order_shipment" and l.get("source_id") == order_id
+                }
+                if not order_links:
+                    continue  # No link evidence for this order — skip
+                all_shipments = shipments_by_order.get(order_id, [])
+                linked = [s for s in all_shipments if s.get("id") in order_links]
+            else:
+                linked = shipments_by_order.get(order_id, [])
+            shipped_total = sum(s.get("shipped_value") or 0.0 for s in linked)
+            delta = order_value - shipped_total
+
+            if abs(delta) <= order_value * self._REVENUE_THRESHOLD:
+                continue
+
+            severity = "high" if abs(delta) > order_value * 0.15 else "medium"
+            direction = "under_shipped" if delta > 0 else "over_shipped"
+            delta_pct = round(abs(delta) / order_value * 100, 1) if order_value else 0
+            shipment_statuses = [s.get("status", "unknown") for s in linked]
+
+            summary = explain_mismatch(
+                order=order,
+                shipment_count=len(linked),
+                shipped_total=shipped_total,
+                delta=delta,
+                delta_pct=delta_pct,
+                shipment_statuses=shipment_statuses,
+                llm_client=self.llm_client,
+            )
+
+            out.append({
+                "kind": f"order_shipment_mismatch_{direction}",
+                "target_type": "Engagement",
+                "target_id": order_id,
+                "severity": severity,
+                "summary": summary,
+                "details": {
+                    "order_value": order_value,
+                    "shipped_total": shipped_total,
+                    "delta": delta,
+                    "delta_pct": delta_pct,
+                    "shipment_count": len(linked),
+                    "shipment_ids": [s.get("id") for s in linked],
+                    "shipment_statuses": shipment_statuses,
+                },
+                "action_worthy": True,
+            })
+
+        return out
+
     # ------------------------------------------------------------------
     # Candidate action generation (deterministic via ActionRegistry)
     # ------------------------------------------------------------------
@@ -214,6 +312,8 @@ class TruthAnalysisWorkflow:
             "unresolved_critical_issue": "close_issue",
             "unacted_message": "send_communication",
             "orphaned_record": "create_draft_action",
+            "order_shipment_mismatch_under_shipped": "create_draft_action",
+            "order_shipment_mismatch_over_shipped": "create_draft_action",
         }
         action_type = action_type_map.get(kind, "create_draft_action")
         action = ActionRegistry.create(

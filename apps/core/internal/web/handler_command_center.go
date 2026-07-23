@@ -1665,6 +1665,44 @@ func (h *Handler) APICommandOperatingLayer(c *fiber.Ctx) error {
 	})
 }
 
+// APICommandRevenueEvents is an SSE endpoint for Revenue Protection findings.
+func (h *Handler) APICommandRevenueEvents(c *fiber.Ctx) error {
+	tenantID := c.Query("tenant_id", "default")
+	sub := h.sseHub.Subscribe(tenantID, "revenue_finding")
+	defer h.sseHub.Unsubscribe(tenantID, sub.ID)
+
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	done := c.Context().Done()
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() { recover() }()
+		fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\"}\n\n")
+		w.Flush()
+
+		heartbeat := time.NewTicker(30 * time.Second)
+		defer heartbeat.Stop()
+
+		for {
+			select {
+			case msgBytes, ok := <-sub.Channel:
+				if !ok {
+					return
+				}
+				w.Write(msgBytes)
+				w.Flush()
+			case <-heartbeat.C:
+				fmt.Fprintf(w, "event: heartbeat\ndata: {}\n\n")
+				w.Flush()
+			case <-done:
+				return
+			}
+		}
+	})
+	return nil
+}
+
 // Dashboard handler - serves the main HTMX dashboard
 func (h *Handler) Dashboard(c *fiber.Ctx) error {
 	return Render(c, "dashboard", fiber.Map{
