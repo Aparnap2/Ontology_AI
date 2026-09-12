@@ -1,7 +1,7 @@
 """Deterministic context checkpoint schema (issue #63, Sprint 1).
 
 Evidence objects in, checkpoint out. No LLM calls, no connector imports.
-Reuses frozen ``Evidence`` / ``Onboarding`` types — never redefines them.
+Reuses frozen ``Evidence`` type (+ compat ``Onboarding`` alias) — never redefines them.
 """
 
 from __future__ import annotations
@@ -46,4 +46,6 @@ class ContextCheckpoint(BaseModel):
     unresolved_questions: list[str] = Field(default_factory=list)
     allowed_capabilities: list[str] = Field(default_factory=list)
     authority_constraints: list[str] = Field(default_factory=list)
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
     provenance: str

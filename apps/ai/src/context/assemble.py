@@ -57,6 +57,7 @@ def assemble_checkpoint(
     *,
     checkpoint_id: str, tenant_id: str, mission_id: str, trigger_event_id: str,
     evidence: list[Evidence], now: datetime, onboarding: Optional[Onboarding] = None,
+    target_type: Optional[str] = None, target_id: Optional[str] = None,
     entity_index: Optional[dict] = None, policy_registry: Optional[dict] = None,
     sop_registry: Optional[dict] = None, process_registry: Optional[dict] = None,
     state_store: Optional[dict] = None, kpi_store: Optional[dict] = None,
@@ -64,10 +65,21 @@ def assemble_checkpoint(
     allowed_capabilities: Optional[list[str]] = None, authority_constraints: Optional[list[str]] = None,
     max_items: int = 10, max_chars: int = 2000, stale_after_seconds: int = 86400, version: int = 1,
 ) -> ContextCheckpoint:
-    """Assemble a checkpoint from injected state only; stale marked, gaps questioned."""
+    """Assemble a checkpoint from injected state only; stale marked, gaps questioned.
+
+    ``onboarding`` is a deprecated alias: when passed without explicit
+    ``target_type``/``target_id``, the target derives as
+    ``("onboarding", onboarding.id)`` (dual-write, zero behavior change).
+    """
     for ev in evidence:
         if ev.tenant_id != tenant_id:
             raise ValueError(f"cross-tenant evidence rejected: {ev.id}")
+    if target_type is not None and not target_type.strip():
+        raise ValueError("target_type must be a non-empty string when provided")
+    if target_id is not None and not target_id.strip():
+        raise ValueError("target_id must be a non-empty string when provided")
+    if onboarding is not None and target_type is None and target_id is None:
+        target_type, target_id = "onboarding", onboarding.id
     conf = confidence_by_id or {}
     scoped, q_scope = resolve_mission(mission_id, onboarding)
     policies, proc, sop, q_pol = select_policies(mission_id, policy_registry or {}, sop_registry or {}, process_registry or {})
@@ -93,5 +105,6 @@ def assemble_checkpoint(
         applicable_policies=policies, kpi_snapshot=kpis, recent_actions=recents,
         unresolved_questions=open_q, allowed_capabilities=list(allowed_capabilities or []),
         authority_constraints=list(authority_constraints or []),
+        target_type=target_type, target_id=target_id,
         provenance=f"checkpoint:{checkpoint_id}|trigger:{trigger_event_id}|mission:{mission_id}|at:{at}",
     )
