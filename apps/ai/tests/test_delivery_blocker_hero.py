@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -58,6 +59,19 @@ SLACK = {
 TENANT = "t1"
 MISSION_ID = "hero-delivery-blocker-1"
 SITUATION_ID = "sit-hero-1"
+
+
+def _mockoon_up() -> bool:
+    try:
+        socket.create_connection(("127.0.0.1", 3003), timeout=1).close()
+        return True
+    except OSError:
+        return False
+
+
+needs_mockoon = pytest.mark.skipif(
+    not _mockoon_up(), reason="local Mockoon Jira on :3003 not reachable"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -258,6 +272,7 @@ def _situation_chain(resolution, checkpoint_id: str = "cp-hero-1"):
     return evidence, checkpoint, situation, mission
 
 
+@needs_mockoon
 async def test_hero_happy_path_create_verified(monkeypatch):
     """Slack signal -> Situation -> Mission -> investigate -> Jira create.
 
