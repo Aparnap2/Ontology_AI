@@ -1,12 +1,15 @@
-"""Capability Op Registry — the 10 frozen deterministic ops over 4 connectors.
+"""Capability Op Registry — the frozen deterministic ops over connectors.
 
 Employees never call connectors directly. They reach external systems ONLY
 through :class:`CapabilityOpRegistry` ops, which wrap the existing capability
 layer (``src/mission/capability.py`` → ``src/connectors``).
 
-The 10 ops are the frozen union of the three employee capability allowlists.
-The 5 write ops are routed through ``@governed_write`` (ontology governance)
-so every mutation is HITL-gated and auditable.
+The registry holds the frozen union of the employee capability allowlists:
+the original 10 ops over 4 connectors plus the V7 Phase 4 vendor-operations
+vocabulary (15 ops over the vendor domain, built in
+``src/mission/capability_ops_vendor.py`` with the same builders and
+registered here). The write ops are routed through ``@governed_write``
+(ontology governance) so every mutation is HITL-gated and auditable.
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ from typing import Any, Callable
 
 from src.connectors.base import ConnectorConfig
 from src.mission.capability import CapabilityRegistry
+from src.mission.capability_ops_vendor import VendorInMemoryMixin
 from src.ontology.governance import governed_write
 
 logger = logging.getLogger(__name__)
@@ -131,11 +135,14 @@ def _resolve_capability(capability: str, config: ConnectorConfig) -> Any:
     return _resolve_prod_capability(capability, config)
 
 
-class _InMemoryCapability:
+class _InMemoryCapability(VendorInMemoryMixin):
     """Deterministic in-memory fallback capability (no network, no config).
 
     Mirrors the method surface of the capability layer so every op stays
-    executable when no real connector is registered.
+    executable when no real connector is registered. The vendor-domain
+    surface (vendor/service/incident/sla/evidence/notification) mixes in
+    from ``VendorInMemoryMixin`` with the same empty-by-default,
+    tenant-scoped, deterministic discipline.
     """
 
     def __init__(self, capability: str, config: ConnectorConfig) -> None:
@@ -234,71 +241,77 @@ def _execute_notion_update(params: dict[str, Any], tenant_id: str) -> dict[str, 
     return {"op": "notion.update", "ok": True, "data": data}
 
 
+# ── Frozen op builders (module level so the vendor vocabulary module ─────
+# reuses the identical builders; behavior is unchanged from the nested form)
+
+
+def _read_op(
+    name: str,
+    capability: str,
+    method: str,
+    connector_capability: str,
+    fn: Callable[[Any, dict[str, Any]], Any],
+) -> CapabilityOp:
+    def execute(params: dict[str, Any], tenant_id: str) -> dict[str, Any]:
+        cap = _resolve_capability(capability, _config_for(tenant_id))
+        data = fn(cap, params)
+        return {"op": name, "ok": True, "data": data}
+
+    return CapabilityOp(
+        name=name,
+        capability=capability,
+        method=method,
+        kind="read",
+        connector_capability=connector_capability,
+        governed=False,
+        execute=execute,
+    )
+
+
+def _search_op(
+    name: str,
+    capability: str,
+    method: str,
+    connector_capability: str,
+    fn: Callable[[Any, dict[str, Any]], Any],
+) -> CapabilityOp:
+    def execute(params: dict[str, Any], tenant_id: str) -> dict[str, Any]:
+        cap = _resolve_capability(capability, _config_for(tenant_id))
+        data = fn(cap, params)
+        return {"op": name, "ok": True, "data": data}
+
+    return CapabilityOp(
+        name=name,
+        capability=capability,
+        method=method,
+        kind="search",
+        connector_capability=connector_capability,
+        governed=False,
+        execute=execute,
+    )
+
+
+def _write_op(
+    name: str,
+    capability: str,
+    method: str,
+    connector_capability: str,
+    fn: Callable[[dict[str, Any], str], dict[str, Any]],
+) -> CapabilityOp:
+    return CapabilityOp(
+        name=name,
+        capability=capability,
+        method=method,
+        kind="write",
+        connector_capability=connector_capability,
+        governed=True,
+        execute=fn,
+    )
+
+
 def _build_ops() -> list[CapabilityOp]:
-    """Build the frozen 10-op set (5 read/search + 5 governed writes)."""
-
-    def _read_op(
-        name: str,
-        capability: str,
-        method: str,
-        connector_capability: str,
-        fn: Callable[[Any, dict[str, Any]], Any],
-    ) -> CapabilityOp:
-        def execute(params: dict[str, Any], tenant_id: str) -> dict[str, Any]:
-            cap = _resolve_capability(capability, _config_for(tenant_id))
-            data = fn(cap, params)
-            return {"op": name, "ok": True, "data": data}
-
-        return CapabilityOp(
-            name=name,
-            capability=capability,
-            method=method,
-            kind="read",
-            connector_capability=connector_capability,
-            governed=False,
-            execute=execute,
-        )
-
-    def _search_op(
-        name: str,
-        capability: str,
-        method: str,
-        connector_capability: str,
-        fn: Callable[[Any, dict[str, Any]], Any],
-    ) -> CapabilityOp:
-        def execute(params: dict[str, Any], tenant_id: str) -> dict[str, Any]:
-            cap = _resolve_capability(capability, _config_for(tenant_id))
-            data = fn(cap, params)
-            return {"op": name, "ok": True, "data": data}
-
-        return CapabilityOp(
-            name=name,
-            capability=capability,
-            method=method,
-            kind="search",
-            connector_capability=connector_capability,
-            governed=False,
-            execute=execute,
-        )
-
-    def _write_op(
-        name: str,
-        capability: str,
-        method: str,
-        connector_capability: str,
-        fn: Callable[[dict[str, Any], str], dict[str, Any]],
-    ) -> CapabilityOp:
-        return CapabilityOp(
-            name=name,
-            capability=capability,
-            method=method,
-            kind="write",
-            connector_capability=connector_capability,
-            governed=True,
-            execute=fn,
-        )
-
-    return [
+    """Build the frozen op set: the original 10 plus the vendor vocabulary."""
+    ops = [
         # CRM (Salesforce)
         _read_op(
             "salesforce.read",
@@ -362,10 +375,15 @@ def _build_ops() -> list[CapabilityOp]:
         ),
         _write_op("notion.update", "knowledge", "update_page", "notion", _execute_notion_update),
     ]
+    # V7 Phase 4 vendor-operations vocabulary (same builders, same registry;
+    # lazy import keeps the vendor module free of import cycles).
+    from src.mission.capability_ops_vendor import build_vendor_ops
+
+    return ops + build_vendor_ops()
 
 
 class CapabilityOpRegistry:
-    """Registry of the 10 frozen capability ops."""
+    """Registry of the frozen capability ops (original 10 + vendor vocabulary)."""
 
     _ops: dict[str, CapabilityOp] = {}
 

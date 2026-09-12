@@ -91,8 +91,17 @@ def mock_capability(monkeypatch):
 
 class TestCapabilityOps:
     def test_exactly_ten_ops_registered(self):
-        """Exactly 10 distinct capability ops are registered (frozen union)."""
-        assert sorted(CapabilityOpRegistry.list_ops()) == sorted(EXPECTED_OPS)
+        """Frozen 10 intact as a subset; registry grows only via vendor ops.
+
+        Phase 4 added 15 vendor-operations ops (10 read/search + 5 writes)
+        on the same builders: 10 + 15 = 25 total. Any other change fails.
+        """
+        from tests.test_vendor_capabilities import VENDOR_OPS
+
+        names = set(CapabilityOpRegistry.list_ops())
+        assert set(EXPECTED_OPS) <= names
+        assert set(VENDOR_OPS) <= names
+        assert len(names) == len(EXPECTED_OPS) + len(VENDOR_OPS) == 25
 
     def test_op_signatures(self):
         """Every op exposes name/capability/method/kind and a dict-returning execute."""
@@ -108,9 +117,14 @@ class TestCapabilityOps:
             assert result["op"] == name
 
     def test_write_ops_flagged_governed(self):
-        """The 5 write ops are flagged governed and listed as write ops."""
-        assert set(CapabilityOpRegistry.write_ops()) == WRITE_OPS
-        for name in WRITE_OPS:
+        """Frozen 5 writes intact; 5 vendor writes join them, all governed."""
+        from tests.test_vendor_capabilities import VENDOR_WRITES
+
+        writes = set(CapabilityOpRegistry.write_ops())
+        assert WRITE_OPS <= writes
+        assert VENDOR_WRITES <= writes
+        assert len(writes) == len(WRITE_OPS) + len(VENDOR_WRITES) == 10
+        for name in WRITE_OPS | VENDOR_WRITES:
             assert CapabilityOpRegistry.get(name).governed is True
 
     def test_op_wraps_expected_connector_method(self, mock_capability):
