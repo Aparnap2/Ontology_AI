@@ -517,6 +517,9 @@ class Situation(BaseModel):
         "DEPENDENCY_DELAY",
         "QUALITY_DEFECT",
         "SCOPE_DRIFT",
+        "VENDOR_INCIDENT",
+        "SLA_RISK",
+        "VENDOR_PERFORMANCE_ISSUE",
     ] = "DELIVERY_BLOCKER"
     affected_entities: list[str] = []
     detected_condition: str

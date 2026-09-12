@@ -672,3 +672,232 @@ class Review(OntologyBaseModel):
     cadence: str | None = None
     last_reviewed_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ── V7 vendor operations domain (Phase 3: models only) ───────────────────
+# Models-only phase: no runtime, capability, API, or UI changes. All
+# cross-entity holders are REFERENCE IDs (never embedded mutable objects);
+# tenant isolation across refs is enforced at the application layer, not
+# here (Pydantic has no registry to resolve against). ``VendorContract``
+# is named thus to avoid colliding with the connector-interface contract
+# (``src/connectors/v6_contract.py``).
+
+
+class Vendor(OntologyBaseModel):
+    """An external vendor supplying services to the tenant."""
+
+    id: str
+    tenant_id: str
+    name: str
+    status: Literal[
+        "active", "onboarding", "suspended", "blocked", "offboarded"
+    ] = "active"
+    contacts: list[str] = Field(default_factory=list)
+    services: list[str] = Field(default_factory=list)  # Service ID refs
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Service(OntologyBaseModel):
+    """A business service, optionally supplied by a vendor."""
+
+    id: str
+    tenant_id: str
+    name: str
+    criticality: Literal["low", "medium", "high", "critical"] = "medium"
+    owner_id: str
+    vendor_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ServiceDependency(OntologyBaseModel):
+    """A directed DEPENDS_ON edge: ``service_a_id`` depends on ``service_b_id``."""
+
+    id: str
+    tenant_id: str
+    service_a_id: str
+    service_b_id: str
+    dependency_type: Literal["DEPENDS_ON"] = "DEPENDS_ON"
+
+
+class VendorContract(OntologyBaseModel):
+    """Commercial terms between the tenant and a vendor.
+
+    Named ``VendorContract`` (not ``Contract``) to avoid colliding with
+    the connector-interface contract in ``src/connectors/v6_contract.py``.
+    """
+
+    id: str
+    tenant_id: str
+    vendor_id: str
+    service_ids: list[str] = Field(default_factory=list)
+    terms_summary: str = ""
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SLA(OntologyBaseModel):
+    """Service-level agreement against a service under a vendor contract."""
+
+    id: str
+    tenant_id: str
+    name: str
+    service_id: str
+    contract_id: str
+    priority: Literal["critical", "high", "medium", "low"] = "medium"
+    acknowledgement_minutes: int = Field(gt=0)
+    update_minutes: int | None = Field(default=None, gt=0)
+    resolution_minutes: int = Field(gt=0)
+    escalation_policy_id: str
+    business_calendar: str = "24x7"
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BusinessImpact(OntologyBaseModel):
+    """Nested impact assessment embedded in an ``Incident``.
+
+    Nested value object: carries no ``id``/``tenant_id`` of its own;
+    tenancy is inherited from the parent ``Incident``.
+    """
+
+    customer_impact_count: int | None = Field(default=None, ge=0)
+    affected_process_ids: list[str] = Field(default_factory=list)
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    estimated_downtime_minutes: int | None = Field(default=None, gt=0)
+    criticality: Literal["low", "medium", "high", "critical"] = "medium"
+
+
+class Incident(OntologyBaseModel):
+    """A vendor/service incident tracked against a service, SLA, and situation."""
+
+    id: str
+    tenant_id: str
+    title: str
+    description: str = ""
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    status: Literal[
+        "open",
+        "acknowledged",
+        "escalated",
+        "awaiting_evidence",
+        "verified",
+        "closed",
+    ] = "open"
+    service_id: str
+    vendor_id: str | None = None
+    business_process_ids: list[str] = Field(default_factory=list)
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+    impact: BusinessImpact = Field(default_factory=BusinessImpact)
+    sla_id: str | None = None
+    vendor_ticket_id: str | None = None
+    owner_id: str | None = None
+    situation_id: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    version: int = Field(default=1, ge=1)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VendorTicket(OntologyBaseModel):
+    """A ticket opened with a vendor against an incident."""
+
+    id: str
+    tenant_id: str
+    vendor_id: str
+    incident_id: str
+    external_ticket_id: str
+    status: Literal[
+        "open", "acknowledged", "pending_vendor", "resolved", "closed"
+    ] = "open"
+    opened_at: datetime = Field(default_factory=datetime.utcnow)
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+    last_vendor_update_at: datetime | None = None
+    external_url: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EscalationPolicy(OntologyBaseModel):
+    """Tiered escalation path from vendor primary up to human approval.
+
+    Tiers hold contact/owner reference IDs. ``authority`` records the
+    authority requirements for escalation steps; ``requires_hitl`` marks
+    whether the terminal tier needs human-in-the-loop approval.
+    """
+
+    id: str
+    tenant_id: str
+    name: str
+    t0_vendor_primary: str
+    t1_vendor_escalation: str
+    t2_internal_owner: str
+    t3_hitl_material: str
+    authority: dict = Field(default_factory=dict)
+    requires_hitl: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ── Outcome canonical-state mapping (additive; Outcome untouched) ─────────
+# ``Outcome.result`` already carries success/partial/failure/na and its
+# fields/tests are frozen. The V7 canonical states below are a SEPARATE
+# mapping layer — no existing field is altered.
+
+OutcomeCanonicalState = Literal["verified", "failed", "partial", "indeterminate"]
+
+OUTCOME_RESULT_TO_CANONICAL: dict[str, str] = {
+    "success": "verified",
+    "failure": "failed",
+    "partial": "partial",
+    "na": "indeterminate",
+}
+
+OUTCOME_CANONICAL_TO_RESULT: dict[str, str] = {
+    "verified": "success",
+    "failed": "failure",
+    "partial": "partial",
+    "indeterminate": "na",
+}
+
+
+def canonical_outcome_state(result: str) -> str:
+    """Map a legacy ``Outcome.result`` value to its canonical state."""
+    try:
+        return OUTCOME_RESULT_TO_CANONICAL[result]
+    except KeyError:
+        raise ValueError(f"unknown Outcome.result value: {result!r}") from None
+
+
+def outcome_result_from_canonical(state: str) -> str:
+    """Map a canonical outcome state back to its ``Outcome.result`` value."""
+    try:
+        return OUTCOME_CANONICAL_TO_RESULT[state]
+    except KeyError:
+        raise ValueError(f"unknown canonical outcome state: {state!r}") from None
+
+
+class ROIMeasurement(OntologyBaseModel):
+    """A raw ROI measurement tied to a mission/situation and source events.
+
+    Measurements only — this model carries no savings claims, computed
+    savings fields, or projections of any kind.
+    """
+
+    id: str
+    tenant_id: str
+    mission_id: str
+    situation_id: str
+    metric_type: str
+    baseline_value: float | None = None
+    actual_value: float | None = None
+    unit: str = ""
+    source_event_ids: list[str] = Field(default_factory=list)
+    measured_at: datetime = Field(default_factory=datetime.utcnow)
