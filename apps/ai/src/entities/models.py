@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OntologyBaseModel(BaseModel):
@@ -520,8 +520,32 @@ class Mission(OntologyBaseModel):
     # ``onboarding_id`` stays so existing M1-M6 aggregates keep resolving.
     onboarding_id: str | None = None  # ADR-010: M1-M6 missions belong to an Onboarding aggregate
     situation_id: str | None = None
+    # Generic mission target (Phase 1 dual-write): explicit ``target_*`` wins;
+    # ``onboarding_id``-only derives ("onboarding", onboarding_id). New code
+    # passes explicit targets; ``onboarding_id`` is a deprecated alias.
+    target_type: str | None = None
+    target_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @model_validator(mode="after")
+    def _resolve_target(self) -> "Mission":
+        if self.target_type is None and self.target_id is None:
+            if self.onboarding_id is not None:
+                self.target_type = "onboarding"
+                self.target_id = self.onboarding_id
+        elif (
+            self.target_type == "onboarding"
+            and self.target_id is not None
+            and self.onboarding_id is not None
+            and self.target_id != self.onboarding_id
+        ):
+            raise ValueError(
+                "contradictory mission target: explicit target_* "
+                f"({self.target_type!r}, {self.target_id!r}) disagrees with "
+                f"onboarding_id={self.onboarding_id!r}"
+            )
+        return self
 
 
 class MissionEvent(OntologyBaseModel):

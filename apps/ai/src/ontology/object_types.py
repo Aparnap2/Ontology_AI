@@ -14,7 +14,7 @@ Graph models hold REFERENCE IDs only — never embedded mutable objects.
 """
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 # ── Internal counter for deterministic ID generation ───────────────────
@@ -304,7 +304,31 @@ class Mission(BaseModel):
     # ``onboarding_id`` stays so existing M1-M6 aggregates keep resolving.
     onboarding_id: Optional[str] = None
     situation_id: Optional[str] = None
+    # Generic mission target (Phase 1 dual-write): explicit ``target_*`` wins;
+    # ``onboarding_id``-only derives ("onboarding", onboarding_id). New code
+    # passes explicit targets; ``onboarding_id`` is a deprecated alias.
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
     source_refs: list[str] = []
+
+    @model_validator(mode="after")
+    def _resolve_target(self) -> "Mission":
+        if self.target_type is None and self.target_id is None:
+            if self.onboarding_id is not None:
+                self.target_type = "onboarding"
+                self.target_id = self.onboarding_id
+        elif (
+            self.target_type == "onboarding"
+            and self.target_id is not None
+            and self.onboarding_id is not None
+            and self.target_id != self.onboarding_id
+        ):
+            raise ValueError(
+                "contradictory mission target: explicit target_* "
+                f"({self.target_type!r}, {self.target_id!r}) disagrees with "
+                f"onboarding_id={self.onboarding_id!r}"
+            )
+        return self
 
 
 class MissionEvent(BaseModel):

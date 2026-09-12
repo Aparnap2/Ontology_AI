@@ -56,12 +56,52 @@ def ingest_slack_event(payload: dict[str, Any], tenant_id: str) -> Evidence:
     )
 
 
+def resolve_checkpoint_target(
+    onboarding: Onboarding | None,
+    target_type: str | None = None,
+    target_id: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Resolve the generic checkpoint target with onboarding dual-write fallback.
+
+    Explicit ``target_*`` wins; ``onboarding``-only derives
+    ``("onboarding", onboarding.id)``; an explicit onboarding target claiming
+    a different identity raises; all-blank stays allowed (callers enforce
+    presence).
+    """
+    if target_type is None and target_id is None:
+        if onboarding is not None:
+            return "onboarding", onboarding.id
+        return None, None
+    if (
+        target_type == "onboarding"
+        and target_id is not None
+        and onboarding is not None
+        and target_id != onboarding.id
+    ):
+        raise ValueError(
+            "contradictory checkpoint target: explicit target_* "
+            f"({target_type!r}, {target_id!r}) disagrees with "
+            f"onboarding.id={onboarding.id!r}"
+        )
+    return target_type, target_id
+
+
 def build_context_checkpoint(
-    onboarding: Onboarding, mission_id: str, evidence: list[Evidence]
+    onboarding: Onboarding,
+    mission_id: str,
+    evidence: list[Evidence],
+    *,
+    target_type: str | None = None,
+    target_id: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the deterministic onboarding context checkpoint for blocker investigation."""
+    resolved_type, resolved_id = resolve_checkpoint_target(
+        onboarding, target_type, target_id
+    )
     return {
         "onboarding_id": onboarding.id,
+        "target_type": resolved_type,
+        "target_id": resolved_id,
         "customer": onboarding.customer,
         "lifecycle_state": onboarding.lifecycle_state,
         "mission_id": mission_id,
@@ -139,6 +179,8 @@ async def run_blocker_investigation_mission(
     business_scope: str = "acme",
     role_caps: list[str] | None = None,
     signal_handler: Any = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
 ) -> dict[str, Any]:
     """Run one investigate-blocker mission end to end (slice).
 
@@ -147,7 +189,16 @@ async def run_blocker_investigation_mission(
     explicitly and restores the registry afterwards (canonical 20 untouched).
     """
     evidence = ingest_slack_event(slack_payload, tenant_id)
-    checkpoint = build_context_checkpoint(onboarding, mission_id, [evidence])
+    resolved_type, resolved_id = resolve_checkpoint_target(
+        onboarding, target_type, target_id
+    )
+    checkpoint = build_context_checkpoint(
+        onboarding,
+        mission_id,
+        [evidence],
+        target_type=resolved_type,
+        target_id=resolved_id,
+    )
     role = make_blocker_investigation_role(role_caps)
 
     # Typed deterministic context checkpoint (#63): the bounded context the
@@ -167,6 +218,8 @@ async def run_blocker_investigation_mission(
         evidence=[evidence.model_copy(update={"captured_at": now.isoformat()})],
         now=now,
         onboarding=onboarding,
+        target_type=resolved_type,
+        target_id=resolved_id,
         allowed_capabilities=list(role.capabilities),
     )
     checkpoint_dict = typed_checkpoint.model_dump()
