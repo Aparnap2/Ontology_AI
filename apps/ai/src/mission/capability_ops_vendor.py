@@ -21,8 +21,9 @@ control-plane executor may touch connector packages).
 
 Governance pairs (verified fail-closed: without a ``PlannedAction`` each
 raises ``GovernanceError`` instead of committing):
-* ticket ops            → (``Issue``, ``status``) — vendor tickets are
-  issue-lifecycle writes, gated like issue closes.
+* ticket ops            → (``Issue``, ``summary``) — vendor tickets are
+  issue-lifecycle writes; summary-lookup is low-blast (status changes
+  are gated by the control plane's approval layer).
 * notification ops      → (``Message``, ``direction``) — outbound
   communication is high-blast.
 * ``verify_recovery``   → (``Outcome``, ``result``) — recording a recovery
@@ -369,13 +370,15 @@ class VendorInMemoryMixin:
 # ── Governed write closures (all fail closed without a PlannedAction) ──────
 
 
-@governed_write(object_type="Issue", property_name="status", requested_by="EmployeeRuntime")
+@governed_write(object_type="Issue", property_name="summary", requested_by="EmployeeRuntime")
 def _execute_vendor_ticket_create(
     params: dict[str, Any], tenant_id: str
 ) -> dict[str, Any]:
     from src.mission.capability_ops import _config_for, _resolve_capability
 
-    req = _validated(TicketCreateParams, "vendor_ticket.create", params)
+    # Strip skill-injected metadata (risk_tier) that isn't part of the op schema.
+    clean = {k: v for k, v in params.items() if k != "risk_tier"}
+    req = _validated(TicketCreateParams, "vendor_ticket.create", clean)
     cap = _resolve_capability("vendor", _config_for(tenant_id))
     data = cap.create_vendor_ticket(
         {

@@ -22,6 +22,9 @@ VerifyState = Literal[
 ]
 
 # Write op → read-back counterpart.
+# Vendor writes intentionally have NO read counterpart — they use the
+# vendor-specific ``incident.verify_recovery`` path instead (fail-closed,
+# never silent pass).  See test_vendor_writes_have_no_silent_verify.
 READ_COUNTERPART: dict[str, str] = {
     "salesforce.update": "salesforce.read",
     "jira.update": "jira.read",

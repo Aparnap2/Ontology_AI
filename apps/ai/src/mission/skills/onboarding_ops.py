@@ -31,9 +31,13 @@ VENDOR_INVESTIGATION_SKILL_NAME = "investigate_vendor_incident"
 # Deterministic blocker-investigation action surface: the ONLY operations this skill may propose.
 BLOCKER_INVESTIGATION_ALLOWED_OPS = {"jira.update", "jira.create", "slack.send"}
 
-# Vendor-incident action surface: same runner core, narrower allowlist.
-# Chosen minimally (subset, no vendor-entity semantics in the runner).
-VENDOR_INVESTIGATION_ALLOWED_OPS = {"jira.update", "slack.send"}
+# Vendor-incident action surface: same runner core, vendor-domain allowlist.
+VENDOR_INVESTIGATION_ALLOWED_OPS = {
+    "jira.update", "slack.send",
+    "vendor_ticket.create", "vendor_ticket.update",
+    "incident.get", "incident.search",
+    "notification.send_internal", "notification.send_vendor",
+}
 
 _JIRA_STATUS_ALLOWED = {"To Do", "In Progress", "Blocked", "Done"}
 
@@ -431,7 +435,12 @@ VENDOR_INVESTIGATION_SKILL = SkillDefinition(
     run=_run_vendor,
     uses_llm=True,
     llm_calls=["root_cause_analysis"],
-    capability_ops=["jira.update", "jira.read", "slack.send", "salesforce.read"],
+    capability_ops=[
+        "vendor_ticket.create", "vendor_ticket.update",
+        "incident.get", "incident.search",
+        "jira.update", "slack.send",
+        "notification.send_internal", "notification.send_vendor",
+    ],
     agentic=False,
     max_iterations=1,
 )
