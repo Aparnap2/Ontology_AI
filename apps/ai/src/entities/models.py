@@ -516,13 +516,14 @@ class Mission(OntologyBaseModel):
     knowledge_ids: list[str] = Field(default_factory=list)
     decision_ids: list[str] = Field(default_factory=list)
     process_ids: list[str] = Field(default_factory=list)
-    # DEPRECATED: prefer the Situation link (``situation_id``) for new code.
-    # ``onboarding_id`` stays so existing M1-M6 aggregates keep resolving.
-    onboarding_id: str | None = None  # ADR-010: M1-M6 missions belong to an Onboarding aggregate
+    # DEPRECATED (V7): prefer target_type/target_id for new code.
+    # ``onboarding_id`` is a backward-compat alias — new missions MUST use
+    # explicit target_type/target_id.  Will be removed in a future PR once
+    # all onboarding-era tests are migrated.
+    onboarding_id: str | None = None
     situation_id: str | None = None
-    # Generic mission target (Phase 1 dual-write): explicit ``target_*`` wins;
-    # ``onboarding_id``-only derives ("onboarding", onboarding_id). New code
-    # passes explicit targets; ``onboarding_id`` is a deprecated alias.
+    # Generic mission target: explicit ``target_*`` wins;
+    # ``onboarding_id``-only derives ("onboarding", onboarding_id).
     target_type: str | None = None
     target_id: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
