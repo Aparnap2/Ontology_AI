@@ -93,6 +93,12 @@ markers = [
 [tool.pytest_env]
 # Enable running tests without Temporal connection
 TEMPORAL_ADDRESS = "localhost:7233"
+# Deployment parity: all infrastructure env vars declared here for test visibility
+LLM_ENDPOINT = "http://localhost:11434/v1"
+EVENT_BROKER_URL = "redis://localhost:6379"
+VENDOR_API_URL = "http://localhost:3003"
+OTEL_ENDPOINT = "http://localhost:4318"
+QDRANT_URL = "http://localhost:6333"
 
 [tool.setuptools.packages.find]
 where = ["."]
