@@ -40,3 +40,16 @@ class SeenSet:
     def mark(self, key: str) -> None:
         """Record *key* as executed."""
         self._seen.add(key)
+
+
+_seen = SeenSet()
+
+
+def get_seen() -> SeenSet:
+    """Return the process-wide seen set."""
+    return _seen
+
+
+def reset_seen() -> None:
+    """Clear all recorded keys (test seam only)."""
+    _seen._seen.clear()

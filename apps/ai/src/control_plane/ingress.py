@@ -20,11 +20,11 @@ from src.control_plane.authorization import authorize
 from src.control_plane.concurrency import get_store
 from src.control_plane.contracts import ActionIntent
 from src.control_plane.executor import execute as _execute
-from src.control_plane.idempotency import SeenSet
+from src.control_plane.idempotency import get_seen
 from src.control_plane.policy import is_blocked, needs_approval
 from src.control_plane.verification import outcome_event, verify_execution
 
-_seen = SeenSet()
+_seen = get_seen()
 
 
 async def submit_intent(
