@@ -39,7 +39,27 @@ async def submit_intent(
     ctx = dict(trusted_context or {})
     if role_config is not None:
         ctx.setdefault("role_config", role_config)
-    authorized = authorize(intent, ctx)
+    try:
+        authorized = authorize(intent, ctx)
+    except PermissionError as exc:
+        # Fail closed and make the rejection VISIBLE to the caller as an
+        # audit event. Authority is decided before any policy/idempotency
+        # work, so nothing downstream can widen scope.
+        return append_event(
+            mission_id=str(ctx.get("mission_id") or "unknown"),
+            action_id="",
+            intent=intent,
+            decision=f"deny:unauthorized:{exc}",
+            verified=False,
+        )
+    except KeyError as exc:
+        return append_event(
+            mission_id=str(ctx.get("mission_id") or "unknown"),
+            action_id="",
+            intent=intent,
+            decision=f"deny:invalid_trusted_context:{exc}",
+            verified=False,
+        )
     role_caps = list(getattr(ctx.get("role_config"), "capabilities", []) or [])
     if (
         ctx.get("version") is not None

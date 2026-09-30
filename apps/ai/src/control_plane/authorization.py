@@ -26,23 +26,75 @@ def _require(trusted: dict[str, Any], key: str) -> str:
     return str(value)
 
 
+def _resolve_allowlist(
+    trusted_context: dict[str, Any], role_config: Any
+) -> list[str]:
+    """Return the operations this principal may perform.
+
+    Both sources are trusted server state:
+
+    * ``role_config.capabilities`` — canonical allowlist of operation names
+      (this is what ``CapabilityOpRegistry.assert_allowed`` also enforces).
+    * ``role_config.permissions`` / ``trusted_context.permissions`` — coarse
+      grants that may also name operations directly.
+
+    When ``role_config`` is present it is authoritative. An empty result
+    means *no authority whatsoever* and callers must treat it as deny-all.
+    """
+    if role_config is not None:
+        grants = list(getattr(role_config, "capabilities", []) or [])
+        grants += list(getattr(role_config, "permissions", []) or [])
+    else:
+        grants = list(trusted_context.get("capabilities") or [])
+        grants += list(trusted_context.get("permissions") or [])
+    return [str(g) for g in grants if g]
+
+
+def _assert_authorized(intent: Any, allowlist: list[str]) -> None:
+    """Fail closed unless the intent's operation is inside trusted authority.
+
+    The intent is untrusted: its ``operation`` is attacker-influenced, so
+    membership is decided solely against the trusted allowlist. An empty
+    allowlist grants nothing — absence of configuration is not permission.
+    """
+    operation = str(getattr(intent, "operation", "") or "")
+
+    if not allowlist:
+        raise PermissionError(
+            f"no authority granted for operation {operation!r}: "
+            "principal has an empty capability/permission allowlist"
+        )
+    if operation not in allowlist:
+        raise PermissionError(
+            f"operation {operation!r} is not in the principal's allowlist"
+        )
+
+
 def authorize(intent: Any, trusted_context: dict[str, Any]) -> AuthorizedAction:
     """Bind an untrusted intent to trusted identity + permissions.
+
+    Fails CLOSED: raises :class:`PermissionError` when the requested
+    operation or capability is outside the principal's allowlist, and when
+    the principal holds no authority at all. Authority is derived only from
+    trusted server state — never from the intent body, so a prompt-injected
+    ``requested_parameters`` payload cannot widen scope.
 
     Args:
         intent: Validated :class:`ActionIntent` (prompt output).
         trusted_context: Server-owned state with ``tenant_id``,
             ``mission_id``, ``employee_id``, ``actor_identity`` and
-            optional ``permissions``, ``business_scope``, ``role_config``.
+            optional ``permissions``, ``capabilities``,
+            ``business_scope``, ``role_config``.
 
-    Role ``permissions``/``risk_threshold`` come from ``role_config``
-    (``EmployeeRoleConfig``) when present; explicit ``permissions`` in
-    trusted state win otherwise. Prompt fields are never consulted.
+    Raises:
+        KeyError: trusted identity is incomplete.
+        PermissionError: the intent is outside the principal's authority.
     """
     role_config = trusted_context.get("role_config")
-    permissions = list(trusted_context.get("permissions") or [])
-    if not permissions and role_config is not None:
-        permissions = list(getattr(role_config, "permissions", []) or [])
+    allowlist = _resolve_allowlist(trusted_context, role_config)
+    _assert_authorized(intent, allowlist)
+
+    permissions = list(allowlist)
     risk_tier = classify(intent, role_config)
     tenant_id = _require(trusted_context, "tenant_id")
     mission_id = _require(trusted_context, "mission_id")
