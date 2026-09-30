@@ -148,6 +148,37 @@ class TestWorkerIsCapable:
 
         assert len(_build_workflow_list()) > 0, "worker registers no workflows"
 
+    def test_every_registered_workflow_is_a_real_temporal_workflow(self) -> None:
+        """Temporal rejects any class not decorated with @workflow.defn.
+
+        Worker() calls _Definition.must_from_class on every entry and raises
+        ValueError otherwise, so one undecorated class makes the whole worker
+        unconstructable. DiscoveryWorkflow, OntologyMappingWorkflow,
+        KnowledgeValidationWorkflow, SolutionArchitectWorkflow and
+        GovernanceWorkflow were registered here without being decorated.
+        """
+        from temporalio.workflow import _Definition
+
+        from src.worker import _build_workflow_list
+
+        fake = []
+        for wf in _build_workflow_list():
+            try:
+                _Definition.must_from_class(wf)
+            except ValueError:
+                fake.append(wf.__name__)
+        assert not fake, (
+            f"these are not @workflow.defn classes and would break Worker(): {fake}"
+        )
+
+    def test_incident_workflow_is_registered(self) -> None:
+        from src.worker import _build_workflow_list
+
+        names = {w.__name__ for w in _build_workflow_list()}
+        assert "IncidentWorkflow" in names, (
+            "the V7 hero workflow is not registered with the worker"
+        )
+
 
 # ---------------------------------------------------------------------------
 # One canonical task queue

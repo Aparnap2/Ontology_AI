@@ -332,7 +332,15 @@ try:
     with workflow.unsafe.imports_passed_through():
         pass
 
-    @workflow.defn(name="ChiefOfStaffWorkflow")
+    # sandboxed=False: this wrapper delegates to ChiefOfStaffCore, whose
+    # module graph (src.agents.agent_bus -> src.schemas -> src.ontology) is
+    # already imported in the parent process. Temporal's sandbox refuses to
+    # load an already-imported module a second time
+    # ("ImportError: cannot load module more than once per process"), which
+    # made Worker() construction fail and stopped the worker from ever
+    # polling its queue. The run method is pure orchestration over
+    # ChiefOfStaffCore; determinism does not depend on sandboxing here.
+    @workflow.defn(name="ChiefOfStaffWorkflow", sandboxed=False)
     class ChiefOfStaffWorkflow:
         """Temporal workflow wrapper around ChiefOfStaffCore."""
 

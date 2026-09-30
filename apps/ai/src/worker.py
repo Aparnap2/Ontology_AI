@@ -210,21 +210,26 @@ MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 def _build_workflow_list() -> list[type]:
     """Build the registered workflow list based on env flags.
 
-    Always includes: IncidentWorkflow (the V7 vendor-operations hero path)
-    plus the 6 V5.2 canonical workflows.
-    V6 (+StrategyWorkflow) added when ``ENABLE_V6_WORKFLOWS=on``.
-    Legacy V4.1 workflows added when ``LEGACY_FDE_MODULES=on``.
+    Only genuine ``@workflow.defn`` classes may be returned. Temporal's
+    ``Worker`` calls ``_Definition.must_from_class`` on every entry and
+    raises ``ValueError: missing attributes, was it decorated with
+    @workflow.defn?`` otherwise, so a single undecorated class here makes the
+    worker unconstructable and the process never polls its queue.
+
+    DiscoveryWorkflow, OntologyMappingWorkflow, KnowledgeValidationWorkflow,
+    SolutionArchitectWorkflow and GovernanceWorkflow were previously listed
+    here but are NOT decorated — they are plain classes, never Temporal
+    workflows. They are no longer registered; if they are to become real
+    workflows they must be decorated, not merely named.
+
+    V6 (+StrategyWorkflow) is added when ``ENABLE_V6_WORKFLOWS=on``.
+    Legacy V4.1 workflows are added when ``LEGACY_FDE_MODULES=on``.
     """
     from src.workflows.incident_workflow import IncidentWorkflow
 
     workflows: list[type] = [
         IncidentWorkflow,
         ChiefOfStaffWorkflow,
-        DiscoveryWorkflow,
-        OntologyMappingWorkflow,
-        KnowledgeValidationWorkflow,
-        SolutionArchitectWorkflow,
-        GovernanceWorkflow,
     ]
 
     if os.getenv("ENABLE_V6_WORKFLOWS") == "on":
