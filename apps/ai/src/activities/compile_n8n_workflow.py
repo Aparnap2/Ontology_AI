@@ -8,6 +8,7 @@ runtime through ``runtime/n8n_client.py``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -28,7 +29,7 @@ def _safe_heartbeat(message: str) -> None:
 
 
 @activity.defn(name="compile_n8n_workflow")
-def compile_n8n_workflow(
+async def compile_n8n_workflow(
     draft_dict: dict[str, Any],
     activate: bool = False,
     execute: bool = False,
@@ -45,6 +46,12 @@ def compile_n8n_workflow(
         satisfy Temporal's ``@activity.defn`` constraint which rejects
         keyword-only parameters.
 
+        This activity is ``async``. temporalio requires an
+        ``activity_executor`` to run *synchronous* activities and the
+        worker configures none, so registering this as a sync activity made
+        ``Worker()`` raise ``ValueError`` at construction and took the whole
+        process down at startup.
+
     Returns:
         Result dict from ``n8n_client.compile_and_deploy`` (workflow_id,
         payload, activated, execution).
@@ -55,8 +62,8 @@ def compile_n8n_workflow(
         raise ValueError(f"compile_n8n_workflow requires runtime='n8n', got {draft.runtime!r}")
 
     _safe_heartbeat("compiling")
-    result = n8n_client.compile_and_deploy(
-        draft, activate=activate, execute=execute
+    result = await asyncio.to_thread(
+        n8n_client.compile_and_deploy, draft, activate=activate, execute=execute
     )
     _safe_heartbeat(f"deployed workflow {result.get('workflow_id')}")
     return result

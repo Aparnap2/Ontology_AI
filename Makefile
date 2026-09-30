@@ -76,10 +76,35 @@ clean:
 	cd apps/core && rm -rf bin/
 
 # Generate protobuf code
-proto:
-	@echo "Generating protobuf code..."
-	docker run --rm -v $$(pwd):/workspace -w /workspace bufbuild/buf:latest generate
-	@echo "Protobuf code generated"
+#
+# Go gencode is produced by buf. BUF_VERSION must match the version pinned in
+# .github/workflows/ci-go.yml, and the remote plugin tags in buf.gen.yaml are
+# pinned for the same reason: a floating tag makes local and CI output differ.
+BUF_VERSION ?= 1.55.1
+GO_PROTOBUF_PLUGIN_VERSION ?= v1.36.6
+GO_GRPC_PLUGIN_VERSION ?= v1.5.1
+
+# Python gencode is produced by grpcio-tools from apps/ai, NOT by buf.
+# buf's remote `protocolbuffers/python` plugin tracks protobuf 7.x, which
+# emits a runtime-version guard the locked runtime cannot satisfy:
+#   "Runtime version cannot be older than the linked gencode version"
+# (uv.lock pins protobuf 6.33.x because temporalio 1.21.1 requires <7).
+# grpcio-tools is lockfile-pinned, so its protoc always matches the runtime.
+proto: proto-go proto-python
+	@echo "Protobuf code generated (go + python)"
+
+proto-go:
+	@echo "Generating Go protobuf code with buf $(BUF_VERSION)..."
+	docker run --rm -v $$(pwd):/workspace -w /workspace bufbuild/buf:$(BUF_VERSION) generate
+
+proto-python:
+	@echo "Generating Python protobuf code with lockfile-pinned grpcio-tools..."
+	@test -x apps/ai/.venv/bin/python || \
+		{ echo "apps/ai/.venv missing — run: cd apps/ai && uv sync --frozen"; exit 1; }
+	cd apps/ai && .venv/bin/python -m grpc_tools.protoc -I../../proto \
+		--python_out=../../gen/python --grpc_python_out=../../gen/python \
+		ai/v1/agent.proto
+	@echo "Python protobuf code generated"
 
 # Run E2E verification
 verify:

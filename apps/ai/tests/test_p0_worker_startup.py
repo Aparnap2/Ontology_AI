@@ -80,6 +80,57 @@ class TestWorkerIsCapable:
             "cannot execute the V7 incident path"
         )
 
+    def test_every_registered_activity_is_async(self) -> None:
+        """A sync activity makes Worker() raise at construction time.
+
+        temporalio requires an ``activity_executor`` for synchronous
+        activities and none is configured, so registering one makes the
+        whole worker unconstructable — the process dies at startup rather
+        than serving traffic.
+        """
+        import inspect
+
+        from src.worker import _build_activity_list
+
+        sync = [
+            getattr(a, "__name__", str(a))
+            for a in _build_activity_list()
+            if not inspect.iscoroutinefunction(getattr(a, "__func__", a))
+        ]
+        assert not sync, (
+            f"these activities are synchronous and prevent Worker() from "
+            f"being constructed: {sync}"
+        )
+
+    def test_worker_constructs_against_a_real_or_mocked_client(
+        self, monkeypatch
+    ) -> None:
+        """Regression: worker construction must not raise.
+
+        Constructing the Worker is where an invalid activity set surfaces.
+        This pins that the registry is actually loadable, without needing a
+        live Temporal server.
+        """
+        import asyncio
+
+        from src import worker as worker_mod
+
+        class _FakeWorker:
+            def __init__(self, client, task_queue, workflows, activities, **kw):
+                self._workflows = list(workflows)
+                self._activities = list(activities)
+                self.task_queue = task_queue
+
+        async def _fake_connect(*_a, **_k):
+            return object()
+
+        monkeypatch.setattr(worker_mod, "Worker", _FakeWorker)
+        monkeypatch.setattr(worker_mod, "Client", type("C", (), {"connect": staticmethod(_fake_connect)}))
+
+        built = asyncio.run(worker_mod.create_worker())
+        assert len(built._activities) == len(worker_mod._build_activity_list())
+        assert len(built._workflows) == len(worker_mod._build_workflow_list())
+
     def test_worker_registers_the_v7_incident_activities(self) -> None:
         from src.worker import _build_activity_list
 
