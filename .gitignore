@@ -165,7 +165,20 @@ apps/*/server
 apps/core/bin/
 *.so
 *.dylib
-gen/
+
+# Generated protobuf/grpc code (reproduce with `make proto` / `buf generate`).
+# The gen/go MODULE METADATA below is the exception: apps/core/go.mod has
+# `replace .../gen/go => ../../gen/go`, so a clean clone cannot resolve the
+# module at all unless go.mod/go.sum are present. buf generate emits only
+# *.pb.go — it never writes these two files.
+#
+# Note: `gen/*` rather than `gen/` — git cannot re-include a path whose
+# parent directory is excluded, so the parent must stay traversable.
+gen/*
+!gen/go/
+gen/go/*
+!gen/go/go.mod
+!gen/go/go.sum
 
 # ===============================
 # Test Artifacts
