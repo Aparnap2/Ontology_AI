@@ -1,15 +1,58 @@
+# Render deployment manifest.
+#
+# The previous manifest built ./cmd/demo/main.go, which does not exist in the
+# repository, so the deploy failed at the build step. The only real Go
+# entrypoints are cmd/{server,worker,consumer}.
+#
+# Configuration contract:
+#   LISTEN_ADDR          single source of truth for the HTTP port (:8080)
+#   TEMPORAL_ADDRESS     read by cmd/server and cmd/worker
+#   TEMPORAL_TASK_QUEUE  canonical task queue (ONTOLOGYAI-MAIN-QUEUE)
+#   DATABASE_URL         required; the readiness probe fails without it
 services:
   - type: web
-    name: iterateswarm
+    name: iterateswarm-core
     runtime: go
-    buildCommand: cd apps/core && go build -o ../../bin/demo_server ./cmd/demo/main.go
-    startCommand: ./bin/demo_server
+    rootDir: .
+    buildCommand: ./build.sh
+    startCommand: ./bin/server
+    healthCheckPath: /health/ready
+    autoDeploy: false
     envVars:
+      - key: LISTEN_ADDR
+        value: ":8080"
+      - key: TEMPORAL_ADDRESS
+        value: "temporal:7233"
+      - key: TEMPORAL_NAMESPACE
+        value: "default"
+      - key: TEMPORAL_TASK_QUEUE
+        value: "ONTOLOGYAI-MAIN-QUEUE"
+      - key: REDPANDA_BROKERS
+        value: "redpanda:9094"
+      - key: DATABASE_URL
+        sync: false
       - key: AZURE_OPENAI_ENDPOINT
         sync: false
       - key: AZURE_OPENAI_API_KEY
         sync: false
       - key: AZURE_OPENAI_DEPLOYMENT
         sync: false
-      - key: PORT
-        value: 3000
+
+  - type: worker
+    name: iterateswarm-worker
+    runtime: go
+    rootDir: .
+    buildCommand: ./build.sh
+    startCommand: ./bin/worker
+    autoDeploy: false
+    envVars:
+      - key: TEMPORAL_ADDRESS
+        value: "temporal:7233"
+      - key: TEMPORAL_NAMESPACE
+        value: "default"
+      - key: TEMPORAL_TASK_QUEUE
+        value: "ONTOLOGYAI-MAIN-QUEUE"
+      - key: REDPANDA_BROKERS
+        value: "redpanda:9094"
+      - key: DATABASE_URL
+        sync: false

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -32,13 +33,41 @@ import (
 
 var redpandaClient *redpanda.Client
 
+// envOr returns the environment value for key, or def when unset/empty.
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// envListenAddr resolves the HTTP port from LISTEN_ADDR, the single source of
+// truth shared by every deploy artifact. It accepts ":8080", "0.0.0.0:8080"
+// and a bare "8080" so a misconfigured value still yields a usable port
+// rather than silently binding nothing.
+func envListenAddr() string {
+	raw := os.Getenv("LISTEN_ADDR")
+	if raw == "" {
+		return "3000"
+	}
+	if idx := strings.LastIndex(raw, ":"); idx >= 0 {
+		if p := raw[idx+1:]; p != "" {
+			return p
+		}
+	}
+	return raw
+}
+
 func main() {
 	// Command line flags
-	redpandaBrokers := flag.String("redpanda", "localhost:9094", "Redpanda brokers")
-	temporalAddr := flag.String("temporal", "localhost:7233", "Temporal address")
-	namespace := flag.String("namespace", "default", "Temporal namespace")
-	port := flag.String("port", "3000", "HTTP server port")
-	topic := flag.String("topic", "feedback-events", "Kafka topic")
+	redpandaBrokers := flag.String("redpanda", envOr("REDPANDA_BROKERS", "localhost:9094"), "Redpanda brokers")
+	temporalAddr := flag.String("temporal", envOr("TEMPORAL_ADDRESS", "localhost:7233"), "Temporal address")
+	namespace := flag.String("namespace", envOr("TEMPORAL_NAMESPACE", "default"), "Temporal namespace")
+	// LISTEN_ADDR is the single source of truth for the HTTP port. Every
+	// deploy artifact (render.yaml, docker-compose.prod.yml, the Dockerfile)
+	// sets it, so the -port flag is only a local-development override.
+	port := flag.String("port", envListenAddr(), "HTTP server port")
+	topic := flag.String("topic", envOr("KAFKA_TOPIC", "feedback-events"), "Kafka topic")
 
 	flag.Parse()
 
@@ -54,7 +83,6 @@ func main() {
 	}
 
 	// Initialize Redpanda client (optional - graceful degradation)
-	var redpandaClient *redpanda.Client
 	redpandaClient, err := redpanda.NewClient([]string{*redpandaBrokers}, *topic)
 	if err != nil {
 		log.Printf("Warning: Redpanda unavailable - running in degraded mode: %v", err)
@@ -136,6 +164,7 @@ func main() {
 
 	// Health check routes (no auth required)
 	app.Get("/health", handler.HandleHealth)
+	app.Get("/health/ready", handler.HandleReadiness)
 	app.Get("/health/details", handler.HandleDetailedHealth)
 
 	// Webhook routes (no auth required - platform-specific verification)

@@ -13,6 +13,7 @@ Task queue: ONTOLOGYAI-MAIN-QUEUE (env-overridable, legacy fallback)
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from collections.abc import Callable
@@ -337,6 +338,73 @@ async def create_worker() -> Worker:
     )
 
 
+# ---------------------------------------------------------------------------
+# Health endpoint
+# ---------------------------------------------------------------------------
+#
+# A Temporal worker has no HTTP surface, so container probes had nothing real
+# to call: the compose healthcheck shelled out to `pg_isready`, which is not
+# installed in the python:3.13-slim image, so it could never pass.
+#
+# This serves the same two-probe contract the Go core exposes:
+#   GET /health        liveness  — the process is up (no dependency checks)
+#   GET /health/ready  readiness — Temporal connected and the registry loaded
+#
+# Liveness deliberately does not depend on Temporal: a dependency outage must
+# not cause the orchestrator to restart the worker fleet.
+
+HEALTH_PORT = int(os.getenv("WORKER_HEALTH_PORT", "8081"))
+
+
+def _registry_report() -> dict:
+    """Describe the registry that Temporal accepted at construction time."""
+    try:
+        workflows = [w.__name__ for w in _build_workflow_list()]
+        activities = [getattr(a, "__name__", str(a)) for a in _build_activity_list()]
+        return {
+            "task_queue": TASK_QUEUE,
+            "workflows": workflows,
+            "activities": activities,
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        return {"error": str(exc)}
+
+
+async def _serve_health(ready: asyncio.Event) -> None:
+    """Serve liveness/readiness on WORKER_HEALTH_PORT until cancelled."""
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class _Handler(BaseHTTPRequestHandler):
+        def _reply(self, code: int, payload: dict) -> None:
+            body = json.dumps(payload).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+            if self.path == "/health":
+                self._reply(200, {"status": "alive"})
+            elif self.path == "/health/ready":
+                if ready.is_set():
+                    self._reply(200, {"status": "ready", **_registry_report()})
+                else:
+                    self._reply(
+                        503,
+                        {"status": "not_ready", "reason": "worker not started"},
+                    )
+            else:
+                self._reply(404, {"status": "not_found"})
+
+        def log_message(self, *_a: object) -> None:  # silence access logs
+            return
+
+    server = HTTPServer(("0.0.0.0", HEALTH_PORT), _Handler)
+    log.info("Health endpoint listening on :%d", HEALTH_PORT)
+    await asyncio.get_running_loop().run_in_executor(None, server.serve_forever)
+
+
 async def main() -> None:
     """Entry point for the Temporal worker."""
     logging.basicConfig(
@@ -349,18 +417,28 @@ async def main() -> None:
     worker = await create_worker()
 
     wf_count = len(worker._workflows) if hasattr(worker, "_workflows") else "?"
-    log.info("Worker started — listening on %s", TASK_QUEUE)
-    log.info("Workflows registered: %s — V5.2 canonical (6) | V6=%s | Legacy=%s",
-             wf_count,
-             os.getenv("ENABLE_V6_WORKFLOWS", "off"),
-             os.getenv("LEGACY_FDE_MODULES", "off"))
     act_count = len(worker._activities) if hasattr(worker, "_activities") else "?"
-    log.info("Activities: %s registered (6 base + legacy=%s) | V5.2 specialists: chief_of_staff, discovery, ontology_mapping, knowledge_validation, solution_architect, governance",
-             act_count,
-             os.getenv("LEGACY_FDE_MODULES", "off"))
+    log.info("Worker started — polling %s", TASK_QUEUE)
+    log.info(
+        "Workflows registered: %s (V7 incident + V5.2) | V6=%s | Legacy=%s",
+        wf_count,
+        os.getenv("ENABLE_V6_WORKFLOWS", "off"),
+        os.getenv("LEGACY_FDE_MODULES", "off"),
+    )
+    log.info(
+        "Activities registered: %s (6 base + 9 V7 incident%s)",
+        act_count,
+        f" + legacy" if os.getenv("LEGACY_FDE_MODULES") == "on" else "",
+    )
 
-    async with worker:
-        await asyncio.Future()  # run forever
+    ready = asyncio.Event()
+    health = asyncio.create_task(_serve_health(ready))
+    try:
+        async with worker:
+            ready.set()
+            await asyncio.Future()  # run forever
+    finally:
+        health.cancel()
 
 
 if __name__ == "__main__":

@@ -98,8 +98,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-sarthi}:${POSTGRES_PASSWORD:-sarthi}@host.docker.internal:${POSTGRES_PORT:-5433}/${POSTGRES_DB:-sarthi}
       - REDPANDA_BROKERS=host.docker.internal:19092
-      - TEMPORAL_HOST=temporal:7233
-      - TEMPORAL_QUEUE=${TEMPORAL_QUEUE:-sarthi-queue}
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-ONTOLOGYAI-MAIN-QUEUE}
       - LISTEN_ADDR=:8080
       - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-}
       - TELEGRAM_API_BASE=${TELEGRAM_API_BASE:-http://host.docker.internal:8085}
@@ -127,8 +127,8 @@ services:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
       - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-qwen3:0.6b}
       - OLLAMA_EMBED_MODEL=${OLLAMA_EMBED_MODEL:-nomic-embed-text:latest}
-      - TEMPORAL_HOST=temporal:7233
-      - TEMPORAL_QUEUE=${TEMPORAL_QUEUE:-sarthi-queue}
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-ONTOLOGYAI-MAIN-QUEUE}
       - TELEGRAM_API_BASE=${TELEGRAM_API_BASE:-http://host.docker.internal:8085}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-123:TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-42}
@@ -140,7 +140,9 @@ services:
       - temporal
       - langfuse
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sarthi -d sarthi || exit 1"]
+      # The worker serves its own health endpoint; pg_isready is not installed
+      # in python:3.13-slim so the old probe could never pass.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/health/ready || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

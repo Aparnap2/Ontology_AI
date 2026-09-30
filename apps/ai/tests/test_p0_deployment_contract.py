@@ -62,6 +62,19 @@ def _read(rel: str) -> str:
     return path.read_text() if path.exists() else ""
 
 
+def _code(rel: str) -> str:
+    """File contents with comments stripped.
+
+    Deployment files carry comments explaining past defects, so a naive
+    substring search matches the prose rather than the behaviour. These
+    assertions are about what the artifacts DO, not what they mention.
+    """
+    text = _read(rel)
+    text = re.sub(r"#[^\n]*", "", text)          # shell / yaml / makefile comments
+    text = re.sub(r"//[^\n]*", "", text)         # go comments
+    return text
+
+
 # ---------------------------------------------------------------------------
 # 1. Entrypoint
 # ---------------------------------------------------------------------------
@@ -71,7 +84,7 @@ class TestEntrypointExists:
     def test_no_manifest_references_cmd_demo(self) -> None:
         offenders = []
         for manifest in ("Procfile", "build.sh", "render.yaml", "Makefile"):
-            text = _read(manifest)
+            text = _code(manifest)
             for needle in DEMO_REFS:
                 if needle in text:
                     offenders.append(f"{manifest}: {needle}")
@@ -117,15 +130,29 @@ class TestPortConfiguration:
             "and 8080 mapping are silently ignored"
         )
 
-    def test_listen_addr_not_also_set_to_a_conflicting_value(self) -> None:
+    def test_api_port_mapping_matches_listen_addr(self) -> None:
+        """The service that sets LISTEN_ADDR must map the same port.
+
+        Scoped to the service block that declares LISTEN_ADDR: sibling
+        services (temporal-ui, langfuse, grafana) publish unrelated ports
+        and must not be constrained by the Go core's listen address.
+        """
         for compose in ("docker-compose.prod.yml", "docker-compose.yml"):
             text = _read(compose)
             if "LISTEN_ADDR" not in text:
                 continue
-            ports = re.findall(r"^\s*-\s*[\"']?(\d+):(\d+)[\"']?\s*$", text, re.M)
-            for host_port, _ in ports:
-                assert host_port == "8080", (
-                    f"{compose} maps {host_port} but LISTEN_ADDR is :8080"
+            blocks = re.split(r"\n  (?=- type:|\w)", text)
+            for block in blocks:
+                if "LISTEN_ADDR" not in block:
+                    continue
+                match = re.search(r'LISTEN_ADDR=:?(\d+)', block)
+                if not match:
+                    continue
+                listen_port = match.group(1)
+                maps = re.findall(r"[\"']?(\d+):(\d+)[\"']?", block)
+                assert (listen_port, listen_port) in maps, (
+                    f"{compose}: LISTEN_ADDR is :{listen_port} but the service "
+                    f"publishes {maps}"
                 )
 
 
@@ -206,7 +233,7 @@ class TestMigrationsAreApplied:
 
 class TestPythonWorkerHealth:
     def test_dockerfile_installs_healthcheck_dependency_or_uses_http(self) -> None:
-        dockerfile = _read("apps/ai/Dockerfile")
+        dockerfile = _code("apps/ai/Dockerfile")
         assert dockerfile, "apps/ai/Dockerfile not found"
         uses_pg_isready = "pg_isready" in dockerfile
         has_postgres_client = "postgresql-client" in dockerfile
