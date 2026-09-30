@@ -446,9 +446,13 @@ class TestCapabilityEscalation:
             assert blocks_execution(params, _FakeRole()) is False
 
     async def test_critical_intent_denied_by_ingress(self, mock_cap: dict) -> None:
-        """An intent with risk_tier=CRITICAL submitted through submit_intent
-        MUST be denied (deny:blocked) before any connector write occurs."""
-        role = make_blocker_investigation_role()
+        """A principal whose TRUSTED risk threshold is CRITICAL MUST be denied
+        (deny:blocked) before any connector write occurs.
+
+        The tier is set on the role config, never on the intent: policy must
+        not read risk out of the untrusted ``requested_parameters`` payload.
+        """
+        role = make_blocker_investigation_role(risk_threshold="CRITICAL")
         intent = ActionIntent(
             capability="jira",
             operation="jira.update",
@@ -456,7 +460,6 @@ class TestCapabilityEscalation:
             requested_parameters={
                 "issue_id": "PROJ-1",
                 "fields": {"status": "Done"},
-                "risk_tier": "CRITICAL",
             },
             reason="critical escalation probe",
             evidence_ids=["ev-1"],
@@ -496,9 +499,11 @@ class TestApprovalSpoofing:
     ) -> None:
         """An intent that requires approval but has no signal_handler
         MUST be denied (require_approval:no_handler).  An attacker cannot
-        self-assert approval."""
-        role = make_blocker_investigation_role()
-        # HIGH risk tier requires approval
+        self-assert approval.
+
+        The HIGH tier comes from the trusted role config, not the intent.
+        """
+        role = make_blocker_investigation_role(risk_threshold="HIGH")
         intent = ActionIntent(
             capability="jira",
             operation="jira.update",
@@ -506,7 +511,6 @@ class TestApprovalSpoofing:
             requested_parameters={
                 "issue_id": "PROJ-1",
                 "fields": {"status": "Done"},
-                "risk_tier": "HIGH",
             },
             reason="approval spoofing probe",
             evidence_ids=["ev-1"],

@@ -152,8 +152,15 @@ def reset_idempotency() -> None:
 
 def make_blocker_investigation_role(
     role_caps: list[str] | None = None,
+    risk_threshold: str = "MEDIUM",
 ) -> EmployeeRoleConfig:
-    """Build the config-driven blocker-investigation analyst role for one run."""
+    """Build the config-driven blocker-investigation analyst role for one run.
+
+    ``risk_threshold`` is the TRUSTED risk floor the policy engine reads.
+    It is a parameter (rather than hardcoded) so callers can exercise the
+    approval gate and the CRITICAL execution block through the trusted
+    channel — an intent can no longer lower its own tier.
+    """
     return EmployeeRoleConfig(
         role_id="onboarding-ops",
         role="Onboarding Operations Analyst",
@@ -163,7 +170,7 @@ def make_blocker_investigation_role(
         permissions=["read"],
         policies=[],
         authority={},
-        risk_threshold="MEDIUM",
+        risk_threshold=risk_threshold,  # type: ignore[arg-type]
         kpis=[],
     )
 
