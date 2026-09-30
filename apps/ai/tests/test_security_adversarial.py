@@ -754,6 +754,13 @@ class TestCapabilityOpAllowlistEnforcement:
             "jira.update", ["jira.update", "jira.read"]
         )
 
-    def test_none_role_caps_allows_all(self) -> None:
-        """When role_caps is None, all ops pass (permissive mode)."""
-        capability_ops.CapabilityOpRegistry.assert_allowed("jira.update", None)
+    def test_none_role_caps_denies_all(self) -> None:
+        """When role_caps is None, every op is denied.
+
+        This previously asserted "permissive mode" and codified the
+        fail-open behaviour: an absent allowlist was treated as
+        unrestricted, so a caller that simply omitted a role silently
+        disabled the check. An absent allowlist is not permission.
+        """
+        with pytest.raises(capability_ops.CapabilityNotAllowedError):
+            capability_ops.CapabilityOpRegistry.assert_allowed("jira.update", None)

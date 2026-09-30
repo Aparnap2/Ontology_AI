@@ -61,6 +61,12 @@ async def submit_intent(
             verified=False,
         )
     role_caps = list(getattr(ctx.get("role_config"), "capabilities", []) or [])
+    # The executor's allowlist is the SAME trusted allowlist authorize()
+    # already validated — AuthorizedAction.permissions is derived from
+    # trusted state by authorize() and is guaranteed non-empty (an empty
+    # allowlist fails closed there). Defaulting to None here would hand the
+    # registry an absent allowlist, which it now correctly denies.
+    exec_allowlist = list(authorized.permissions) or role_caps
     if (
         ctx.get("version") is not None
         and ctx.get("current_version") is not None
@@ -114,7 +120,7 @@ async def submit_intent(
                 intent=intent, decision="deny:approval_rejected",
                 result=decision, verified=False,
             )
-    result = _execute(authorized, role_caps=role_caps or None)
+    result = _execute(authorized, role_caps=exec_allowlist or None)
     if authorized.expected_version is not None:
         get_store().advance(version_key)
     verified = False
@@ -122,7 +128,7 @@ async def submit_intent(
         outcome = await verify_execution(
             intent.operation, dict(intent.requested_parameters or {}),
             {}, authorized.tenant_id, capabilities=capabilities,
-            role_caps=role_caps or None,
+            role_caps=exec_allowlist or None,
             result=result.get("data") if isinstance(result, dict) else result,
         )
         verified = outcome.verified

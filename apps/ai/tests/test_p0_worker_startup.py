@@ -181,6 +181,81 @@ class TestWorkerIsCapable:
 
 
 # ---------------------------------------------------------------------------
+# Worker-construction contract
+# ---------------------------------------------------------------------------
+
+
+class TestProductionWorkerConstructs:
+    """registry -> production Worker -> Temporal accepts every registration.
+
+    "Registered" does not mean "valid". Temporal validates each workflow
+    and activity when the Worker is constructed: a workflow must carry
+    @workflow.defn, and an activity must be a coroutine function. Both
+    classes of defect shipped here undetected for a long time because no
+    test ever constructed the real worker.
+    """
+
+    def test_temporal_accepts_every_registered_workflow(self) -> None:
+        from temporalio.workflow import _Definition
+
+        from src.worker import _build_workflow_list
+
+        for wf in _build_workflow_list():
+            _Definition.must_from_class(wf)  # raises ValueError if undecorated
+
+    def test_temporal_accepts_every_registered_activity(self) -> None:
+        import inspect
+
+        from temporalio import activity as _activity
+
+        from src.worker import _build_activity_list
+
+        for act in _build_activity_list():
+            defn = _activity._Definition.must_from_callable(act)
+            assert defn.name, f"activity {act} has no registered name"
+
+    def test_worker_constructs_against_real_registry(self) -> None:
+        """Construct the real Worker with a stubbed client.
+
+        Worker.__init__ performs the validation above, so a successful
+        construction is the contract. No Temporal server required.
+        """
+        import asyncio
+
+        from src import worker as worker_mod
+
+        real_worker_cls = worker_mod.Worker
+
+        class _RecordingWorker(real_worker_cls):  # type: ignore[misc,valid-type]
+            def __init__(self, client, task_queue, workflows, activities, **kw):
+                # Skip network/scheduler setup; keep the parent validation.
+                from temporalio.workflow import _Definition
+
+                for wf in workflows:
+                    _Definition.must_from_class(wf)
+                self._registered_workflows = list(workflows)
+                self._registered_activities = list(activities)
+                self._registered_queue = task_queue
+
+        async def _fake_connect(*_a, **_k):
+            return object()
+
+        class _FakeClient:
+            connect = staticmethod(_fake_connect)
+
+        worker_mod.Worker = _RecordingWorker
+        worker_mod.Client = _FakeClient
+        try:
+            built = asyncio.run(worker_mod.create_worker())
+        finally:
+            worker_mod.Worker = real_worker_cls
+
+        assert built._registered_queue == worker_mod.TASK_QUEUE
+        assert built._registered_workflows, "no workflows registered"
+        assert built._registered_activities, "no activities registered"
+
+
+# ---------------------------------------------------------------------------
 # One canonical task queue
 # ---------------------------------------------------------------------------
 

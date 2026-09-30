@@ -416,9 +416,21 @@ class CapabilityOpRegistry:
 
     @classmethod
     def assert_allowed(cls, name: str, role_caps: list[str] | None) -> None:
-        """Enforce the role capability allowlist (no-op when role_caps is None)."""
+        """Enforce the role capability allowlist. Fails CLOSED.
+
+        An absent (``None``) or empty allowlist grants nothing. Callers
+        legitimately pass ``None`` when no role config is in play, and
+        treating that as "unrestricted" silently disabled this check — the
+        registry is the last line of defence, so it must deny by default.
+        """
         if role_caps is None:
-            return
+            raise CapabilityNotAllowedError(
+                f"op {name} denied: no allowlist supplied for this principal"
+            )
+        if not role_caps:
+            raise CapabilityNotAllowedError(
+                f"op {name} denied: principal has an empty allowlist"
+            )
         if name not in role_caps:
             raise CapabilityNotAllowedError(
                 f"op {name} not in role capability allowlist {role_caps}"
