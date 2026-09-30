@@ -21,7 +21,6 @@ sys.path.insert(0, _PROTO_PATH)
 import ai.v1.agent_pb2 as pb2
 import ai.v1.agent_pb2_grpc as pb2_grpc
 
-from src.activities import AnalyzeFeedbackInput, AnalyzeFeedbackOutput
 from src.services.qdrant import get_qdrant_service
 
 logger = logging.getLogger(__name__)

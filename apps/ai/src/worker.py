@@ -210,11 +210,15 @@ MAX_CONCURRENT = int(os.getenv("WORKER_MAX_CONCURRENT_ACTIVITIES", "10"))
 def _build_workflow_list() -> list[type]:
     """Build the registered workflow list based on env flags.
 
-    Default: exactly 6 V5.2 canonical workflows.
+    Always includes: IncidentWorkflow (the V7 vendor-operations hero path)
+    plus the 6 V5.2 canonical workflows.
     V6 (+StrategyWorkflow) added when ``ENABLE_V6_WORKFLOWS=on``.
     Legacy V4.1 workflows added when ``LEGACY_FDE_MODULES=on``.
     """
+    from src.workflows.incident_workflow import IncidentWorkflow
+
     workflows: list[type] = [
+        IncidentWorkflow,
         ChiefOfStaffWorkflow,
         DiscoveryWorkflow,
         OntologyMappingWorkflow,
@@ -261,10 +265,27 @@ def _build_activity_list() -> list[Callable]:
 
     Always includes: send_slack_message, run_guardian_watchlist,
     compile_n8n_workflow, decay_memory_weights, expire_old_memories,
-    optimize_memory_performance.
+    optimize_memory_performance, and the 9 V7 incident activities that
+    implement the IncidentWorkflow hero path.
+
+    The incident activities are NOT optional. IncidentWorkflow is
+    registered unconditionally, so a worker that omitted them would
+    advertise the workflow and then fail every activity dispatch.
 
     Legacy V4.1 activities added when ``LEGACY_FDE_MODULES=on``.
     """
+    from src.activities.incident_activities import (
+        assemble_checkpoint,
+        create_situation,
+        escalate_situation,
+        execute_capability,
+        generate_action_intent,
+        resolve_situation,
+        run_investigation,
+        submit_to_control_plane,
+        verify_recovery_activity,
+    )
+
     activities: list[Callable] = [
         send_slack_message,
         run_guardian_watchlist,
@@ -272,6 +293,16 @@ def _build_activity_list() -> list[Callable]:
         decay_memory_weights,
         expire_old_memories,
         optimize_memory_performance,
+        # V7 incident hero path
+        create_situation,
+        assemble_checkpoint,
+        run_investigation,
+        generate_action_intent,
+        submit_to_control_plane,
+        execute_capability,
+        verify_recovery_activity,
+        resolve_situation,
+        escalate_situation,
     ]
 
     if os.getenv("LEGACY_FDE_MODULES") == "on":

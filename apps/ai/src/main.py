@@ -15,11 +15,7 @@ from concurrent import futures
 
 import structlog
 import grpc
-from temporalio.client import Client
-from temporalio.worker import Worker
 
-from src.activities import analyze_feedback
-from src.config import get_config
 from src.config.logging import setup_logging
 from src.grpc_server import serve as start_grpc_server, AgentServicer
 
@@ -40,13 +36,19 @@ logger = structlog.get_logger(__name__)
 
 
 async def run_temporal_worker():
-    """Run the Temporal worker for AI activities."""
-    config = get_config()
-    logger.info("Starting Temporal Worker", address=config.temporal.address, task_queue=config.temporal.task_queue)
-    client = await Client.connect(target=config.temporal.address, namespace=config.temporal.namespace)
-    worker = Worker(client, task_queue=config.temporal.task_queue, activities=[analyze_feedback])
-    logger.info("Temporal Worker started, waiting for tasks...")
-    await worker.run()
+    """Run the Temporal worker for AI activities.
+
+    Delegates to :func:`src.worker.main` so there is exactly ONE workflow
+    and activity registry. This module used to construct its own
+    ``Worker`` with a single activity (``analyze_feedback``), which meant a
+    process started here advertised itself as a healthy worker while being
+    unable to dispatch any V7 incident activity — and it read the task queue
+    from ``get_config()`` instead of the canonical ``resolve_task_queue()``.
+    """
+    from src.worker import main as worker_main
+
+    logger.info("Delegating Temporal worker to src.worker (single registry)")
+    await worker_main()
 
 
 async def run_grpc_server(port: str = "[::]:50051"):
