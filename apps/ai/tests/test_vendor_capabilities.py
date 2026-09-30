@@ -109,7 +109,9 @@ def test_tenant_id_flows_into_config(monkeypatch):
 
     monkeypatch.setattr(capability_ops, "_resolve_capability", fake_resolve)
     capability_ops.CapabilityOpRegistry._ops.clear()
-    CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v1"}, "t-acme")
+    CapabilityOpRegistry.execute(
+        "vendor.lookup", {"vendor_id": "v1"}, "t-acme", role_caps=["vendor.lookup"]
+    )
     assert seen == ["t-acme"]
 
 

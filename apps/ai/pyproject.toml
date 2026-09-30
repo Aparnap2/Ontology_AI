@@ -31,7 +31,12 @@ dependencies = [
     "grpcio-tools>=1.76.0",
     "dspy-ai>=3.1.3",
     "deepeval>=3.8.4",
-    "sentence-transformers>=5.2.3",
+    # NOTE: sentence-transformers is NOT a main dependency. It transitively
+    # pulls torch, which resolves ~3GB of CUDA wheels (nvidia-*-cu12) on every
+    # `uv sync` — for a package that no module under src/ imports and that the
+    # only referencing test mocks out with MagicMock. It lives in the
+    # `embeddings` extra below; install with:
+    #     uv sync --extra embeddings
     # PostgreSQL async driver
     "asyncpg>=0.29.0",
     # Graph Database - Graphiti + Neo4j (Sarathi V3.0)
@@ -41,6 +46,12 @@ dependencies = [
     "pdfplumber>=0.10.0",
     "openpyxl>=3.1.0",
     "pytest-timeout>=2.4.0",
+    # Scheduler (src/scheduler/*). Imported unconditionally by
+    # src/scheduler/ontology_ai_scheduler.py and exercised by
+    # tests/test_scheduler.py, but was never declared — a real missing
+    # dependency, pre-existing on the base branch. Small and pure-Python.
+    "apscheduler>=3.10.0",
+    "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.11",
     # Debug HTTP Server
     "fastapi>=0.115.0",
@@ -80,6 +91,11 @@ dev = [
     # AI/LLM Testing
     "deepeval>=0.21.0",
     "openai>=1.0.0",
+]
+# Semantic-embedding support. Opt-in because it pulls torch and ~3GB of CUDA
+# wheels that nothing in src/ needs.
+embeddings = [
+    "sentence-transformers>=5.2.3",
 ]
 
 [tool.pytest.ini_options]

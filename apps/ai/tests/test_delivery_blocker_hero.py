@@ -470,7 +470,8 @@ async def test_hero_verification_failure_not_success(monkeypatch):
 async def test_hero_high_risk_approval_then_execute(monkeypatch):
     """HIGH-risk pauses on InMemorySignalHandler, executes after approval.
 
-    IN-MEMORY DOUBLES: LLM HIGH proposal; MockCap; in-memory signal handler.
+    IN-MEMORY DOUBLES: MockCap; in-memory signal handler; HIGH tier supplied as
+    TRUSTED role config (policy ignores any tier inside the intent payload).
     """
     cap = MockCap()
     monkeypatch.setattr(capability_ops, "_resolve_capability", lambda name, config: cap)
@@ -486,11 +487,11 @@ async def test_hero_high_risk_approval_then_execute(monkeypatch):
     _evidence, _checkpoint, situation, mission = _situation_chain(resolution)
     assert mission.situation_id == situation.id
 
-    _mock_llm(monkeypatch, _update_proposal(risk_tier="HIGH"))
+    _mock_llm(monkeypatch, _update_proposal())
     handler = InMemorySignalHandler()
     task = asyncio.create_task(
         run_blocker_investigation_mission(
-            _onboarding(), SLACK, signal_handler=handler
+            _onboarding(), SLACK, signal_handler=handler, risk_threshold="HIGH"
         )
     )
     for _ in range(200):

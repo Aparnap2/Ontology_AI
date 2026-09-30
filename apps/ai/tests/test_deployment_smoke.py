@@ -262,8 +262,8 @@ async def test_full_flow_vendor_incident_0213() -> None:
         role="Communications Triage",
         goals=["Triage vendor incidents"],
         skills=["vendor_ticket_management"],
-        capabilities=["vendor_ticket.create"],
-        permissions=["read", "write", "vendor_escalate"],
+        capabilities=["vendor_ticket.create", "slack.send"],
+        permissions=["read", "write", "vendor_escalate", "vendor_ticket.create", "slack.send"],
         policies=["policy.vendor.incident"],
         authority={"approve": [], "escalate": ["founder"], "execute": ["self"]},
         risk_threshold="MEDIUM",
@@ -277,7 +277,7 @@ async def test_full_flow_vendor_incident_0213() -> None:
         "mission_id": "m-vendor-001",
         "employee_id": "emp-comms-001",
         "actor_identity": "comms-triage-agent",
-        "permissions": ["read", "write", "vendor_escalate"],
+        "permissions": ["read", "write", "vendor_escalate", "vendor_ticket.create", "slack.send"],
         "role_config": role_config,
         "business_scope": "vendor_incident_response",
     }
@@ -404,7 +404,9 @@ async def test_idempotency_prevents_duplicate_execution() -> None:
         "mission_id": "m-comms-001",
         "employee_id": "emp-comms-001",
         "actor_identity": "comms-agent",
-        "permissions": ["read", "write", "notify"],
+        # slack.send is the operation this mission performs; without it in the
+        # allowlist the control plane correctly denies before any side effect.
+        "permissions": ["read", "write", "notify", "slack.send"],
     }
 
     # First submission — should succeed
@@ -427,7 +429,6 @@ async def test_blocked_critical_intent_rejected() -> None:
             "vendor_id": "aws",
             "title": "Critical: database failover",
             "severity": "critical",
-            "risk_tier": "CRITICAL",
         },
         reason="Emergency failover.",
         evidence_ids=[],
@@ -436,12 +437,33 @@ async def test_blocked_critical_intent_rejected() -> None:
         requested_by="ops-agent",
     )
 
+    # The CRITICAL tier is TRUSTED state, not intent payload: policy no longer
+    # reads risk_tier out of requested_parameters, so an injected tier cannot
+    # reach the block. The principal also needs authority for the operation,
+    # otherwise authorization would deny first and the policy gate would never
+    # be exercised — which is the actual subject of this test.
+    critical_role = EmployeeRoleConfig(
+        role_id="ops",
+        role="Operations",
+        goals=["keep services healthy"],
+        skills=["vendor_ticket_management"],
+        capabilities=["vendor_ticket.create"],
+        permissions=["vendor_ticket.create"],
+        policies=[],
+        authority={},
+        risk_threshold="CRITICAL",
+        kpis=[],
+        memory_namespace="ops",
+        mission_types=["vendor_incident_response"],
+    )
+
     trusted_context = {
         "tenant_id": "t-001",
         "mission_id": "m-ops-001",
         "employee_id": "emp-ops-001",
         "actor_identity": "ops-agent",
-        "permissions": ["read", "write"],
+        "permissions": ["vendor_ticket.create"],
+        "role_config": critical_role,
     }
 
     result = await submit_intent(intent, trusted_context)

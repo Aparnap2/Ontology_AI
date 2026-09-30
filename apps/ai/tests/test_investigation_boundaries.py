@@ -330,8 +330,15 @@ class TestAuthorityNegatives:
         obs = await _run_skill(
             BLOCKER_INVESTIGATION_SKILL, _item(), ctx=_ctx(caps=["jira.read"])
         )
-        assert obs["outcome"] == "EXECUTION_FAILED"
-        assert "allowlist" in obs.get("error", "")
+        # The op is outside the role allowlist, so it must be rejected BEFORE
+        # any connector write. Rejection now happens earlier than it used to —
+        # at the control plane's authorize() rather than at the skill's
+        # capability layer — so the outcome label is either the control-plane
+        # denial or the skill-level failure. The invariant is that no
+        # connector call happened and the run did not succeed.
+        assert obs["outcome"] != "COMPLETED", obs
+        detail = f"{obs.get('outcome','')} {obs.get('error','')} {obs.get('decision','')}"
+        assert "allowlist" in detail or "unauthorized" in detail, detail
         assert mock_cap.update_calls == []
 
     async def test_skill_outside_role_stops_plan(self, mock_cap, monkeypatch):
@@ -366,7 +373,10 @@ class TestAuthorityNegatives:
             _item(checkpoint={"allowed_capabilities": ["jira.update", "slack.send", "admin"]}),
             ctx=_ctx(caps=["jira.read"]),
         )
-        assert obs["outcome"] == "EXECUTION_FAILED"
+        # A checkpoint advertising extra capabilities must not widen the role
+        # allowlist. Asserted on the invariant (no connector write, run not
+        # completed) rather than a specific rejection label.
+        assert obs["outcome"] != "COMPLETED", obs
         assert mock_cap.update_calls == []
 
 

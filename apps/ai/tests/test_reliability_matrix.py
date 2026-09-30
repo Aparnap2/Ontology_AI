@@ -93,7 +93,10 @@ def _trusted_ctx(**overrides: object) -> dict[str, object]:
         "mission_id": _MISSION_A,
         "employee_id": "emp-qa-01",
         "actor_identity": "qa-agent",
-        "permissions": ["vendor.search"],
+        # Grant the capability the intents actually exercise (incident.search).
+        # These tests cover duplicate handling and stale-version rejection,
+        # not authorization.
+        "permissions": ["vendor.search", "incident.search"],
     }
     base.update(overrides)
     return base

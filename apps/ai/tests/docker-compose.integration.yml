@@ -1,0 +1,121 @@
+# =============================================================================
+# Local integration stack for OntologyAI (Temporal + Postgres + vendor mock)
+# =============================================================================
+# WHY THIS FILE EXISTS
+# --------------------
+# Temporal used to wedge forever on:
+#     Waiting for PostgreSQL to startup.
+# Root cause was NOT Postgres auth and NOT the driver. The auto-setup entrypoint
+# probes the port via:
+#     : "${DB_PORT:=3306}"                      <-- defaults to the MYSQL port
+#     wait_for_postgres() {
+#         until nc -z "${POSTGRES_SEEDS%%,*}" "${DB_PORT}"; do
+# `POSTGRES_PORT` appears NOWHERE in the image -- it is a decoy variable. So with
+# `DB_PORT` unset, Temporal TCP-probed port 3306 on a Postgres server and looped
+# forever. Two more latent bugs were hidden behind it and are fixed here:
+#   * BIND_ON_IP must be 0.0.0.0. The entrypoint otherwise derives it from the
+#     container IP, but the config's clusterInformation.active.rpcAddress is
+#     hardcoded to 127.0.0.1:7233 -> the frontend cannot resolve itself as the
+#     master node and the server exits 1 (crash loop).
+#   * DYNAMIC_CONFIG_FILE_PATH must be the absolute path to the file that
+#     actually exists in the image (/etc/temporal/config/dynamicconfig/docker.yaml).
+#
+# IMAGES: all of these are already present on this machine. No pulls.
+#   temporalio/auto-setup:latest   temporalio/ui:latest
+#   postgres:16-alpine             mockoon/cli:latest
+#
+# POSTGRES IS NOT DEFINED HERE ON PURPOSE. This stack reuses the already-running
+# `localgcp-cloudsql` container (postgres:16-alpine) over the shared `ontnet`
+# network. Per the standing rule: reuse, do not proliferate. Do not add a second
+# Postgres service here.
+#
+# BRING-UP (from the repo root):
+#   docker network inspect ontnet >/dev/null 2>&1 || docker network create ontnet
+#   docker network connect ontnet localgcp-cloudsql 2>/dev/null || true
+#   docker start localgcp-cloudsql 2>/dev/null || true
+#   chmod +x apps/ai/tests/health_check.sh     # one-time; not exec-bit by default
+#   docker compose -f apps/ai/tests/docker-compose.integration.yml up -d
+#   bash apps/ai/tests/health_check.sh         # or ./... once chmod'd; exits 0 when ready
+#
+# TEAR-DOWN:
+#   docker compose -f apps/ai/tests/docker-compose.integration.yml down
+#   # `down` removes ONLY the two containers above. `ontnet` is declared
+#   # external, and localgcp-cloudsql is not a service here, so both survive.
+# =============================================================================
+
+services:
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: ontologiai-temporal
+    restart: unless-stopped
+    command: ["autosetup"]
+    ports:
+      # Host-side Temporal client target: apps/ai/pyproject.toml sets
+      # TEMPORAL_ADDRESS = "localhost:7233"
+      - "7233:7233"
+    environment:
+      # --- THE ACTUAL WEDGE FIX: DB_PORT, not POSTGRES_PORT ---
+      DB: "postgres12"
+      DB_PORT: "5432"
+
+      # Seed by CONTAINER NAME, not IP. The hardcoded 10.0.9.x that this stack
+      # used previously is why the stack died on every host reboot / Postgres
+      # restart -- the IP moves and the env var does not. Docker's embedded DNS
+      # on a user-defined network resolves the name, so this survives reboots.
+      POSTGRES_SEEDS: "localgcp-cloudsql"
+      POSTGRES_USER: "temporal"
+      POSTGRES_PWD: "temporal"
+      DBNAME: "temporal"
+      VISIBILITY_DBNAME: "temporal_visibility"
+
+      # --- BIND_ON_IP FIX: must be 0.0.0.0, see header ---
+      BIND_ON_IP: "0.0.0.0"
+      TEMPORAL_ADDRESS: "0.0.0.0:7233"
+
+      # --- dynamic config path fix (the old relative path did not exist) ---
+      DYNAMIC_CONFIG_FILE_PATH: "/etc/temporal/config/dynamicconfig/docker.yaml"
+
+      LOG_LEVEL: "info"
+    networks:
+      - ontnet
+    # Real readiness proof, not a port check. The image's own auto-setup uses
+    # this exact probe. NOTE: an open 7233 is a FALSE POSITIVE -- the gRPC
+    # listener binds before the persistence backend is reachable, so a plain
+    # TCP check passes on a wedged server. This probe only goes SERVING once the
+    # frontend, history, matching and worker services are actually up.
+    healthcheck:
+      test:
+        ["CMD-SHELL", "temporal operator cluster health --address 127.0.0.1:7233 2>/dev/null | grep -q SERVING"]
+      interval: 5s
+      timeout: 10s
+      retries: 40
+      start_period: 20s
+
+  vendor-mock:
+    image: mockoon/cli:latest
+    container_name: ontologiai-vendor-mock
+    restart: unless-stopped
+    # Entrypoint is: mockoon-cli start --disable-log-to-file
+    # so args below are appended to it.
+    command: ["--data", "/data/jira.json"]
+    ports:
+      # apps/ai/pyproject.toml sets VENDOR_API_URL = "http://localhost:3003"
+      - "3003:3003"
+    volumes:
+      - ../../../mockoon/jira.json:/data/jira.json:ro
+    healthcheck:
+      # /rest/api/3/project is a static 200 route in the fixture.
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:3003/rest/api/3/project || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks:
+      - ontnet
+
+networks:
+  # Pre-existing shared network. Also holds `localgcp-cloudsql` (Postgres).
+  # Marked external so this stack never tries to delete it on `down`.
+  ontnet:
+    external: true
+    name: ontnet

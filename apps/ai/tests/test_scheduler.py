@@ -27,7 +27,10 @@ async def test_scheduler_connects_to_postgres():
 async def test_jobs_persist_in_database():
     """Jobs must be stored in Postgres apscheduler_jobs table."""
     import psycopg2
-    conn = psycopg2.connect("postgresql://iterateswarm:iterateswarm@localhost:5433/iterateswarm")
+    # Use the same DATABASE_URL the scheduler is configured with (line 10)
+    # instead of a second hardcoded DSN. The assertion is unchanged; only
+    # the duplicated, divergent connection string is removed.
+    conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM apscheduler_jobs")
     count = cur.fetchone()[0]

@@ -60,7 +60,11 @@ _TRUSTED_CTX: dict[str, Any] = {
     "mission_id": "mission-1",
     "employee_id": "emp-ops",
     "actor_identity": "test-orchestrator",
-    "permissions": ["project.write"],
+    # The principal must hold authority for the operation the intents
+    # actually exercise (jira.create). These tests cover idempotency and
+    # version progression, not authorization, so granting the real
+    # capability keeps them testing their own subject.
+    "permissions": ["project.write", "jira.create"],
     "business_scope": "onboarding",
 }
 

@@ -240,7 +240,10 @@ class TestVendorHTTP500:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         with pytest.raises(VendorRetryableError, match="HTTP 500"):
-            CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v-1"}, "t1")
+            CapabilityOpRegistry.execute(
+                "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+                role_caps=["vendor.lookup"],
+            )
 
 
 class TestVendorHTTP429:
@@ -256,7 +259,10 @@ class TestVendorHTTP429:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         with pytest.raises(VendorRetryableError, match="429"):
-            CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v-1"}, "t1")
+            CapabilityOpRegistry.execute(
+                "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+                role_caps=["vendor.lookup"],
+            )
 
 
 class TestVendorTimeout:
@@ -273,7 +279,10 @@ class TestVendorTimeout:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         with pytest.raises(VendorRetryableError, match="Timeout"):
-            CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v-1"}, "t1")
+            CapabilityOpRegistry.execute(
+                "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+                role_caps=["vendor.lookup"],
+            )
 
 
 class TestVendorInvalidPayload:
@@ -291,7 +300,10 @@ class TestVendorInvalidPayload:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         with pytest.raises(VendorTerminalError, match="ParseError"):
-            CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v-1"}, "t1")
+            CapabilityOpRegistry.execute(
+                "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+                role_caps=["vendor.lookup"],
+            )
 
 
 class TestVendorConnectionRefused:
@@ -309,7 +321,10 @@ class TestVendorConnectionRefused:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         with pytest.raises(VendorRetryableError, match="ConnectionRefused"):
-            CapabilityOpRegistry.execute("vendor.lookup", {"vendor_id": "v-1"}, "t1")
+            CapabilityOpRegistry.execute(
+                "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+                role_caps=["vendor.lookup"],
+            )
 
 
 class TestVendorPartialResponse:
@@ -324,7 +339,8 @@ class TestVendorPartialResponse:
         capability_ops.CapabilityOpRegistry._ops.clear()
 
         result = CapabilityOpRegistry.execute(
-            "vendor.lookup", {"vendor_id": "v-1"}, "t1"
+            "vendor.lookup", {"vendor_id": "v-1"}, "t1",
+            role_caps=["vendor.lookup"],
         )
         assert result["ok"] is True
         # Data is incomplete — only id present

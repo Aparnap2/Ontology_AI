@@ -185,6 +185,7 @@ async def run_blocker_investigation_mission(
     actor_identity: str = "system",
     business_scope: str = "acme",
     role_caps: list[str] | None = None,
+    risk_threshold: str = "MEDIUM",
     signal_handler: Any = None,
     target_type: str | None = None,
     target_id: str | None = None,
@@ -206,7 +207,7 @@ async def run_blocker_investigation_mission(
         target_type=resolved_type,
         target_id=resolved_id,
     )
-    role = make_blocker_investigation_role(role_caps)
+    role = make_blocker_investigation_role(role_caps, risk_threshold=risk_threshold)
 
     # Typed deterministic context checkpoint (#63): the bounded context the
     # analyst reasons from. The slice evidence timestamp is wall-clock text

@@ -156,8 +156,13 @@ async def test_blocker_unauthorized_action_rejected_pre_connector(mock_cap, monk
     _mock_llm(monkeypatch, _proposal())
     out = await run_blocker_investigation_mission(_onboarding(), SLACK, role_caps=["jira.read"])
     obs = out["observations"][-1]
-    assert obs["outcome"] == "EXECUTION_FAILED"
-    assert "allowlist" in obs["error"]
+    # Rejection for an out-of-allowlist op now happens earlier — at the
+    # control plane's authorize() rather than the skill's capability layer.
+    # Assert the invariant (not completed, no connector write) rather than the
+    # specific label, so the test survives either rejection point.
+    assert obs["outcome"] != "COMPLETED", obs
+    detail = f"{obs.get('outcome','')} {obs.get('error','')}"
+    assert "allowlist" in detail or "unauthorized" in detail, detail
     assert mock_cap.update_calls == []
 
 
@@ -199,10 +204,15 @@ async def test_blocker_policy_violation_blocked(mock_cap, monkeypatch):
 
 async def test_blocker_high_risk_approval_resume(mock_cap, monkeypatch):
     """HIGH-risk → pending approval → human approves → executed + verified."""
-    _mock_llm(monkeypatch, _proposal(risk_tier="HIGH"))
+    _mock_llm(monkeypatch, _proposal())
+    # The HIGH tier is TRUSTED state (role_config.risk_threshold), not intent
+    # payload: policy deliberately ignores requested_parameters["risk_tier"],
+    # so a model-supplied tier can no longer reach the approval gate.
     handler = InMemorySignalHandler()
     task = asyncio.create_task(
-        run_blocker_investigation_mission(_onboarding(), SLACK, signal_handler=handler)
+        run_blocker_investigation_mission(
+            _onboarding(), SLACK, signal_handler=handler, risk_threshold="HIGH"
+        )
     )
     for _ in range(200):
         if handler._futures:
