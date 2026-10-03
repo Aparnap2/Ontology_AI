@@ -25,7 +25,6 @@ from typing import Any, Optional
 from src.agents.agent_bus import AgentBus
 from src.schemas.specialist_response import SpecialistResponse
 from src.schemas.engagement_state import EngagementState, merge_patch
-from src.ontology.object_types import OBJECT_TYPES
 
 
 # Deterministic intent classification keywords (PRD §16.1 step 3).

@@ -122,12 +122,22 @@ class TestWorkerRegistration:
                             if isinstance(elt, ast.Name):
                                 workflows_list_elts.add(elt.id)
 
+        # Only classes carrying @workflow.defn may be registered: Temporal
+        # raises "missing attributes, was it decorated with @workflow.defn?"
+        # for anything else, which made Worker() unconstructable.
+        assert "IncidentWorkflow" in workflows_list_elts
         assert "ChiefOfStaffWorkflow" in workflows_list_elts
-        assert "DiscoveryWorkflow" in workflows_list_elts
-        assert "OntologyMappingWorkflow" in workflows_list_elts
-        assert "KnowledgeValidationWorkflow" in workflows_list_elts
-        assert "SolutionArchitectWorkflow" in workflows_list_elts
-        assert "GovernanceWorkflow" in workflows_list_elts
+        for undecorated in (
+            "DiscoveryWorkflow",
+            "OntologyMappingWorkflow",
+            "KnowledgeValidationWorkflow",
+            "SolutionArchitectWorkflow",
+            "GovernanceWorkflow",
+        ):
+            assert undecorated not in workflows_list_elts, (
+                f"{undecorated} carries no @workflow.defn and must not be "
+                "registered with the worker"
+            )
         # StrategyWorkflow should NOT be in the default list
         assert "StrategyWorkflow" not in workflows_list_elts, (
             "StrategyWorkflow must NOT be in default worker workflow list"
@@ -151,6 +161,21 @@ class TestActivityRegistration:
         "optimize_memory_performance",
     }
 
+    # V7 incident hero-path activities (9). NOT optional: IncidentWorkflow is
+    # registered unconditionally, so omitting these would advertise the
+    # workflow and then fail every activity dispatch.
+    INCIDENT_ACTIVITIES = {
+        "create_situation",
+        "assemble_checkpoint",
+        "run_investigation",
+        "generate_action_intent",
+        "submit_to_control_plane",
+        "execute_capability",
+        "verify_recovery_activity",
+        "resolve_situation",
+        "escalate_situation",
+    }
+
     # Legacy V4.1 activities (4)
     LEGACY_ACTIVITIES = {
         "run_pulse_agent",
@@ -159,19 +184,17 @@ class TestActivityRegistration:
         "run_qa_agent",
     }
 
-    ALL_ACTIVITIES = BASE_ACTIVITIES | LEGACY_ACTIVITIES  # 10 total
+    ALL_ACTIVITIES = BASE_ACTIVITIES | INCIDENT_ACTIVITIES | LEGACY_ACTIVITIES
 
-    def test_default_roster_is_exactly_6(self):
-        """Default _build_activity_list() (no flags) returns exactly 6."""
+    def test_default_roster_is_base_plus_incident(self):
+        """Default _build_activity_list() returns the 6 base + 9 incident activities."""
         from src.worker import _build_activity_list
 
         acts = _build_activity_list()
         names = {f.__name__ for f in acts}
-        assert len(acts) == 6, (
-            f"Default activity roster must have exactly 6, got {len(acts)}: {sorted(names)}"
-        )
-        assert names == self.BASE_ACTIVITIES, (
-            f"Default activities mismatch. Expected: {sorted(self.BASE_ACTIVITIES)}, "
+        expected = self.BASE_ACTIVITIES | self.INCIDENT_ACTIVITIES
+        assert names == expected, (
+            f"Default activity roster mismatch. Expected: {sorted(expected)}, "
             f"Got: {sorted(names)}"
         )
 
@@ -185,16 +208,16 @@ class TestActivityRegistration:
             f"{names & self.LEGACY_ACTIVITIES}"
         )
 
-    def test_legacy_flag_includes_all_10(self, monkeypatch):
-        """Setting LEGACY_FDE_MODULES=on includes all 10 activities."""
+    def test_legacy_flag_includes_legacy_activities(self, monkeypatch):
+        """Setting LEGACY_FDE_MODULES=on adds the 4 legacy activities."""
         monkeypatch.setenv("LEGACY_FDE_MODULES", "on")
 
         from src.worker import _build_activity_list
 
         acts = _build_activity_list()
         names = {f.__name__ for f in acts}
-        assert len(acts) == 10, (
-            f"With LEGACY_FDE_MODULES=on, must have exactly 10 activities, "
+        assert names == self.ALL_ACTIVITIES, (
+            f"With LEGACY_FDE_MODULES=on, expected base+incident+legacy, "
             f"got {len(acts)}: {sorted(names)}"
         )
         assert names == self.ALL_ACTIVITIES, (

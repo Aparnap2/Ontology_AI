@@ -27,7 +27,6 @@ import ast
 import inspect
 from pathlib import Path
 
-import pytest
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
@@ -204,7 +203,6 @@ class TestProductionWorkerConstructs:
             _Definition.must_from_class(wf)  # raises ValueError if undecorated
 
     def test_temporal_accepts_every_registered_activity(self) -> None:
-        import inspect
 
         from temporalio import activity as _activity
 

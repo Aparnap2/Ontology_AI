@@ -482,16 +482,34 @@ class TestWorkerModuleRegistration:
 
     # -- From test_workflows_v2.py :: TestWorkerRegistrationV2 ----------------
 
-    def test_worker_imports_canonical_workflows(self):
-        """6-canonical workflows are exposed on the worker module."""
+    def test_worker_exposes_real_temporal_workflows(self):
+        """The worker module exposes the real @workflow.defn workflows.
+
+        IncidentWorkflow is imported lazily inside _build_workflow_list, so it
+        is not a module attribute. The five V5.2 names that were previously
+        asserted here carry no @workflow.defn; registering them made
+        Worker() raise "missing attributes, was it decorated with
+        @workflow.defn?", so they are no longer imported at module scope.
+        """
         from src import worker
+        from src.workflows.incident_workflow import IncidentWorkflow
+        from temporalio.workflow import _Definition
 
         assert hasattr(worker, "ChiefOfStaffWorkflow")
-        assert hasattr(worker, "DiscoveryWorkflow")
-        assert hasattr(worker, "OntologyMappingWorkflow")
-        assert hasattr(worker, "KnowledgeValidationWorkflow")
-        assert hasattr(worker, "SolutionArchitectWorkflow")
-        assert hasattr(worker, "GovernanceWorkflow")
+        _Definition.must_from_class(worker.ChiefOfStaffWorkflow)
+        _Definition.must_from_class(IncidentWorkflow)
+
+        for undecorated in (
+            "DiscoveryWorkflow",
+            "OntologyMappingWorkflow",
+            "KnowledgeValidationWorkflow",
+            "SolutionArchitectWorkflow",
+            "GovernanceWorkflow",
+        ):
+            assert not hasattr(worker, undecorated), (
+                f"{undecorated} is not a Temporal workflow and must not be "
+                "imported at worker module scope"
+            )
 
     def test_worker_does_not_import_legacy_workflows_by_default(self):
         """Legacy V4.2 workflows are NOT in the default worker module scope."""

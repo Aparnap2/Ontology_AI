@@ -2,8 +2,7 @@
 OntologyAI Temporal Worker — V5.2 Canonical Names.
 
 Default active roster is EXACTLY 6 V5.2 workflows:
-    ChiefOfStaffWorkflow, DiscoveryWorkflow, OntologyMappingWorkflow,
-    KnowledgeValidationWorkflow, SolutionArchitectWorkflow, GovernanceWorkflow
+    ChiefOfStaffWorkflow
 
 V6 StrategyWorkflow is gated behind ``ENABLE_V6_WORKFLOWS=on``.
 Legacy V4.1 workflows are gated behind ``LEGACY_FDE_MODULES=on``.
@@ -27,11 +26,6 @@ from src.integrations import legacy_integrations_enabled
 
 # ── V5.2 canonical workflow imports (always importable) ─────────────────
 from src.workflows.chief_of_staff_workflow import ChiefOfStaffWorkflow
-from src.workflows.discovery_workflow import DiscoveryWorkflow
-from src.workflows.ontology_mapping_workflow import OntologyMappingWorkflow
-from src.workflows.knowledge_validation_workflow import KnowledgeValidationWorkflow
-from src.workflows.solution_architect_workflow import SolutionArchitectWorkflow
-from src.workflows.governance_workflow import GovernanceWorkflow
 
 # ── Always-included activity imports ────────────────────────────────────
 from src.activities.send_slack_message import send_slack_message
@@ -428,7 +422,7 @@ async def main() -> None:
     log.info(
         "Activities registered: %s (6 base + 9 V7 incident%s)",
         act_count,
-        f" + legacy" if os.getenv("LEGACY_FDE_MODULES") == "on" else "",
+        " + legacy" if os.getenv("LEGACY_FDE_MODULES") == "on" else "",
     )
 
     ready = asyncio.Event()
