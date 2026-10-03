@@ -104,6 +104,15 @@ testpaths = ["tests"]
 addopts = ["-v", "--timeout=30"]
 markers = [
     "integration: tests that require external services (Qdrant, etc.)",
+    # Suite classification. The deterministic regression gate is
+    #   pytest -m "not llm"
+    # and the live-model evaluation gate is
+    #   pytest -m llm
+    # Classification is explicit and static. It is NOT derived from whether a
+    # credential happens to be present, so a suite cannot silently flip
+    # between "regression" and "evaluation" depending on the environment.
+    "llm: requires a live LLM provider and credentials (semantic/model evaluation, NOT deterministic regression)",
+    "e2e: exercises the complete runtime path end to end",
 ]
 
 [tool.pytest_env]

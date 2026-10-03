@@ -23,6 +23,12 @@ from pytest_asyncio import fixture as aio_fixture
 from src.mission.decision import MissionDecision, MissionDecisionEngine
 from src.mission.storage import MissionMetrics, MissionStateStore
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+pytestmark = pytest.mark.llm
+
+
 pytestmark = [pytest.mark.integration]
 
 # Connect to the real worker container (localhost:5433) by default; tests can

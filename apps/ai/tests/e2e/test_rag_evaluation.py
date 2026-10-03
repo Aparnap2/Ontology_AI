@@ -25,6 +25,12 @@ from deepeval.test_case import LLMTestCase
 from src.config.llm import get_llm_client, get_chat_model
 from src.memory.episodic import EpisodicMemory
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+pytestmark = pytest.mark.llm
+
+
 
 TEST_TENANT_ID = "test-rag-eval-001"
 
