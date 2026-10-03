@@ -12,6 +12,8 @@ execution funnels exclusively through :mod:`executor`, which wraps
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from typing import Any
 
 from src.control_plane.approval import await_approval, request_approval
@@ -20,11 +22,34 @@ from src.control_plane.authorization import authorize
 from src.control_plane.concurrency import get_store
 from src.control_plane.contracts import ActionIntent
 from src.control_plane.executor import execute as _execute
-from src.control_plane.idempotency import get_seen
+from src.control_plane.idempotency import IdempotencyConflictError, get_seen
 from src.control_plane.policy import is_blocked, needs_approval
 from src.control_plane.verification import outcome_event, verify_execution
 
 _seen = get_seen()
+
+
+
+def _payload_hash(intent: Any) -> str:
+    """Stable hash of the request an idempotency key stands for.
+
+    Two submissions sharing a key but carrying different payloads are not
+    duplicates — they are a key collision, and must be surfaced rather than
+    silently collapsed.
+    """
+    try:
+        blob = json.dumps(
+            {
+                "operation": intent.operation,
+                "target": intent.target_reference,
+                "params": intent.requested_parameters,
+            },
+            sort_keys=True,
+            default=str,
+        )
+    except (TypeError, ValueError):
+        return ""
+    return hashlib.sha256(blob.encode()).hexdigest()
 
 
 async def submit_intent(
@@ -81,7 +106,22 @@ async def submit_intent(
             mission_id=authorized.mission_id, action_id=authorized.action_id,
             intent=intent, decision="deny:blocked", verified=False,
         )
-    if _seen.is_duplicate(authorized.idempotency_key):
+    # ATOMIC RESERVATION. This used to be check-then-act: is_duplicate()
+    # checked here and mark() ran only after execution, so every concurrent
+    # submitter inside the execution window passed the check and executed.
+    # claim() is a compare-and-set, so exactly one caller can proceed.
+    payload_hash = _payload_hash(intent)
+    claim_owner = f"{authorized.action_id}:{id(authorized)}"
+    try:
+        claimed = _seen.claim(
+            authorized.idempotency_key, claim_owner, payload_hash
+        )
+    except IdempotencyConflictError:
+        return append_event(
+            mission_id=authorized.mission_id, action_id=authorized.action_id,
+            intent=intent, decision="deny:idempotency_key_conflict", verified=False,
+        )
+    if not claimed:
         return append_event(
             mission_id=authorized.mission_id, action_id=authorized.action_id,
             intent=intent, decision="deny:duplicate", verified=False,
@@ -89,6 +129,7 @@ async def submit_intent(
     version_key = f"{authorized.tenant_id}:{authorized.mission_id}"
     if authorized.expected_version is not None:
         if get_store().current(version_key) != authorized.expected_version:
+            _seen.release(authorized.idempotency_key, claim_owner)
             return append_event(
                 mission_id=authorized.mission_id, action_id=authorized.action_id,
                 intent=intent, decision="deny:stale_version", verified=False,
@@ -109,18 +150,27 @@ async def submit_intent(
                     await_approval(signal_handler), timeout=float(timeout)
                 )
         except TimeoutError:
-            _seen.mark(authorized.idempotency_key)
+            # Nothing executed, so the claim must stay retryable.
+            _seen.release(authorized.idempotency_key, claim_owner)
             return append_event(
                 mission_id=authorized.mission_id, action_id=authorized.action_id,
                 intent=intent, decision="deny:approval_expired", verified=False,
             )
         if not decision.get("approved", False):
+            _seen.release(authorized.idempotency_key, claim_owner)
             return append_event(
                 mission_id=authorized.mission_id, action_id=authorized.action_id,
                 intent=intent, decision="deny:approval_rejected",
                 result=decision, verified=False,
             )
-    result = _execute(authorized, role_caps=exec_allowlist or None)
+    try:
+        result = _execute(authorized, role_caps=exec_allowlist or None)
+    except Exception:
+        # The external outcome is unknown. Release rather than commit: a
+        # committed key can never run again, and an unknown outcome must be
+        # verified before any retry rather than silently dropped.
+        _seen.release(authorized.idempotency_key, claim_owner)
+        raise
     if authorized.expected_version is not None:
         get_store().advance(version_key)
     verified = False
@@ -133,7 +183,7 @@ async def submit_intent(
         )
         verified = outcome.verified
         result = {**result, **outcome_event(authorized.action_id, outcome)}
-    _seen.mark(authorized.idempotency_key)
+    _seen.commit(authorized.idempotency_key, claim_owner)
     return append_event(
         mission_id=authorized.mission_id, action_id=authorized.action_id,
         intent=intent, decision="permit:executed", result=result, verified=verified,

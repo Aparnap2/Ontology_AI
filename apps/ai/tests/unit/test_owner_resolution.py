@@ -66,11 +66,11 @@ def mock_cap(monkeypatch):
         capability_ops, "_resolve_capability", lambda name, config: cap
     )
     CapabilityOpRegistry._ops.clear()
-    ingress_mod._seen._seen.clear()
+    ingress_mod._seen.clear()
     audit_mod.AUDIT_LOG.clear()
     yield cap
     CapabilityOpRegistry._ops.clear()
-    ingress_mod._seen._seen.clear()
+    ingress_mod._seen.clear()
     audit_mod.AUDIT_LOG.clear()
 
 

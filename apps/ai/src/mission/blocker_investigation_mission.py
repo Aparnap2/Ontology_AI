@@ -146,7 +146,7 @@ class WorkingMemory:
 
 def reset_idempotency() -> None:
     """Clear Control Plane replay + audit state (test seam only)."""
-    ingress_mod._seen._seen.clear()
+    ingress_mod._seen.clear()
     audit_mod.AUDIT_LOG.clear()
 
 

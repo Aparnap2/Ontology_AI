@@ -415,7 +415,7 @@ class TestRecoveryAfterCrash:
         assert len(call_keys) == 1
 
         # --- simulate crash: wipe SeenSet ---
-        _seen._seen.clear()
+        _seen.clear()
 
         # --- re-submit (crash recovery) ---
         r2 = await submit_intent(_make_intent(), ctx)
