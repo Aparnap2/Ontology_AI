@@ -178,6 +178,28 @@ async def verify_write(
     except Exception as exc:  # noqa: BLE001 — verification must not raise
         logger.warning("verify_write failed for %s: %s", op_name, exc)
         retryable = bool(getattr(exc, "retryable", False))
+        # A denied read-back is an AUTHORIZATION failure, not a verification
+        # mismatch. Before the capability registry failed closed, a role that
+        # granted only the write op still ran the read-back, so this path was
+        # unreachable and the two cases were indistinguishable. Reporting
+        # NOT_VERIFIED with mismatch=None made a misconfigured role look like
+        # a broken integration. INDETERMINATE is the honest state: we could
+        # not establish the outcome, and INDETERMINATE must never be
+        # promoted to VERIFIED.
+        denied = type(exc).__name__ in {
+            "CapabilityNotAllowedError",
+            "PermissionError",
+        } or "allowlist" in str(exc).lower()
+        if denied:
+            return VerifyOutcome(
+                state="INDETERMINATE",
+                rollback_metadata={
+                    "capability": op_name,
+                    "read_op": read_op,
+                    "reason": "read_back_not_permitted",
+                    "error": str(exc),
+                },
+            )
         return VerifyOutcome(
             state="RETRYABLE_FAILURE" if retryable else "NOT_VERIFIED",
             rollback_metadata={"capability": op_name, "error": str(exc)},

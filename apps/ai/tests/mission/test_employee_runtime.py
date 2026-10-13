@@ -344,7 +344,19 @@ class TestVerify:
         skills_registry.register(self._writer_skill())
         skills_registry.register(make_stub_skill("stub-downstream", record=order))
         runtime = EmployeeRuntime(tenant_id="t1")
-        role = test_role("stub-writer", "stub-downstream", caps=["salesforce.update"])
+        # A role that can write must also be able to READ, otherwise it
+        # cannot verify its own write: verify.py performs read-back through
+        # READ_COUNTERPART (salesforce.update -> salesforce.read) and the
+        # capability registry correctly denies an absent allowlist. Shipped
+        # configs pair them (config/employees.yaml). Previously this passed
+        # only because assert_allowed treated a missing allowlist as
+        # "unrestricted" — the read-back ran under no authority at all.
+        # See tests/test_p0_verify_readback_authority.py.
+        role = test_role(
+            "stub-writer",
+            "stub-downstream",
+            caps=["salesforce.update", "salesforce.read"],
+        )
         result = await runtime.run_plan(self._verify_plan(), role)
         assert "stub-downstream" in order
         assert any(ar.get("verified") is True for ar in result.action_results)
@@ -355,7 +367,19 @@ class TestVerify:
         skills_registry.register(self._writer_skill())
         skills_registry.register(make_stub_skill("stub-downstream", record=order))
         runtime = EmployeeRuntime(tenant_id="t1")
-        role = test_role("stub-writer", "stub-downstream", caps=["salesforce.update"])
+        # A role that can write must also be able to READ, otherwise it
+        # cannot verify its own write: verify.py performs read-back through
+        # READ_COUNTERPART (salesforce.update -> salesforce.read) and the
+        # capability registry correctly denies an absent allowlist. Shipped
+        # configs pair them (config/employees.yaml). Previously this passed
+        # only because assert_allowed treated a missing allowlist as
+        # "unrestricted" — the read-back ran under no authority at all.
+        # See tests/test_p0_verify_readback_authority.py.
+        role = test_role(
+            "stub-writer",
+            "stub-downstream",
+            caps=["salesforce.update", "salesforce.read"],
+        )
         result = await runtime.run_plan(self._verify_plan(), role)
         assert "stub-downstream" not in order
         rejected = [ar for ar in result.action_results if ar.get("verified") is False]

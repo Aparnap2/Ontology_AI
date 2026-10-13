@@ -172,12 +172,20 @@ async def run_replan(step: PlanStep, state: RunState) -> None:
 async def run_verify(step: PlanStep, state: RunState) -> None:
     """Read-back verification: pass → continue, fail → block downstream."""
     action = step.action
+    # The read-back MUST run under the same authority as the write it is
+    # verifying. It previously omitted role_caps entirely and relied on the
+    # capability registry treating an absent allowlist as "unrestricted",
+    # so verification executed with no authority at all. Now that the
+    # registry fails closed, omitting it silently denied every read-back.
+    # A role that can write must be able to read, so the role's effective
+    # capability allowlist is passed through unchanged.
     outcome: VerifyOutcome = await verify_write(
         action["capability"],
         action["params"],
         action["expected"],
         state.tenant_id,
         capabilities=capability_ops.CapabilityOpRegistry,
+        role_caps=list(state.role.capabilities or []) or None,
     )
     ar = build_action_result(f"action-{step.id}", outcome)
     state.action_results.append(ar.model_dump())
