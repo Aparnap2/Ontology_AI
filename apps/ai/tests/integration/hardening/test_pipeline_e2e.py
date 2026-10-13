@@ -49,12 +49,10 @@ from src.mission.timeline import (
 )
 from src.observability import PipelineRun, TraceContext, run_stage, trace_context
 
-# ── Suite classification ────────────────────────────────────────────────
-# Live-model evaluation: requires provider credentials, incurs cost and
-# latency, and is excluded from the deterministic gate via `-m "not llm"`.
-pytestmark = pytest.mark.llm
-
-
+# NOT marked `llm`: both tests here are deterministic observability
+# assertions over an in-memory store and never reach a model. They were
+# previously excluded from the deterministic gate by a module-level marker,
+# which hid them.
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
