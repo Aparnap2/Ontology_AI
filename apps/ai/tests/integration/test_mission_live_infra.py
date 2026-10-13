@@ -26,10 +26,12 @@ from src.mission.storage import MissionMetrics, MissionStateStore
 # ── Suite classification ────────────────────────────────────────────────
 # Live-model evaluation: requires provider credentials, incurs cost and
 # latency, and is excluded from the deterministic gate via `-m "not llm"`.
-pytestmark = pytest.mark.llm
 
 
-pytestmark = [pytest.mark.integration]
+pytestmark = [
+    pytest.mark.llm,
+    pytest.mark.integration,
+]
 
 # Connect to the real worker container (localhost:5433) by default; tests can
 # override ITERATESWARM_DATABASE_URL for a different sandbox.

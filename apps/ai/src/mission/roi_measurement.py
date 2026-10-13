@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,20 @@ class ROIMetrics(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    #: Provenance for the measured values. An empty list means these figures
+    #: are NOT traceable to a real source event and must not be presented as
+    #: evidenced outcomes. References must be non-empty strings.
+    evidence_refs: list[str] = Field(default_factory=list)
+
+    @field_validator("evidence_refs")
+    @classmethod
+    def _refs_must_be_real(cls, v: list[str]) -> list[str]:
+        if any(not isinstance(r, str) or not r.strip() for r in v):
+            raise ValueError(
+                "evidence_refs must contain non-empty source references"
+            )
+        return v
+
     time_to_detect_minutes: float = Field(ge=0.0)
     time_to_acknowledge_minutes: float = Field(ge=0.0)
     time_to_resolve_minutes: float = Field(ge=0.0)
@@ -35,9 +49,20 @@ class ROIMetrics(BaseModel):
 
 
 class ROISavings(BaseModel):
-    """Calculated savings from governed vs manual incident response."""
+    """Calculated savings from governed vs manual incident response.
+
+    ``evidenced`` is True only when both the governed run and the manual
+    baseline carry non-empty ``evidence_refs``. Arithmetic is always
+    preserved; an unevidenced figure is still a number, it simply may not be
+    presented as a measured outcome.
+    """
 
     model_config = ConfigDict(extra="forbid", strict=True)
+
+    #: True only when both inputs carried traceable source events.
+    evidenced: bool = False
+    #: Union of the input provenance, for audit.
+    evidence_refs: list[str] = Field(default_factory=list)
 
     time_saved_detect_minutes: float
     time_saved_acknowledge_minutes: float
@@ -102,4 +127,8 @@ def calculate_roi(
             not baseline.recovery_verified and metrics.recovery_verified
         ),
         total_savings_usd=total_savings,
-    )
+    
+        # Provenance: only an evidenced figure may be presented as a
+        # measured outcome. Arithmetic is unchanged either way.
+        evidenced=bool(metrics.evidence_refs) and bool(baseline.evidence_refs),
+        evidence_refs=[*metrics.evidence_refs, *baseline.evidence_refs],)

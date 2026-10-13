@@ -203,13 +203,49 @@ class TestSecuritySuitesAreMarkedDeterministic:
             "agentic/test_agentic_ai.py",
             "integration/test_real_llm_integration.py",
             "integration/test_mission_live_infra.py",
+            "integration/test_fixes_integration.py",
             "e2e/test_agentic_pipeline.py",
+            "e2e/test_rag_evaluation.py",
+            "integration/hardening/test_pipeline_e2e.py",
         ]
         unmarked = [
             rel for rel in live
             if "pytest.mark.llm" not in (tests_dir / rel).read_text()
         ]
         assert not unmarked, f"live-LLM suites missing the llm marker: {unmarked}"
+
+    def test_llm_marker_is_not_overwritten(self) -> None:
+        """A later ``pytestmark = [...]`` silently discarded the llm marker.
+
+        Matching the string was not enough: both files carried the marker text
+        yet reassigned pytestmark afterwards, so the marker had no effect and
+        the deterministic gate still ran live-LLM tests.
+        """
+        from pathlib import Path
+
+        tests_dir = Path(__file__).resolve().parent
+        import ast
+
+        bad = []
+        for rel in ("integration/test_mission_live_infra.py",
+                    "integration/test_fixes_integration.py"):
+            tree = ast.parse((tests_dir / rel).read_text())
+            assigns = [
+                n for n in ast.walk(tree)
+                if isinstance(n, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "pytestmark"
+                    for t in n.targets
+                )
+            ]
+            # Every assignment must carry the llm marker, not just the first.
+            for a in assigns:
+                if "pytest.mark.llm" not in ast.unparse(a.value):
+                    bad.append(f"{rel}:{a.lineno}")
+        assert not bad, (
+            f"pytestmark reassigned without the llm marker, silently "
+            f"discarding it: {bad}"
+        )
 
     def test_marker_is_registered(self) -> None:
         import tomllib

@@ -136,6 +136,10 @@ async def submit_intent(
             )
     if needs_approval(intent, ctx.get("role_config")):
         if signal_handler is None:
+            # Nothing executed and no approval will ever arrive, so the claim
+            # must be released. Leaving it PENDING wedged this key for the
+            # full lease (DEFAULT_LEASE_SECONDS), denying a legitimate retry.
+            _seen.release(authorized.idempotency_key, claim_owner)
             return append_event(
                 mission_id=authorized.mission_id, action_id=authorized.action_id,
                 intent=intent, decision="require_approval:no_handler", verified=False,

@@ -219,8 +219,15 @@ async def test_verify_recovery_false():
 
 
 @pytest.mark.asyncio
-async def test_verify_recovery_true():
-    """verify_recovery passes when vendor claims resolved."""
+async def test_verify_recovery_requires_independent_evidence():
+    """A vendor's own claim of "resolved" must NOT verify recovery.
+
+    This test previously asserted the opposite: it set status="resolved"
+    and asserted verified=True. That pinned the self-certifying defect —
+    the activity fabricated error_rate=0.0/success_rate=1.0 from the
+    ticket status, then "verified" its own invention. A vendor claim is
+    never evidence.
+    """
     vendor_result = {
         "vendor_ticket": {
             "ticket_id": "vt-inc-pay-test",
@@ -235,7 +242,30 @@ async def test_verify_recovery_true():
         {"situation": situation, "vendor_result": vendor_result}
     )
 
-    assert result["verified"] is True
+    assert result["verified"] is False, (
+        "a vendor's self-declared resolution verified recovery"
+    )
+    assert result["state"] == "INDETERMINATE"
+
+
+async def test_verify_recovery_true_with_independent_evidence():
+    """Recovery verifies only when an independent source reports health."""
+    vendor_result = {
+        "vendor_ticket": {
+            "ticket_id": "vt-inc-pay-test",
+            "vendor_id": "stripe",
+            "incident_id": "inc-pay-test",
+            "status": "open",
+        }
+    }
+    situation = {"id": "sit-inc-pay-test"}
+    observed = {"error_rate": 0.0, "success_rate": 1.0}
+
+    result = await verify_recovery_activity(
+        {"situation": situation, "vendor_result": vendor_result, "observed": observed}
+    )
+
+    assert result["verified"] is True, result
     assert result["mismatches"] == []
     assert "error_rate" in result["passed"]
     assert "success_rate" in result["passed"]
@@ -247,10 +277,33 @@ async def test_verify_recovery_true():
 
 
 @pytest.mark.asyncio
-async def test_resolve_situation():
-    """resolve_situation marks the situation as RESOLVED."""
+async def test_resolve_situation_refuses_without_verified_recovery():
+    """resolve_situation must NOT mark RESOLVED without verified recovery.
+
+    Previously it returned RESOLVED unconditionally. Resolution is now gated
+    on recovery.verified, so a situation cannot be closed on a vendor's say-so.
+    """
     situation = await create_situation(DEMO_INCIDENT)
     result = await resolve_situation(situation)
+
+    assert result["status"] != "RESOLVED", (
+        "situation resolved with no verified recovery evidence"
+    )
+
+
+async def test_resolve_situation_with_verified_recovery():
+    """With independent verification, the situation closes."""
+    situation = await create_situation(DEMO_INCIDENT)
+    recovery = await verify_recovery_activity(
+        {
+            "situation": situation,
+            "vendor_result": {"vendor_ticket": {"status": "open"}},
+            "observed": {"error_rate": 0.0, "success_rate": 1.0},
+        }
+    )
+    assert recovery["verified"] is True
+
+    result = await resolve_situation({**situation, "recovery": recovery})
 
     assert result["status"] == "RESOLVED"
     assert "resolved_at" in result
@@ -448,17 +501,20 @@ async def test_full_deterministic_flow():
     authorized = await submit_to_control_plane(intent_dict)
     vendor_result = await execute_capability(authorized)
 
-    # Vendor claims fixed
-    vendor_result["vendor_ticket"]["status"] = "resolved"
+    # Independent observation from the service, not the vendor's claim.
+    observed = {"error_rate": 0.0, "success_rate": 1.0}
 
     # Step 8: Recovery verification
     recovery = await verify_recovery_activity(
-        {"situation": situation, "vendor_result": vendor_result}
+        {"situation": situation, "vendor_result": vendor_result, "observed": observed}
     )
 
-    # Step 9: Resolve
+    # Step 9: Resolve. resolve_situation now refuses RESOLVED without a
+    # verified recovery, so the recovery evidence must travel with it.
     assert recovery["verified"] is True
-    resolved = await resolve_situation(situation)
+    resolved = await resolve_situation(
+        {**situation, "recovery": recovery}
+    )
     assert resolved["status"] == "RESOLVED"
 
     # Full timeline

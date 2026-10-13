@@ -41,6 +41,12 @@ class VerifyOutcome(OntologyBaseModel):
     full VERIFIED (existing readers keep working). When ``state`` is omitted
     it is derived from ``verified`` so every historical constructor keeps
     its meaning.
+
+    ``expectation_source`` records *where the expectations came from*. A
+    verification whose expected values were derived from the write itself can
+    only prove transport fidelity — "the fields I sent are the fields that
+    arrived" — and never that the change was semantically correct. Labelling
+    it keeps it from being read as independent confirmation.
     """
 
     verified: bool = False
@@ -48,6 +54,9 @@ class VerifyOutcome(OntologyBaseModel):
     rollback_metadata: dict[str, Any] = {}
     mismatch: str | None = None
     state: VerifyState | None = None
+    expectation_source: Literal["caller_supplied", "derived_from_write"] = (
+        "caller_supplied"
+    )
 
     @model_validator(mode="after")
     def _sync_state(self) -> "VerifyOutcome":
@@ -204,6 +213,33 @@ async def verify_write(
             state="RETRYABLE_FAILURE" if retryable else "NOT_VERIFIED",
             rollback_metadata={"capability": op_name, "error": str(exc)},
         )
+
+
+
+def label_expectation_source(
+    outcome: Any, *, explicit: bool
+) -> dict[str, Any]:
+    """Annotate a verify outcome with where its expectations came from.
+
+    A verification whose expected values were derived from the write itself
+    can only prove *transport fidelity* — "the fields I sent are the fields
+    that arrived" — never that the change was semantically correct. Labelling
+    the outcome keeps it from being read as independent confirmation.
+
+    Args:
+        outcome: The :class:`VerifyOutcome` (or a dict shaped like one).
+        explicit: True when the caller supplied the expectations.
+
+    Returns:
+        A dict carrying ``expectation_source``; ``None`` if the outcome
+        cannot be annotated.
+    """
+    source = "caller_supplied" if explicit else "derived_from_write"
+    if isinstance(outcome, dict):
+        return {**outcome, "expectation_source": source}
+    if hasattr(outcome, "model_copy"):
+        return outcome.model_copy(update={"expectation_source": source})
+    return None
 
 
 def build_action_result(action_id: str, outcome: VerifyOutcome) -> ActionResult:

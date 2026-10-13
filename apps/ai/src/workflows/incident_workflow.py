@@ -13,6 +13,15 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+#: Operations the incident workflow is permitted to perform. Named here so
+#: the authority is explicit rather than a literal buried in an activity.
+INCIDENT_WORKFLOW_PERMISSIONS = (
+    "vendor_ticket.create",
+    "vendor_ticket.read",
+    "situation.create",
+    "situation.update",
+)
+
 try:
     from temporalio import workflow
 
@@ -75,9 +84,24 @@ try:
             )
 
             # Step 5: Submit through Control Plane
+            # The trusted context MUST be derived from the incoming incident,
+            # not defaulted. Previously only the intent was passed, so the
+            # activity fell back to a hardcoded tenant ("t-acme"), meaning an
+            # incident for ANY tenant was authorized and executed under that
+            # constant's authority. Authorization is only meaningful if the
+            # identity it checks belongs to the caller.
+            trusted_context = {
+                "tenant_id": incident_data.get("tenant_id") or "t-unknown",
+                "mission_id": incident_data.get("incident_id") or "incident",
+                "employee_id": incident_data.get("employee_id") or "incident-bot",
+                "actor_identity": "IncidentWorkflow",
+                "permissions": list(INCIDENT_WORKFLOW_PERMISSIONS),
+                "business_scope": "vendor_incident_response",
+            }
+
             authorized: dict[str, Any] = await workflow.execute_activity(
                 "submit_to_control_plane",
-                action_intent,
+                args=[action_intent, trusted_context],
                 start_to_close_timeout=timedelta(seconds=30),
             )
 

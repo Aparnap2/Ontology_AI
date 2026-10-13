@@ -208,9 +208,11 @@ async def generate_action_intent(
 # ---------------------------------------------------------------------------
 
 
-#: Fallback trusted context. Only used when a caller supplies none — real
-#: invocations must pass server-owned identity so authority is derived from
-#: trusted state rather than a constant.
+#: LAST-RESORT fallback only. Real invocations MUST pass server-owned identity:
+#: authority is derived from trusted state, so substituting a constant here
+#: means authorizing every caller under one tenant's permissions. The incident
+#: workflow now builds its context from the incoming incident
+#: (see src/workflows/incident_workflow.py).
 DEFAULT_TRUSTED_CONTEXT: dict[str, Any] = {
     "tenant_id": "t-acme",
     "mission_id": "m-hero-demo",
@@ -301,41 +303,84 @@ async def execute_capability(authorized: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+#: Payload key carrying independently-observed system state. There is
+#: deliberately no default: the vendor's ticket status is the *claim under*
+#: verification, so it can never also serve as evidence for it.
+OBSERVED_EVIDENCE_KEY = "observed"
+
+
+def _is_evidence(observed: Any) -> bool:
+    """True only for a real observation carrying at least one numeric metric.
+
+    ``{}``, ``None`` and dicts whose values are all ``None`` are the *absence*
+    of evidence. They must never be read as a pass.
+    """
+    if not isinstance(observed, dict) or not observed:
+        return False
+    return any(
+        isinstance(value, (int, float)) and not isinstance(value, bool)
+        for value in observed.values()
+    )
+
+
 @activity.defn(name="verify_recovery")
 async def verify_recovery_activity(data: dict[str, Any]) -> dict[str, Any]:
-    """Verify recovery using predicate-based checks.
+    """Verify recovery using predicate-based checks against observed state.
 
-    Uses the existing recovery_verification module.
+    Fails closed. The vendor's ticket status is the claim under verification
+    and is never trusted as evidence for it. This activity previously read
+    ``vendor_ticket.status`` and fabricated ``{"error_rate": 0.0,
+    "success_rate": 1.0}`` whenever it looked resolved, then verified that
+    invention against the predicates — reporting a successful recovery while
+    the service was in total outage. It could not fail during a real outage.
+
+    ``data["observed"]`` must be supplied by an independent monitoring source.
+    Without it the verdict is INDETERMINATE — never VERIFIED, and never a
+    silent False either, so an operator can tell "we checked and it failed"
+    from "we never had evidence to check with".
     """
     _safe_heartbeat("Verifying recovery")
     log.info("verify_recovery_activity: checking predicates")
 
-    vendor_result = data.get("vendor_result", {})
-    ticket = vendor_result.get("vendor_ticket", {})
+    incident_id = data.get("situation", {}).get("id", "unknown")
 
-    # Default predicates: error rate must be below threshold
+    # Predicates are fixed health thresholds; the observed values they are
+    # checked against must come from outside this process.
     predicates = [
         RecoveryPredicate(field="error_rate", op="lt", threshold=0.01),
         RecoveryPredicate(field="success_rate", op="gte", threshold=0.99),
     ]
 
-    # Simulate observed state based on vendor ticket status
-    # In production this would query real system metrics
-    ticket_status = ticket.get("status", "open")
-    if ticket_status in ("resolved", "closed"):
-        observed = {"error_rate": 0.0, "success_rate": 1.0}
-    else:
-        # Vendor hasn't resolved yet — check shows failure
-        observed = {"error_rate": 0.35, "success_rate": 0.65}
+    observed = data.get(OBSERVED_EVIDENCE_KEY)
+    if not _is_evidence(observed):
+        log.warning(
+            "verify_recovery_activity: no independent evidence for %s; "
+            "refusing to certify recovery from the vendor's own claim",
+            incident_id,
+        )
+        return {
+            "verified": False,
+            "state": "INDETERMINATE",
+            "reason": (
+                "no_independent_evidence: recovery cannot be verified from the "
+                f"vendor's own claim; supply {OBSERVED_EVIDENCE_KEY!r} metrics "
+                "from a monitoring source"
+            ),
+            "incident_id": incident_id,
+            "mismatches": ["no_evidence_source"],
+            "passed": [],
+        }
 
     outcome: RecoveryOutcome = verify_recovery(
-        incident={"id": data.get("situation", {}).get("id", "unknown")},
+        incident={"id": incident_id},
         predicates=predicates,
         observed=observed,
     )
 
     return {
         "verified": outcome.verified,
+        "state": "VERIFIED" if outcome.verified else "NOT_VERIFIED",
+        "reason": "" if outcome.verified else "predicates_failed",
         "incident_id": outcome.incident_id,
         "mismatches": outcome.mismatches,
         "passed": outcome.passed,
@@ -349,11 +394,32 @@ async def verify_recovery_activity(data: dict[str, Any]) -> dict[str, Any]:
 
 @activity.defn(name="resolve_situation")
 async def resolve_situation(situation: dict[str, Any]) -> dict[str, Any]:
-    """Mark the situation as resolved."""
+    """Mark the situation resolved — only behind a substantiated recovery.
+
+    Emitting RESOLVED is itself a recovery claim. The workflow gates this on
+    ``recovery.verified``, but that gate belonged to the caller, so the
+    activity would certify a resolution when invoked directly. The evidence
+    now travels with the payload and the gate lives with the claim.
+    """
     _safe_heartbeat("Resolving situation")
     log.info("resolve_situation: situation_id=%s", situation.get("id", ""))
 
-    # Update status — in production this writes to the database
+    recovery = situation.get("recovery") or {}
+    if recovery.get("verified") is not True:
+        log.warning(
+            "resolve_situation: refusing to mark %s resolved without a verified "
+            "recovery", situation.get("id", ""),
+        )
+        return {
+            **situation,
+            "status": situation.get("status", "INVESTIGATING"),
+            "resolution_refused": True,
+            "reason": (
+                "no_verified_recovery: a situation is only resolved behind a "
+                "verified recovery outcome"
+            ),
+        }
+
     return {
         **situation,
         "status": "RESOLVED",
