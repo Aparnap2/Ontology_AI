@@ -65,11 +65,19 @@ def mock_cap(monkeypatch):
 
 
 def _high_intent() -> ActionIntent:
+    """A HIGH-risk intent.
+
+    The HIGH tier is NOT carried here. Policy reads risk exclusively from
+    trusted state (``role_config.risk_threshold``); a tier inside
+    ``requested_parameters`` is attacker-influenced and is ignored. These
+    tests previously set it in the intent, so the approval gate they were
+    written to exercise was never reached.
+    """
     return ActionIntent(
         capability="jira",
         operation="jira.update",
         target_reference="PROJ-1",
-        requested_parameters={"issue_id": "PROJ-1", "fields": {"status": "In Progress"}, "risk_tier": "HIGH"},
+        requested_parameters={"issue_id": "PROJ-1", "fields": {"status": "In Progress"}},
         reason="high-risk approval probe",
         evidence_ids=["ev-1"],
         expected_outcome="PROJ-1 moves to In Progress",
@@ -109,7 +117,7 @@ async def _submit_with_decision(intent, trusted, role, handler, decision):
 
 async def test_high_reject_zero_execution(mock_cap):
     """HIGH reject → deny:approval_rejected, audited, zero writes."""
-    role = make_blocker_investigation_role()
+    role = make_blocker_investigation_role(risk_threshold="HIGH")
     handler = InMemorySignalHandler()
     event = await _submit_with_decision(
         _high_intent(), _trusted(), role, handler, {"approved": False}
@@ -122,7 +130,7 @@ async def test_high_reject_zero_execution(mock_cap):
 
 async def test_reject_key_unmarked_explicit_reapproval_proceeds(mock_cap):
     """After reject the key stays unmarked: explicit re-approval executes once."""
-    role = make_blocker_investigation_role()
+    role = make_blocker_investigation_role(risk_threshold="HIGH")
     handler1 = InMemorySignalHandler()
     first = await _submit_with_decision(
         _high_intent(), _trusted(), role, handler1, {"approved": False}
@@ -140,7 +148,7 @@ async def test_reject_key_unmarked_explicit_reapproval_proceeds(mock_cap):
 
 async def test_identical_resubmit_after_reject_does_not_auto_execute(mock_cap):
     """Identical resubmit without approval must NOT auto-execute."""
-    role = make_blocker_investigation_role()
+    role = make_blocker_investigation_role(risk_threshold="HIGH")
     handler1 = InMemorySignalHandler()
     first = await _submit_with_decision(
         _high_intent(), _trusted(), role, handler1, {"approved": False}
@@ -159,7 +167,7 @@ async def test_identical_resubmit_after_reject_does_not_auto_execute(mock_cap):
 
 async def test_approval_timeout_deny_no_execution(mock_cap):
     """approval_timeout_seconds elapses → audited deny:approval_expired, no write."""
-    role = make_blocker_investigation_role()
+    role = make_blocker_investigation_role(risk_threshold="HIGH")
     handler = InMemorySignalHandler()
     event = await ingress_mod.submit_intent(
         _high_intent(),
@@ -175,7 +183,7 @@ async def test_approval_timeout_deny_no_execution(mock_cap):
 
 async def test_timeout_cannot_be_resurrected_replay_still_denied(mock_cap):
     """Late resolve() after timeout cannot resurrect; replay stays denied."""
-    role = make_blocker_investigation_role()
+    role = make_blocker_investigation_role(risk_threshold="HIGH")
     handler = InMemorySignalHandler()
     first = await ingress_mod.submit_intent(
         _high_intent(),
