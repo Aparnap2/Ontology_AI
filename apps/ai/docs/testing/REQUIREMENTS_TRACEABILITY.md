@@ -196,7 +196,7 @@ executed, passing test, or it is not VERIFIED.
 | R124 | Retry behaviour on a real worker | — | none | — | G19 | **UNVERIFIED** |
 | R125 | Restart / recovery of a workflow | — | none | — | G19 | **UNVERIFIED** — and blocked by process-local state |
 | R126 | Child workflows get distinct IDs | — | `tests/adversarial/` — none | — | G19 | **KNOWN GAP** — issue #69 (`AI_TASK_QUEUE` divergence + ID collision) |
-| R127 | Approval-gate E2E coverage | `ingress.py:136-167` | `tests/adversarial/test_approval_failure.py` (5 failing) | — | G20 | **KNOWN GAP** — Category D stale contract |
+| R127 | Approval-gate E2E coverage | `ingress.py:136-167` | `tests/adversarial/test_approval_failure.py` (5 passing) | adversarial | G20 | **VERIFIED** — HIGH tier now derived from trusted `role_config.risk_threshold`, fixed at `fb21477` |
 
 ---
 

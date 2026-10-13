@@ -31,7 +31,9 @@ env -u GROQ_API_KEY -u OPENAI_API_KEY -u AZURE_OPENAI_API_KEY -u AZURE_OPENAI_EN
   .venv/bin/python -m pytest -q -m "not llm" tests/test_p0_*.py
 ```
 
-**Measured at `cd7fe05`: 145 passed, 0 failed.**
+**Re-measured at `f8ccb9b`: 154 passed, 0 failed** across all 14 `tests/test_p0_*.py`
+files. The earlier figure of 145 predates
+`test_p0_tenant_and_recovery_isolation.py` (+9).
 
 Plus, separately:
 
@@ -64,7 +66,7 @@ cd apps/core && go build ./... && go vet ./...     # both exit 0
 | G17 | **Audit trail survives a restart** | `AUDIT_LOG: list` (`audit.py:14`) | **FAIL — architectural** |
 | G18 | **Fresh-database migration bootstrap completes** | `001_sarthi_sop_runtime.sql:10` (`founder_id`) vs `002_sarthi_v1.sql:20` (`tenant_id`), `CREATE TABLE IF NOT EXISTS` | **FAIL — known gap** |
 | G19 | **Real-worker Temporal durability** | no committed test | **UNVERIFIED — blocking for any durability claim** |
-| G20 | **Approval-gate E2E coverage** | `tests/adversarial/test_approval_failure.py` — 5 failing, Category D | **FAIL — stale contract** |
+| G20 | **Approval-gate E2E coverage** | `tests/adversarial/test_approval_failure.py` — fixed at `fb21477`; HIGH now derives from `role_config.risk_threshold` | **PASS — 5 passing** |
 
 **Result: 15 PASS · 5 FAIL · 0 UNEXPLAINED.**
 
@@ -136,7 +138,7 @@ claimed as covered.
 
 | Question | Answer |
 |---|---|
-| Are the 9 P0 security invariants proven? | **Yes** — 145 P0 tests, all passing, no credentials required |
+| Are the 9 P0 security invariants proven? | **Yes** — 154 P0 tests, all passing, no credentials required |
 | Are there unexplained failures in the P0 surface? | **No** — 0 |
 | Is the exclusion inventory complete and justified? | **Yes** — §4 |
 | Is the gate cleared? | **No** — 5 items open, itemised above with owners |

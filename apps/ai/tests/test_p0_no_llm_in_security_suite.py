@@ -206,7 +206,6 @@ class TestSecuritySuitesAreMarkedDeterministic:
             "integration/test_fixes_integration.py",
             "e2e/test_agentic_pipeline.py",
             "e2e/test_rag_evaluation.py",
-            "integration/hardening/test_pipeline_e2e.py",
         ]
         unmarked = [
             rel for rel in live
@@ -227,8 +226,19 @@ class TestSecuritySuitesAreMarkedDeterministic:
         import ast
 
         bad = []
-        for rel in ("integration/test_mission_live_infra.py",
-                    "integration/test_fixes_integration.py"):
+        # ALL eight live-LLM suites, not just the two that were previously
+        # caught. Scoping this to the known-bad files let a third file carry
+        # an inert marker undetected.
+        for rel in (
+            "integration/test_mission_live_infra.py",
+            "integration/test_fixes_integration.py",
+            "integration/test_real_llm_integration.py",
+            "integration/hardening/test_pipeline_e2e.py",
+            "test_agentic_capability.py",
+            "agentic/test_agentic_ai.py",
+            "e2e/test_agentic_pipeline.py",
+            "e2e/test_rag_evaluation.py",
+        ):
             tree = ast.parse((tests_dir / rel).read_text())
             assigns = [
                 n for n in ast.walk(tree)
