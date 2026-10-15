@@ -240,16 +240,27 @@ def send_message_sync(
         asyncio.set_event_loop(loop)
 
     if loop.is_running():
-        # Event loop is running (e.g., in Jupyter)
-        # Run in executor to avoid "cannot be called from a running event loop"
+        # A loop is already running in this thread, so we cannot drive this
+        # thread's coroutine on it. Dispatch to a worker thread that owns its
+        # own loop instead of calling run_until_complete on the live loop,
+        # which raises RuntimeError and never returns.
         import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(
-                lambda: loop.run_until_complete(
+
+        def _run_in_fresh_loop() -> Dict[str, Any]:
+            worker_loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(worker_loop)
+                return worker_loop.run_until_complete(
                     send_message(text, blocks, full_draft)
                 )
-            )
-            return future.result()
+            finally:
+                try:
+                    asyncio.set_event_loop(None)
+                finally:
+                    worker_loop.close()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(_run_in_fresh_loop).result()
     else:
         return loop.run_until_complete(send_message(text, blocks, full_draft))
 

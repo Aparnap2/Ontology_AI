@@ -20,6 +20,14 @@ from pydantic import ValidationError
 from src.schemas.guardian import AlertDecision, GuardianMessage
 
 
+# CORRECTION (issue #71): these are LIVE-MODEL tests and were unmarked,
+# so they executed inside the deterministic gate and failed with HTTP 401
+# when credentials were stripped. Marked `llm` for the same reason as the
+# other eight suites: a live-model suite is not a deterministic test.
+
+pytestmark = [
+    pytest.mark.llm,
+]
 def call_llm(ollama_client, llm_model, prompt, max_tokens=500, temperature=0.0):
     """Call LLM and return content."""
     options = {"num_predict": max_tokens, "json_mode": True}
