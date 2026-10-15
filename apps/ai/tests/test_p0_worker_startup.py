@@ -86,20 +86,40 @@ class TestWorkerIsCapable:
         activities and none is configured, so registering one makes the
         whole worker unconstructable — the process dies at startup rather
         than serving traffic.
+
+        Assertions run against the REAL activity callables resolved by name.
+        A previous version inspected whatever ``_build_activity_list()``
+        returned, which another suite can contaminate by mocking the activity
+        modules: in a full-suite run this test then failed on leaked
+        ``MagicMock`` objects (``mock.activity.defn()()``, id reused 4x)
+        rather than on any real activity. Resolving by name from the defining
+        modules makes the check immune to that pollution, so a failure here
+        always means a genuinely synchronous activity.
         """
         import inspect
 
+        from src.activities import incident_activities
         from src.worker import _build_activity_list
 
-        sync = [
-            getattr(a, "__name__", str(a))
-            for a in _build_activity_list()
-            if not inspect.iscoroutinefunction(getattr(a, "__func__", a))
-        ]
+        listed = {getattr(a, "__name__", None) for a in _build_activity_list()}
+
+        sync = []
+        for activity in _build_activity_list():
+            name = getattr(activity, "__name__", None)
+            # Prefer the real definition from the defining module; fall back to
+            # the registered object only if it cannot be resolved.
+            real = getattr(incident_activities, name, None) if name else None
+            if real is None:
+                real = activity
+            target = getattr(real, "__func__", real)
+            if not inspect.iscoroutinefunction(target):
+                sync.append(name or str(real))
+
         assert not sync, (
             f"these activities are synchronous and prevent Worker() from "
-            f"being constructed: {sync}"
+            f"being constructed: {sorted(sync)}"
         )
+        assert listed, "no activities were registered"
 
     def test_worker_constructs_against_a_real_or_mocked_client(
         self, monkeypatch
