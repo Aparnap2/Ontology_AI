@@ -35,6 +35,62 @@ def _source(name: str) -> str:
     return (SRC / name).read_text()
 
 
+_TEMP_STUBBED_MODULES = (
+    "temporalio",
+    "temporalio.client",
+    "temporalio.worker",
+    "temporalio.activity",
+    "temporalio.common",
+    "grpc",
+    "grpc.aio",
+    "aiokafka",
+    "redis",
+    "redis.asyncio",
+    "structlog",
+)
+
+
+def _purge_mock_backed_modules() -> None:
+    """Re-import worker modules that another suite mock-bound at collection.
+
+    tests/unit/test_revenue_protection.py installs MagicMock objects into
+    sys.modules for temporalio, grpc, aiokafka, redis and others at import time.
+    Any module imported afterwards — including src.worker and src.main — binds
+    those mocks permanently into its own globals, so this file's assertions
+    would run against test scaffolding instead of production code.
+
+    Dropping the cached modules and re-importing from disk restores the real
+    classes.
+    """
+    import importlib
+    import sys
+    from unittest.mock import MagicMock
+
+    # Drop project modules that may have bound the mocks.
+    for name in [n for n in list(sys.modules) if n == "src" or n.startswith("src.")]:
+        del sys.modules[name]
+
+    # Drop the mocked third-party entries so they are re-imported from disk.
+    for name in _TEMP_STUBBED_MODULES:
+        mod = sys.modules.get(name)
+        if mod is None or isinstance(mod, MagicMock):
+            sys.modules.pop(name, None)
+
+    # Restore package-level attributes that were assigned mocks directly
+    # (e.g. `temporalio.activity = MagicMock()`).
+    for pkg_name in ("temporalio", "grpc"):
+        pkg = sys.modules.get(pkg_name)
+        if pkg is None or isinstance(pkg, MagicMock):
+            continue
+        for attr in ("client", "worker", "activity", "common", "aio"):
+            if isinstance(getattr(pkg, attr, None), MagicMock):
+                pkg.__dict__.pop(attr, None)
+
+    # Re-import the modules under test against the real dependencies.
+    importlib.import_module("src.worker")
+    importlib.import_module("src.activities.incident_activities")
+
+
 # ---------------------------------------------------------------------------
 # main.py must not hand-roll its own worker registration
 # ---------------------------------------------------------------------------
@@ -87,39 +143,33 @@ class TestWorkerIsCapable:
         whole worker unconstructable — the process dies at startup rather
         than serving traffic.
 
-        Assertions run against the REAL activity callables resolved by name.
-        A previous version inspected whatever ``_build_activity_list()``
-        returned, which another suite can contaminate by mocking the activity
-        modules: in a full-suite run this test then failed on leaked
-        ``MagicMock`` objects (``mock.activity.defn()()``, id reused 4x)
-        rather than on any real activity. Resolving by name from the defining
-        modules makes the check immune to that pollution, so a failure here
-        always means a genuinely synchronous activity.
+        The assertions run against freshly-imported real modules. Another suite
+        (``tests/unit/test_revenue_protection.py``) replaces temporalio and
+        friends with MagicMock objects at import time, which permanently
+        mock-binds ``src.worker`` for the rest of the session. That produced
+        false failures here on leaked ``MagicMock`` activities. Re-importing the
+        affected modules before asserting means a failure here always reflects
+        genuine production behaviour, not leftover test scaffolding.
         """
         import inspect
 
-        from src.activities import incident_activities
+        _purge_mock_backed_modules()
+
         from src.worker import _build_activity_list
 
         listed = {getattr(a, "__name__", None) for a in _build_activity_list()}
 
         sync = []
         for activity in _build_activity_list():
-            name = getattr(activity, "__name__", None)
-            # Prefer the real definition from the defining module; fall back to
-            # the registered object only if it cannot be resolved.
-            real = getattr(incident_activities, name, None) if name else None
-            if real is None:
-                real = activity
-            target = getattr(real, "__func__", real)
+            target = getattr(activity, "__func__", activity)
             if not inspect.iscoroutinefunction(target):
-                sync.append(name or str(real))
+                sync.append(getattr(activity, "__name__", str(activity)))
 
+        assert listed, "no activities were registered"
         assert not sync, (
             f"these activities are synchronous and prevent Worker() from "
             f"being constructed: {sorted(sync)}"
         )
-        assert listed, "no activities were registered"
 
     def test_worker_constructs_against_a_real_or_mocked_client(
         self, monkeypatch
