@@ -25,6 +25,12 @@ REDPANDA_URL = os.environ.get("REDPANDA_URL", "localhost:9092")
 CONSUMER_GROUP = "ontology_ai-python-worker"
 TIMEOUT_SECONDS = 10
 
+# Bound on a single publish acknowledgement. Publication is best-effort and must
+# never block the caller indefinitely when the broker is unhealthy.
+PUBLISH_TIMEOUT_SECONDS = float(
+    os.environ.get("REDPANDA_PUBLISH_TIMEOUT_SECONDS", "10")
+)
+
 
 DLQ_TOPIC = "ontology_ai.dlq.events"
 
@@ -186,10 +192,18 @@ class RedpandaPublisher:
         }
 
         try:
-            await self._producer.send_and_wait(
-                topic,
-                json.dumps(envelope).encode(),
-                key=tenant_id.encode(),
+            # send_and_wait blocks until the broker acknowledges. If the broker
+            # is reachable but wedged (e.g. it advertises a metadata node with
+            # an unresolvable host), the await never returns and the caller --
+            # including run_startup_guardian -- hangs indefinitely. Bound it so
+            # event publication degrades fail-closed instead of blocking.
+            await asyncio.wait_for(
+                self._producer.send_and_wait(
+                    topic,
+                    json.dumps(envelope).encode(),
+                    key=tenant_id.encode(),
+                ),
+                timeout=PUBLISH_TIMEOUT_SECONDS,
             )
             log.info(f"Published {event_type} to {topic}")
             return True

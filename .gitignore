@@ -191,3 +191,6 @@ playwright/test-results/
 
 # Output directories
 graphify-out/
+
+# FG-1 gate evidence logs (local only, never committed)
+.gate_evidence/
