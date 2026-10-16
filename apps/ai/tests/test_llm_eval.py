@@ -8,6 +8,8 @@ import pytest
 import json
 from src.config.llm import get_llm_client
 
+pytestmark = pytest.mark.llm
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM-as-Judge Helper
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
