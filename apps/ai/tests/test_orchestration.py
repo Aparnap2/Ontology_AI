@@ -138,3 +138,34 @@ async def test_weekly_synthesis_gathers_all_data():
         assert mock_get_decisions.called, "get_recent_decisions never called"
         assert mock_synthesize.called, "synthesize_weekly_brief never called"
         assert mock_slack.called, "send_slack_message never called"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_weekly_brief_uses_canonical_llm_path():
+    """Regression: the activity must call src.config.llm.chat_completion.
+
+    It previously instantiated ``LLMClient()`` from the non-existent
+    ``src.llm.client`` module, which made this module unimportable (dangling
+    import) and left a phantom client call. Pin the canonical factory path.
+    """
+    captured = {}
+
+    def fake_chat_completion(*, messages, max_tokens=None, temperature=None):
+        captured["messages"] = messages
+        captured["max_tokens"] = max_tokens
+        return "ONE THING: Ship the brief"
+
+    from src.activities import synthesize_weekly_brief as mod
+
+    with patch.object(mod, "chat_completion", fake_chat_completion):
+        out = await mod.synthesize_weekly_brief(
+            tenant_id="t1",
+            alerts=[{"title": "a"}],
+            decisions=[{"decided": "d"}],
+            metrics={"mrr": 1000},
+            investor_status={"narrative": "n"},
+        )
+
+    assert out == "ONE THING: Ship the brief"
+    assert captured["messages"][0]["role"] == "user"
+    assert captured["max_tokens"] == 300
