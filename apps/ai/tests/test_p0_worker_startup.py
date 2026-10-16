@@ -328,3 +328,19 @@ class TestMainModesStillAvailable:
             f"asyncio.gather called without await at lines {unawaited}; the "
             "coroutines are created and never scheduled"
         )
+
+
+# ---------------------------------------------------------------------------
+# Guard against a sibling suite leaking its sys.modules stubs
+# ---------------------------------------------------------------------------
+
+
+def test_worker_binds_real_temporalio_not_a_stub():
+    import temporalio
+    from unittest.mock import MagicMock
+    assert not isinstance(temporalio, MagicMock), (
+        "temporalio was replaced by a MagicMock — a test module leaked its "
+        "sys.modules stubs (see tests/unit/test_revenue_protection.py)"
+    )
+    import src.worker as _worker  # noqa: F401
+    assert not isinstance(getattr(_worker, "temporalio", None), MagicMock)
