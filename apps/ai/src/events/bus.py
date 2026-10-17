@@ -122,17 +122,38 @@ class EventBus:
             if not messages:
                 return {}
 
-            result = {}
-            for stream_name, msgs in messages.items():
-                stream_key = stream_name.decode() if isinstance(stream_name, bytes) else stream_name
+            result: dict[str, list[dict[str, Any]]] = {}
+            # redis-py returns xreadgroup() as a LIST of [stream_name, entries]
+            # pairs, not a dict -- calling .items() on it raised
+            # "'list' object has no attribute 'items'" and consume() always
+            # returned {} even on a successful read.
+            for entry in messages:
+                if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                    continue
+                stream_name, msgs = entry
+                stream_key = (
+                    stream_name.decode() if isinstance(stream_name, bytes) else str(stream_name)
+                )
                 result[stream_key] = []
 
-                for msg_id, fields in msgs:
-                    msg = {
-                        "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
-                    }
-                    msg["payload"] = json.loads(fields[b"payload"]) if b"payload" in fields else {}
-                    result[stream_key].append(msg)
+                for msg in msgs or []:
+                    msg_id, fields = msg[0], msg[1]
+                    # EventBus connects with decode_responses=True, so field keys
+                    # arrive as str; accept bytes too for safety.
+                    raw_payload = None
+                    if isinstance(fields, dict):
+                        raw_payload = fields.get("payload", fields.get(b"payload"))
+                    try:
+                        payload = json.loads(raw_payload) if raw_payload else {}
+                    except (TypeError, ValueError):
+                        payload = {}
+
+                    result[stream_key].append(
+                        {
+                            "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
+                            "payload": payload,
+                        }
+                    )
 
             return result
 
