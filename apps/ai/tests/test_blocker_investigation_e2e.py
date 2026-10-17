@@ -161,9 +161,16 @@ async def test_blocker_investigation_golden_path(mock_cap, monkeypatch):
 
     # (14) HIGH-risk variant pauses for approval: launch, observe the pause,
     # then resolve — the await-then-resolve approval path.
+    # The gate is driven by the TRUSTED risk floor (role_config.risk_threshold),
+    # never by PROPOSAL["risk_tier"]: control_plane/policy.py treats
+    # requested_parameters as attacker-influenced and ignores any tier supplied
+    # inside the intent. Passing risk_threshold="HIGH" is what makes a HIGH-risk
+    # remediation genuinely require approval.
     handler = InMemorySignalHandler()
     task = asyncio.create_task(
-        run_blocker_investigation_mission(_onboarding(), SLACK, **_run_kwargs(handler))
+        run_blocker_investigation_mission(
+            _onboarding(), SLACK, **_run_kwargs(handler), risk_threshold="HIGH"
+        )
     )
     for _ in range(200):
         if handler._futures:
@@ -292,6 +299,43 @@ async def test_blocker_investigation_golden_path(mock_cap, monkeypatch):
 HAS_PROVIDER = bool(
     os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
 )
+
+
+async def test_untrusted_proposal_tier_cannot_lower_trusted_gate(mock_cap, monkeypatch):
+    """Regression: a proposal-supplied tier must never relax the trusted gate.
+
+    ``control_plane/policy.py`` documents the injection this guards: a
+    prompt-injected planner setting ``requested_parameters["risk_tier"] = "LOW"``
+    to bypass both the approval gate and the CRITICAL execution block. The
+    trusted floor stays authoritative, so a LOW claim under a HIGH floor must
+    still pause for approval, and the approval payload must report the trusted
+    tier rather than the claimed one.
+    """
+    injected = dict(PROPOSAL)
+    injected["risk_tier"] = "LOW"
+    _mock_llm(monkeypatch, injected)
+
+    handler = InMemorySignalHandler()
+    task = asyncio.create_task(
+        run_blocker_investigation_mission(
+            _onboarding(), SLACK, **_run_kwargs(handler), risk_threshold="HIGH"
+        )
+    )
+    for _ in range(200):
+        if handler._futures:
+            break
+        await asyncio.sleep(0.01)
+
+    assert handler._futures, "LOW proposal tier bypassed the HIGH trusted floor"
+    assert not task.done(), "mission did not pause for approval"
+    assert "hitl-approval" in [name for name, _ in handler.emitted]
+    approval_payload = dict(handler.emitted[-1][1])
+    assert approval_payload["risk_tier"] == "HIGH", (
+        "approval payload must reflect the trusted floor, not the proposal tier"
+    )
+
+    handler.resolve({"approved": True})
+    await task
 
 
 @pytest.mark.skipif(not HAS_PROVIDER, reason="live LLM provider env not set")
