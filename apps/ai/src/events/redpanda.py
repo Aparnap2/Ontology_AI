@@ -35,6 +35,20 @@ PUBLISH_TIMEOUT_SECONDS = float(
 DLQ_TOPIC = "ontology_ai.dlq.events"
 
 
+async def _safe_stop(producer: AIOKafkaProducer) -> None:
+    """Stop a producer without raising.
+
+    Cleanup runs on success, on failure, and on cancellation. A producer that was
+    never started, or one that is already stopping, can raise here; that must not
+    mask the original exception. ``CancelledError`` is deliberately NOT swallowed
+    (it derives from BaseException), so cancellation still propagates.
+    """
+    try:
+        await producer.stop()
+    except Exception as e:
+        log.warning("Error stopping Kafka producer: %s", e)
+
+
 class RedpandaConsumer:
     """Async Redpanda consumer for Go→Python events."""
 
@@ -49,18 +63,23 @@ class RedpandaConsumer:
         """Lazy-init the DLQ producer. Returns None if unavailable."""
         if self._dlq_producer is not None:
             return self._dlq_producer
+        producer = AIOKafkaProducer(
+            bootstrap_servers=self.brokers,
+            client_id="ontology_ai_dlq",
+        )
         try:
-            self._dlq_producer = AIOKafkaProducer(
-                bootstrap_servers=self.brokers,
-                client_id="ontology_ai_dlq",
-            )
-            await self._dlq_producer.start()
-            log.info("DLQ producer connected to %s", self.brokers)
-            return self._dlq_producer
+            await producer.start()
         except Exception as e:
             log.warning("DLQ producer unavailable: %s", e)
+            # Drop the half-started producer only after stopping it, otherwise it
+            # is garbage-collected unclosed.
+            await _safe_stop(producer)
             self._dlq_producer = None
             return None
+
+        self._dlq_producer = producer
+        log.info("DLQ producer connected to %s", self.brokers)
+        return self._dlq_producer
 
     async def _publish_dlq(
         self,
@@ -161,14 +180,23 @@ class RedpandaPublisher:
 
     async def connect(self) -> bool:
         """Connect to Redpanda. Returns False if unavailable."""
+        # Release any previously connected producer first: connect() may be called
+        # more than once (e.g. get_producer()), and replacing self._producer
+        # without stopping the old one leaks a live producer.
+        await self.close()
+
+        producer = AIOKafkaProducer(bootstrap_servers=self.brokers)
         try:
-            self._producer = AIOKafkaProducer(bootstrap_servers=self.brokers)
-            await self._producer.start()
-            log.info(f"Redpanda producer connected to {self.brokers}")
-            return True
+            await producer.start()
         except Exception as e:
             log.warning(f"Redpanda unavailable for publish: {e}")
+            # Never leave a half-started producer referenced or unclosed.
+            await _safe_stop(producer)
             return False
+
+        self._producer = producer
+        log.info(f"Redpanda producer connected to {self.brokers}")
+        return True
 
     async def publish(
         self,
@@ -212,10 +240,16 @@ class RedpandaPublisher:
             return False
 
     async def close(self) -> None:
-        """Close producer."""
-        if self._producer:
-            await self._producer.stop()
-            self._producer = None
+        """Close producer. Idempotent, and never raises.
+
+        The reference is cleared *before* awaiting stop() so that concurrent or
+        repeated cleanup paths cannot stop the same producer twice, and a cleanup
+        error can never replace an in-flight publish/cancellation exception.
+        """
+        producer, self._producer = self._producer, None
+        if producer is None:
+            return
+        await _safe_stop(producer)
 
 
 async def publish_guardian_result(
@@ -226,11 +260,10 @@ async def publish_guardian_result(
 ) -> bool:
     """Publish guardian decision result to Redpanda for Go to consume."""
     publisher = RedpandaPublisher()
-    if not await publisher.connect():
-        log.warning("Could not connect to Redpanda for guardian result")
-        return False
-
     try:
+        if not await publisher.connect():
+            log.warning("Could not connect to Redpanda for guardian result")
+            return False
         return await publisher.publish(
             topic="ontology_ai.guardian.results",
             tenant_id=tenant_id,
@@ -243,6 +276,8 @@ async def publish_guardian_result(
             },
         )
     finally:
+        # Covers the connect-failure path too: connect() may have created a
+        # producer that still needs stopping.
         await publisher.close()
 
 
