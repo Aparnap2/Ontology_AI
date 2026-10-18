@@ -36,7 +36,7 @@ class TestSlackbotWiring:
             "user": "U123"
         }
 
-        with patch('src.session.relevance_gate.relevance_gate', return_value=[]) as mock_gate:
+        with patch('src.session.relevance_gate.get_triggered_agents', return_value=[]) as mock_gate:
             result = await handle_slack_message(slack_event)
 
             assert result["blocked"] is True
@@ -54,7 +54,7 @@ class TestSlackbotWiring:
             "user": "U123"
         }
 
-        with patch('src.session.relevance_gate.relevance_gate', return_value=["finance"]):
+        with patch('src.session.relevance_gate.get_triggered_agents', return_value=["finance"]):
             with patch('src.agents.cofounder.router.Router') as mock_router:
                 mock_router.return_value.route.return_value = Mock(
                     destination="finance",
@@ -79,7 +79,7 @@ class TestSlackbotWiring:
             "user": "U123"
         }
 
-        with patch('src.session.relevance_gate.relevance_gate', return_value=["finance"]):
+        with patch('src.session.relevance_gate.get_triggered_agents', return_value=["finance"]):
             with patch('src.agents.cofounder.router.Router') as mock_router:
                 mock_router.return_value.route.side_effect = Exception("Finance guardian down")
 
@@ -100,7 +100,7 @@ class TestSlackbotWiring:
             "user": "U123"
         }
 
-        with patch('src.session.relevance_gate.relevance_gate', return_value=["finance"]):
+        with patch('src.session.relevance_gate.get_triggered_agents', return_value=["finance"]):
             with patch('src.agents.cofounder.router.Router') as mock_router:
                 mock_router.return_value.route.return_value = Mock(
                     destination="finance",
@@ -124,7 +124,7 @@ class TestSlackbotWiring:
             "user": "U123"
         }
 
-        with patch('src.session.relevance_gate.relevance_gate', return_value=["finance", "ops"]):
+        with patch('src.session.relevance_gate.get_triggered_agents', return_value=["finance", "ops"]):
             with patch('src.agents.cofounder.router.Router') as mock_router:
                 mock_router.return_value.route.return_value = Mock(
                     destination="finance,ops",
