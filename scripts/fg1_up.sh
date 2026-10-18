@@ -3,6 +3,9 @@
 # actually ready. FG-1 (issue #71) cannot complete without these.
 set -u
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(dirname "$SCRIPT_DIR")
+
 # Host-based clients (tests, local tooling) MUST use the EXTERNAL listener,
 # which advertises localhost:9094. The 19092 mapping is in-network only: it
 # advertises the container hostname "redpanda:9092", which does not resolve
@@ -27,6 +30,22 @@ wait_for() {
 
 docker start localgcp-cloudsql iterateswarm-redpanda sarthi-redis \
   ontologiai-temporal ontologiai-postgres >/dev/null 2>&1
+
+# Core mock (mockoon) on :3000 — required by
+# apps/ai/tests/integration/test_mockoon_endpoints.py (MOCKOON_BASE_URL default
+# http://localhost:3000). Installed via npm, not docker, so it is launched here
+# detached and gated on its /health contract (service name asserted by the tests).
+if command -v mockoon-cli >/dev/null 2>&1; then
+  pkill -f "mockoon-cli.*sarthi-demo" >/dev/null 2>&1 || true
+  ( cd "$ROOT" && setsid nohup mockoon-cli start \
+      --data mockoon/sarthi-demo.json \
+      --port 3000 --hostname 0.0.0.0 --log-transaction \
+      > /tmp/mockoon-core.log 2>&1 </dev/null & )
+  wait_for "core-mock(3000 /health)" \
+    "curl -sf -m 2 http://127.0.0.1:3000/health"
+else
+  echo "SKIP core-mock(:3000) mockoon-cli not installed"
+fi
 
 wait_for "postgres(32768)" \
   "PGPASSWORD=iterateswarm psql -h 127.0.0.1 -p 32768 -U iterateswarm -d iterateswarm -tc 'select 1'"

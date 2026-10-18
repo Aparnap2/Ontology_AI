@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop Mockoon CLI for OntologyAI V6 (all 4 connectors on :3001-3004).
+# Stop Mockoon CLI for OntologyAI (core mock on :3000 + connectors on :3001-3004).
 # Usage:  bash scripts/stop-mockoon.sh
 set -euo pipefail
 
@@ -23,8 +23,8 @@ if [ -d "$PIDS_DIR" ] && ls "$PIDS_DIR"/*.pid >/dev/null 2>&1; then
     done
 fi
 
-# Fallback: kill any lingering mockoon-cli on the V6 ports.
-pkill -f "mockoon-cli.*--port 300[1-4]" 2>/dev/null && stopped=$((stopped + 1)) || true
+# Fallback: kill any lingering mockoon-cli on the OntologyAI ports.
+pkill -f "mockoon-cli.*--port 300[0-4]" 2>/dev/null && stopped=$((stopped + 1)) || true
 sleep 1
 
 if [ "$stopped" -gt 0 ]; then
