@@ -107,13 +107,13 @@ class MockVendorCapability:
 
 @pytest.fixture(autouse=True)
 def _clean():
-    ingress_mod._seen._seen.clear()
+    ingress_mod._seen.clear()
     audit_mod.AUDIT_LOG.clear()
     snapshot = dict(SkillRegistry._skills)
     yield
     SkillRegistry._skills.clear()
     SkillRegistry._skills.update(snapshot)
-    ingress_mod._seen._seen.clear()
+    ingress_mod._seen.clear()
     audit_mod.AUDIT_LOG.clear()
 
 
@@ -296,10 +296,14 @@ async def _run_vendor_mission(
         ),
         None,
     )
-    permit_intent = (permit or {}).get("intent", {})
+    # A denied submission emits no permit:executed (a denial is never an
+    # execution), so ``permit`` may legitimately be None. Derive the workspace
+    # event from the observation in that case rather than dereferencing None.
+    permit_event = permit or {}
+    permit_intent = permit_event.get("intent", {})
     workspace_event = {
         "mission_id": MISSION,
-        "action_id": permit.get("action_id", obs.get("action_id", "")),
+        "action_id": permit_event.get("action_id", obs.get("action_id", "")),
         "status": "completed" if obs.get("verified") else "needs_review",
         "verified": bool(obs.get("verified", False)),
         "decision": obs.get("decision", obs.get("outcome", "")),
