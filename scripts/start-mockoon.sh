@@ -13,7 +13,7 @@ MOCK_DIR="${PROJECT_ROOT}/mockoon"
 # apps/ai/tests/integration/test_mockoon_endpoints.py; :3001-:3004 match the V6
 # connector base URLs.
 declare -a CONFIGS=(
-  "sarthi-demo:3000:${MOCK_DIR}/sarthi-demo.json"
+  "ontology-ai:3000:${MOCK_DIR}/ontology-ai-demo.json"
   "notion:3001:${MOCK_DIR}/notion.json"
   "slack:3002:${MOCK_DIR}/slack.json"
   "jira:3003:${MOCK_DIR}/jira.json"

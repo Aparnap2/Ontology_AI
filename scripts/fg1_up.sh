@@ -36,9 +36,9 @@ docker start localgcp-cloudsql iterateswarm-redpanda sarthi-redis \
 # http://localhost:3000). Installed via npm, not docker, so it is launched here
 # detached and gated on its /health contract (service name asserted by the tests).
 if command -v mockoon-cli >/dev/null 2>&1; then
-  pkill -f "mockoon-cli.*sarthi-demo" >/dev/null 2>&1 || true
+  pkill -f "mockoon-cli.*ontology-ai-demo" >/dev/null 2>&1 || true
   ( cd "$ROOT" && setsid nohup mockoon-cli start \
-      --data mockoon/sarthi-demo.json \
+      --data mockoon/ontology-ai-demo.json \
       --port 3000 --hostname 0.0.0.0 --log-transaction \
       > /tmp/mockoon-core.log 2>&1 </dev/null & )
   wait_for "core-mock(3000 /health)" \
