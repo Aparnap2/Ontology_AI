@@ -276,3 +276,16 @@ The system uses the **official OpenAI Go SDK v3** which is compatible with:
 - **Ollama**: Set `OLLAMA_BASE_URL` and `OLLAMA_API_KEY` (local)
 
 Configuration is auto-detected. See `internal/config/llm.go`.
+
+---
+
+## Section 13: Accumulated Learnings
+
+| Date | Task | Learning |
+| ---- | ---- | -------- |
+| 2026-10-18 | #97 QA bound test | `QAGraph` (`apps/ai/src/agents/qa/graph.py`) is a `@dataclass` requiring `tenant_id`; `invoke()` is single-shot. No `max_iterations` exists in the QA module (only in `src/mission/`). Assert call counts, not invented attributes. |
+| 2026-10-18 | #94 finance-guardian tests | Product alert contract is `guardian_result["match_count"] > 0`. `shouldalert` is test-fiction — grep before inventing mock fields. Also: `run_pulse_agent` mock must include `"ok": True` or the product takes its failure path. |
+| 2026-10-18 | #93 scheduler bootstrap tests | `bootstrap_scheduler()` reads `ACTIVE_TENANTS` (default `"default"`). Always set env explicitly per test; scheduler funcs in `src/scheduler/ontology_ai_scheduler.py` are **sync** `def` → `MagicMock`, not `AsyncMock`. |
+| 2026-10-18 | #92 unit/integrations mode | Polluters must restore global state: `tests/test_v6_worker_import_gate.py` evicted `src.integrations.*` from `sys.modules` without restore, so a later `@patch("src.integrations.erpnext.MOCK_MODE")` re-imported a **fresh** module and patched it while the test ran a stale bound function. Snapshot + restore in `try/finally`. |
+| 2026-10-18 | #92 hubspot mock mode | `MOCK_MODE` in `src/integrations/{erpnext,hubspot}.py` is computed at **import time** from `ERPNEXT_URL`/`HUBSPOT_ACCESS_TOKEN`. A leaked `set_env_vars` (session-scoped autouse in `tests/integration/test_mockoon_pipeline.py`) made `importlib.reload` recompute `MOCK_MODE=False` → real API 401. Scope env-mutating autouse fixtures to the module that needs them. |
+| 2026-10-18 | verification hygiene | Mutation evidence is only valid if the mutation actually applied. Assert the anchor was found and confirm `git diff --stat` restored to 0 afterwards — a silently unapplied mutation yields a false "pass". |
