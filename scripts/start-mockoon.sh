@@ -121,8 +121,9 @@ if [ "$FAIL" -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ All 4 Mockoon APIs healthy on :3001-:3004"
+echo "✅ All 5 Mockoon APIs healthy on :3000-:3004"
 echo ""
+echo "  ontology-ai -> http://localhost:3000  (/health, /internal/hitl/*, /internal/query)"
 echo "  notion    -> http://localhost:3001  (/pages)"
 echo "  slack     -> http://localhost:3002  (/conversations.list)"
 echo "  jira      -> http://localhost:3003  (/rest/api/3/search)"
