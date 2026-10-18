@@ -3,37 +3,55 @@
 L2 tests - Real Docker Postgres, mocked LLM.
 Performs actual database read/write with test fixtures.
 """
-import asyncio
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 
 import asyncpg
 import pytest
+from pytest_asyncio import fixture as aio_fixture
 
 
-# Test database configuration - uses separate test DB
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql://test:test@localhost:5432/test_ontology_ai"
+# Test database configuration.
+#
+# TEST_DATABASE_URL is REQUIRED (no implicit default). The deterministic gate
+# must point this at a real, disposable PostgreSQL database
+# (see .github/workflows/ci-go.yml). An unset value is a configuration error,
+# not a reason to silently skip — see test_pg_pool below.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+
+# Canonical schema source of truth: the shared core migration that owns the
+# `mission_states` table, including the UNIQUE(tenant_id) that every
+# `ON CONFLICT (tenant_id)` writer depends on. The fixture applies it so the
+# test exercises the real contract instead of a hand-maintained approximation.
+_CANONICAL_MIGRATION = (
+    Path(__file__).resolve().parents[3]
+    / "core"
+    / "internal"
+    / "db"
+    / "migrations"
+    / "013_mission_states_canonical.sql"
 )
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for session-scoped async fixtures."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@aio_fixture
 async def test_pg_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Create a connection pool to test Postgres.
+    """Connect to the test Postgres and provision the canonical schema.
 
-    Skip if Postgres not available or table doesn't exist.
+    TEST_DATABASE_URL is required. A missing value, an auth/connectivity
+    failure, or a failure to apply the canonical migration is a hard failure
+    (never a silent skip): a broken or absent schema must not masquerade as a
+    green run.
     """
+    if not TEST_DATABASE_URL:
+        pytest.fail(
+            "TEST_DATABASE_URL is required for mission-state integration tests. "
+            "Point it at a disposable PostgreSQL database "
+            "(see .github/workflows/ci-go.yml for the canonical value)."
+        )
+
     try:
         pool = await asyncpg.create_pool(
             TEST_DATABASE_URL,
@@ -41,22 +59,26 @@ async def test_pg_pool() -> AsyncGenerator[asyncpg.Pool, None]:
             max_size=2,
             command_timeout=30,
         )
-        # Verify table exists
+    except Exception as exc:  # includes auth + connectivity failures — report, don't skip
+        pytest.fail(
+            f"Could not connect to TEST_DATABASE_URL ({TEST_DATABASE_URL!r}): "
+            f"{exc!r}. Mission-state integration tests require a reachable "
+            "PostgreSQL matching the canonical schema."
+        )
+
+    try:
+        if not _CANONICAL_MIGRATION.is_file():
+            pytest.fail(f"Canonical migration not found at {_CANONICAL_MIGRATION}")
         async with pool.acquire() as conn:
-            await conn.fetchval(
-                "SELECT 1 FROM mission_states LIMIT 1"
-            )
+            await conn.execute(_CANONICAL_MIGRATION.read_text())
+            # Verify the table exists and is readable.
+            await conn.fetchval("SELECT 1 FROM mission_states LIMIT 1")
         yield pool
+    finally:
         await pool.close()
-    except ConnectionRefusedError:
-        pytest.skip("Postgres not available at TEST_DATABASE_URL")
-    except asyncpg.InvalidCatalogNameError:
-        pytest.skip("Test database 'test_ontology_ai' does not exist")
-    except asyncpg.UndefinedTableError:
-        pytest.skip("mission_states table not created yet")
 
 
-@pytest.fixture
+@aio_fixture
 async def clean_tenant(test_pg_pool: asyncpg.Pool) -> AsyncGenerator[str, None]:
     """Provide a clean tenant ID and clean up after test."""
     tenant_id = f"test-l2-{datetime.now().strftime('%Y%m%d%H%M%S')}"
