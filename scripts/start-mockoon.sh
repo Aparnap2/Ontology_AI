@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Start Mockoon CLI for OntologyAI V6 — one process per connector.
-# Directive: mockoon-cli (NOT docker). Ports :3001-:3004, one config per connector.
+# Start Mockoon CLI for OntologyAI — one process per config.
+# Directive: mockoon-cli (NOT docker). Core mock on :3000, connectors on :3001-:3004.
 # Usage:  bash scripts/start-mockoon.sh
 # Stop:   bash scripts/stop-mockoon.sh
 set -euo pipefail
@@ -9,8 +9,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 MOCK_DIR="${PROJECT_ROOT}/mockoon"
 
-# Per-connector config + port mapping (must match V6 connector base URLs).
+# Config + port mapping. :3000 is the core mock asserted by
+# apps/ai/tests/integration/test_mockoon_endpoints.py; :3001-:3004 match the V6
+# connector base URLs.
 declare -a CONFIGS=(
+  "ontology-ai:3000:${MOCK_DIR}/ontology-ai-demo.json"
   "notion:3001:${MOCK_DIR}/notion.json"
   "slack:3002:${MOCK_DIR}/slack.json"
   "jira:3003:${MOCK_DIR}/jira.json"
@@ -32,7 +35,7 @@ stop_existing() {
             rm -f "$pidfile"
         done
         sleep 1
-        pkill -f "mockoon-cli.*--port 300[1-4]" 2>/dev/null || true
+        pkill -f "mockoon-cli.*--port 300[0-4]" 2>/dev/null || true
         sleep 1
     fi
 }
@@ -66,12 +69,17 @@ start_one() {
 
 healthcheck() {
     local port="$1"
-    # Every config has at least one GET route; /health is not guaranteed across configs.
-    # Use a tolerant check: any HTTP response (incl. 404) means the server is listening.
+    # Core mock (:3000) exposes /health and the tests assert its service name;
+    # connector configs may not define /health, so any HTTP response (incl. 404)
+    # proves the server is listening.
+    local path="/"
+    [ "$port" = "3000" ] && path="/health"
     for i in $(seq 1 15); do
         local code
-        code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${port}/" 2>/dev/null || echo "000")
-        if [ "$code" != "000" ]; then
+        code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${port}${path}" 2>/dev/null || echo "000")
+        if [ "$port" = "3000" ]; then
+            [ "$code" = "200" ] && return 0
+        elif [ "$code" != "000" ]; then
             return 0
         fi
         sleep 1
@@ -83,7 +91,7 @@ stop_existing
 check_mockoon_installed
 
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║     OntologyAI V6 — MOCKOON CLI (4 connectors)          ║"
+echo "║   OntologyAI — MOCKOON CLI (core :3000 + 4 connectors)   ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -113,8 +121,9 @@ if [ "$FAIL" -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ All 4 Mockoon APIs healthy on :3001-:3004"
+echo "✅ All 5 Mockoon APIs healthy on :3000-:3004"
 echo ""
+echo "  ontology-ai -> http://localhost:3000  (/health, /internal/hitl/*, /internal/query)"
 echo "  notion    -> http://localhost:3001  (/pages)"
 echo "  slack     -> http://localhost:3002  (/conversations.list)"
 echo "  jira      -> http://localhost:3003  (/rest/api/3/search)"

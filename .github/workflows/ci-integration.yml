@@ -83,28 +83,29 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         working-directory: apps/ai
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+        run: uv sync --frozen
 
       - name: Run database migrations
         working-directory: apps/ai
         env:
           POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
         run: |
-          python -m alembic upgrade head
+          uv run --frozen python -m alembic upgrade head
 
       - name: Create Qdrant collections
         working-directory: apps/ai
         env:
           QDRANT_URL: "http://localhost:6333"
         run: |
-          python scripts/create_collections.py
+          uv run --frozen python scripts/create_collections.py
 
       - name: Wait for all services
         run: |
@@ -134,7 +135,7 @@ jobs:
           DEMO_MODE:       "true"
           LLM_PROVIDER:    "mock"   # no real LLM in CI — use deterministic mock
         run: |
-          pytest tests/integration/ \
+          uv run --frozen pytest tests/integration/ \
             -v \
             --tb=short \
             --timeout=60 \

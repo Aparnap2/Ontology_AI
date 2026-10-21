@@ -123,3 +123,67 @@ def test_apply_text_convenience_method():
     text = tf.apply_text("EBITDA is down.")
     assert isinstance(text, str)
     assert "EBITDA" not in text
+
+
+# ── Client contract (regression — no network) ─────────────────────
+# ToneFilter.__init__ wires get_llm_client(), which returns an
+# openai.OpenAI client. The chat call must go through the SDK
+# (chat.completions.create); the old httpx-style
+# self._client.post("/chat/completions", json=...) raised
+# TypeError: SyncAPIClient.post() got an unexpected keyword argument 'json'.
+
+
+class _FakeResponse:
+    def __init__(self, content: str) -> None:
+        self.choices = [type("_C", (), {"message": type("_M", (), {"content": content})()})()]
+
+
+class _FakeCompletions:
+    def __init__(self, content: str) -> None:
+        self._content = content
+        self.calls: list[dict] = []
+
+    def create(self, **kwargs) -> _FakeResponse:
+        self.calls.append(kwargs)
+        return _FakeResponse(self._content)
+
+
+class _FakeClient:
+    """Stand-in for openai.OpenAI exposing only chat.completions.create.
+
+    Deliberately has no ``post`` attribute: any regression back to the
+    httpx-style call raises AttributeError and fails the test.
+    """
+
+    def __init__(self, content: str) -> None:
+        self.completions = _FakeCompletions(content)
+        self.chat = type("_Chat", (), {"completions": self.completions})()
+
+
+def _install_fake_client(monkeypatch, content: str) -> _FakeClient:
+    fake = _FakeClient(content)
+    monkeypatch.setattr("src.services.tone_filter.get_llm_client", lambda: fake)
+    return fake
+
+
+def test_tone_rewrite_calls_openai_chat_completions(monkeypatch):
+    """Tone rewrite must use the OpenAI SDK, not httpx .post(json=)."""
+    fake = _install_fake_client(monkeypatch, "You keep less from each sale.")
+    result = ToneFilter().apply("Your EBITDA dropped this month.")
+
+    assert result.text == "You keep less from each sale."
+    assert len(fake.completions.calls) == 1
+    call = fake.completions.calls[0]
+    assert call["messages"][0]["role"] == "system"
+    assert "model" in call
+    assert "temperature" in call
+
+
+def test_translate_hindi_calls_openai_chat_completions(monkeypatch):
+    """Hindi path uses chat.completions.create for both rewrite and translate."""
+    fake = _install_fake_client(monkeypatch, "आपकी बिक्री बढ़ी है।")
+    result = ToneFilter().apply("Revenue is up this month.", language="hi")
+
+    assert result.text == "आपकी बिक्री बढ़ी है।"
+    assert result.language == "hi"
+    assert len(fake.completions.calls) == 2

@@ -10,7 +10,13 @@ import os
 import pytest
 import json
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+
+
 pytestmark = [
+    pytest.mark.llm,
     pytest.mark.skipif(
         not os.getenv("GROQ_API_KEY") and not os.getenv("OPENROUTER_API_KEY"),
         reason="Requires GROQ_API_KEY or OPENROUTER_API_KEY in .env",

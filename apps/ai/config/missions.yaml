@@ -1,0 +1,164 @@
+# V6 Milestone #3 — Canonical Missions (minimal set).
+#
+# A mission is a business objective assigned to exactly one employee whose
+# ``mission_types`` allowlist admits it. The mission's default skill plan must
+# be a subset of the owning employee's skill allowlist. Milestone #3 ships the
+# config plumbing plus this minimal set; the full canonical 10 land in #4.
+#
+# Env-template pattern: ${VAR} placeholders are expanded at load time from the
+# environment (see src/mission/mission_config.py).
+
+missions:
+  - id: m-pipeline-health-01
+    title: "Pipeline health monitor"
+    description: "Assess the revenue pipeline, flag at-risk deals, and summarize health for the founder."
+    employee_role: revops
+    mission_type: pipeline_health_monitor
+    priority: high
+    kpi_ids: [pipeline_coverage, forecast_accuracy]
+    skill_plan: [pipeline_health, revenue_kpi_analysis]
+
+  - id: m-crm-hygiene-01
+    title: "CRM hygiene audit"
+    description: "Audit CRM records for staleness and correct the data that is safe to fix."
+    employee_role: revops
+    mission_type: crm_hygiene_audit
+    priority: medium
+    kpi_ids: [pipeline_coverage]
+    skill_plan: [crm_hygiene]
+
+  - id: m-revenue-kpi-01
+    title: "Revenue KPI review"
+    description: "Review revenue KPIs against targets and surface the biggest forecast deltas."
+    employee_role: revops
+    mission_type: revenue_kpi_review
+    priority: medium
+    kpi_ids: [deal_velocity, forecast_accuracy]
+    skill_plan: [revenue_kpi_analysis]
+
+  - id: m-blocked-work-01
+    title: "Blocked work review"
+    description: "Investigate blocked engineering work, identify the blocker, and recommend an unblock."
+    employee_role: productops
+    mission_type: blocked_work_review
+    priority: urgent
+    kpi_ids: [cycle_time, delivery_confidence]
+    skill_plan: [blocked_work_investigation, delivery_risk_analysis]
+    trigger_types: [jira.blocked]
+    goal: "Return every blocked work item to an owned, progressing state."
+    required_context: [issue, affected_milestone]
+    allowed_capabilities: [jira.read, jira.create, jira.update, slack.search, slack.send]
+    success_criteria: [blocker_root_caused, owner_assigned_or_escalated]
+    action_constraints: [no_delete_operations]
+    approval_policy: approval_required
+
+  - id: m-sprint-health-01
+    title: "Sprint health review"
+    description: "Score sprint and roadmap health from Jira and flag delivery risk."
+    employee_role: productops
+    mission_type: sprint_health_review
+    priority: medium
+    kpi_ids: [sprint_velocity, delivery_confidence]
+    skill_plan: [sprint_health, roadmap_health]
+
+  - id: m-process-adherence-01
+    title: "Process adherence audit"
+    description: "Check that teams follow documented processes and sync docs where they drift."
+    employee_role: productops
+    mission_type: process_adherence_audit
+    priority: low
+    kpi_ids: [cycle_time]
+    skill_plan: [process_adherence, documentation_sync]
+
+  - id: m-decision-capture-01
+    title: "Decision capture review"
+    description: "Capture decisions from conversations into the knowledge base before they evaporate."
+    employee_role: orgint
+    mission_type: decision_capture_review
+    priority: high
+    kpi_ids: [decision_coverage]
+    skill_plan: [decision_capture]
+
+  - id: m-knowledge-gap-01
+    title: "Knowledge gap audit"
+    description: "Detect knowledge gaps and produce an organizational brief for the founder."
+    employee_role: orgint
+    mission_type: knowledge_gap_audit
+    priority: medium
+    kpi_ids: [knowledge_gap_index, sop_freshness]
+    skill_plan: [knowledge_gap_detection, organizational_brief]
+
+  - id: m-handoff-validation-01
+    title: "Validate closed-won handoff"
+    description: "Validate handoff completeness, extract commitments, and flag missing data before kickoff."
+    employee_role: revops
+    mission_type: handoff_validation
+    priority: high
+    kpi_ids: [pipeline_coverage]
+    skill_plan: [account_context, crm_hygiene]
+    trigger_types: [salesforce.closed_won]
+    goal: "Declare the handoff onboarding-ready with no missing commitments."
+    required_context: [opportunity, commitments]
+    success_criteria: [handoff_complete_or_gaps_listed]
+    action_constraints: [no_delete_operations]
+    approval_policy: auto
+
+  - id: m-kickoff-prep-01
+    title: "Prepare kickoff"
+    description: "Identify stakeholders, validate success criteria, and mark kickoff readiness."
+    employee_role: orgint
+    mission_type: kickoff_preparation
+    priority: high
+    kpi_ids: [decision_coverage]
+    skill_plan: [cross_functional_investigation, ownership_gap_detection]
+    trigger_types: [handoff.complete]
+    goal: "Reach an explicit kickoff READY state with named owners."
+    required_context: [stakeholders, success_criteria]
+    success_criteria: [owners_assigned, readiness_marked]
+    action_constraints: [no_delete_operations]
+    approval_policy: read_only
+
+  - id: m-milestone-recovery-01
+    title: "Recover overdue milestone"
+    description: "Investigate the overdue milestone dependency, coordinate the responsible team, and verify progress."
+    employee_role: productops
+    mission_type: milestone_recovery
+    priority: urgent
+    kpi_ids: [cycle_time, delivery_confidence]
+    skill_plan: [delivery_risk_analysis, sprint_health]
+    trigger_types: [milestone.overdue]
+    goal: "Return the milestone to a progressing state with a verified owner."
+    required_context: [milestone, dependency]
+    success_criteria: [owner_engaged, progress_verified]
+    action_constraints: [no_delete_operations]
+    approval_policy: approval_required
+
+  - id: m-process-drift-01
+    title: "Detect onboarding process drift"
+    description: "Compare observed execution against the SOP and propose a correction."
+    employee_role: productops
+    mission_type: process_drift_detection
+    priority: medium
+    kpi_ids: [cycle_time]
+    skill_plan: [process_adherence, documentation_sync]
+    trigger_types: [execution.observed]
+    goal: "Determine whether the process or the execution is wrong, then propose the correction."
+    required_context: [sop, observed_execution]
+    success_criteria: [deviation_classified, correction_proposed]
+    action_constraints: [no_delete_operations, no_sop_publish_without_approval]
+    approval_policy: approval_required
+
+  - id: m-readiness-review-01
+    title: "First-value readiness review"
+    description: "Assess milestones, tasks, commitments, blockers, and owners into a readiness recommendation."
+    employee_role: orgint
+    mission_type: readiness_review
+    priority: high
+    kpi_ids: [decision_coverage, knowledge_gap_index]
+    skill_plan: [knowledge_gap_detection, organizational_brief]
+    trigger_types: [pre_first_value]
+    goal: "Recommend GO or NO-GO for first value with missing requirements listed."
+    required_context: [milestones, blockers, owners]
+    success_criteria: [readiness_assessed, gaps_listed]
+    action_constraints: [no_delete_operations]
+    approval_policy: approval_required

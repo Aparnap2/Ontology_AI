@@ -4,8 +4,8 @@ import pytest
 import json
 import asyncio
 from deepeval import assert_test, evaluate
-from deepeval.test_case import LLMTestCase, LLMTestCaseParams
-from deepeval.metrics import GEval
+from deepeval.evaluate.configs import AsyncConfig, DisplayConfig
+from deepeval.test_case import LLMTestCase
 from deepeval.metrics.base_metric import BaseMetric
 
 from tests.metrics.classification_metric import ExactClassificationMetric, SpecQualityMetric
@@ -42,45 +42,6 @@ GOLDEN_DATASET = [
     ("Is there a mobile app available?", "question", "low"),
     ("How do I reset my password?", "question", "low"),
 ]
-
-
-# GEval metrics for LLM-as-judge evaluation
-try:
-    classification_correctness = GEval(
-        name="ClassificationCorrectness",
-        criteria="""
-        Evaluate whether the feedback was classified correctly:
-        - 'bug': user reports broken/unexpected behavior, crashes, errors
-        - 'feature': user requests new functionality or improvements
-        - 'question': user is asking how something works
-
-        Score 1.0 if classification matches the feedback intent perfectly.
-        Score 0.5 if classification is defensible but not optimal.
-        Score 0.0 if classification is clearly wrong.
-        """,
-        evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
-        threshold=0.7,
-    )
-    severity_accuracy = GEval(
-        name="SeverityAccuracy",
-        criteria="""
-        Evaluate if severity is appropriate for the feedback:
-        - CRITICAL: system down, data loss, security breach
-        - HIGH: core feature broken, blocks multiple users
-        - MEDIUM: feature partially broken, workaround exists
-        - LOW: cosmetic, minor inconvenience
-
-        Score 1.0 if severity is clearly correct.
-        Score 0.5 if adjacent (e.g., HIGH when MEDIUM is more accurate).
-        Score 0.0 if completely wrong (e.g., CRITICAL for a typo).
-        """,
-        evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT],
-        threshold=0.7,
-    )
-    DEEPEVAL_AVAILABLE = True
-except Exception as e:
-    DEEPEVAL_AVAILABLE = False
-    print(f"Warning: DeepEval metrics not available (requires OpenAI API key): {e}")
 
 
 def build_test_case(text: str, expected_type: str, expected_severity: str) -> LLMTestCase:
@@ -133,15 +94,13 @@ def build_test_case(text: str, expected_type: str, expected_severity: str) -> LL
 # ─────────────────────────────────────────────
 
 
-@pytest.mark.skipif(not DEEPEVAL_AVAILABLE, reason="DeepEval requires OpenAI API key")
 @pytest.mark.parametrize("text,expected_type,expected_severity", GOLDEN_DATASET)
 def test_classification_correctness(text, expected_type, expected_severity):
     """Every feedback must be classified into the correct type."""
     test_case = build_test_case(text, expected_type, expected_severity)
-    assert_test(test_case, [ExactClassificationMetric(threshold=1.0)])
+    assert_test(test_case, [ExactClassificationMetric(threshold=1.0)], run_async=False)
 
 
-@pytest.mark.skipif(not DEEPEVAL_AVAILABLE, reason="DeepEval requires OpenAI API key")
 @pytest.mark.parametrize("text,expected_type,expected_severity", GOLDEN_DATASET[:5])
 def test_bug_severity_accuracy(text, expected_type, expected_severity):
     """Bugs must have HIGH or CRITICAL severity."""
@@ -165,10 +124,9 @@ def test_bug_severity_accuracy(text, expected_type, expected_severity):
         def is_successful(self):
             return self.success
 
-    assert_test(test_case, [BugSeverityMetric()])
+    assert_test(test_case, [BugSeverityMetric()], run_async=False)
 
 
-@pytest.mark.skipif(not DEEPEVAL_AVAILABLE, reason="DeepEval requires OpenAI API key")
 def test_full_pipeline_spec_quality():
     """Generated GitHub issue specs must meet quality standards."""
     if not AGENTS_AVAILABLE:
@@ -206,7 +164,12 @@ def test_full_pipeline_spec_quality():
         pytest.skip("No test cases available")
 
     # Batch evaluate all specs at once
-    results = evaluate(test_cases, [SpecQualityMetric(threshold=0.75)])
+    results = evaluate(
+        test_cases,
+        [SpecQualityMetric(threshold=0.75)],
+        async_config=AsyncConfig(run_async=False),
+        display_config=DisplayConfig(show_indicator=False),
+    )
     passed = sum(1 for r in results.test_results if r.success)
     total = len(results.test_results)
     assert passed >= int(total * 0.8), f"Only {passed}/{total} specs passed quality check"

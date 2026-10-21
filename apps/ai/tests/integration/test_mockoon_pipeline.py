@@ -103,12 +103,20 @@ def mockoon_containers():
 
 
 # ---------------------------------------------------------------------------
-# Env setup (session-scoped)
+# Env setup (module-scoped — restored before later suites run)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session", autouse=True)
 def set_env_vars():
-    """Set env vars so connectors hit Mockoon instead of real APIs."""
+    """Set env vars so connectors hit Mockoon instead of real APIs.
+
+    Module-scoped, not session-scoped: these values (notably
+    ``HUBSPOT_ACCESS_TOKEN``/``ERPNEXT_URL``) are import-time inputs to
+    ``src.integrations.*.MOCK_MODE``. Leaking them past this module made
+    ``tests/unit/integrations/test_hubspot.py``'s ``importlib.reload``
+    recompute ``MOCK_MODE=False`` and hit the real HubSpot API (401) instead of
+    Mockoon. Restoring on module teardown keeps downstream suites hermetic.
+    """
     old = {}
     for k, v in REQUIRED_ENV.items():
         old[k] = os.environ.get(k)

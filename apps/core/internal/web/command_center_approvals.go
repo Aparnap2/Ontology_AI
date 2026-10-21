@@ -274,6 +274,12 @@ func (h *Handler) APICommandApprovalAction(c *fiber.Ctx) error {
 		}
 	}
 
+	// Workspace lifecycle contract (issue #61): an approval at this HITL gate
+	// produces ACTION_APPROVED for the tenant's SSE subscribers.
+	if action == "approve" {
+		h.broadcastWorkspaceLifecycleEvent(c.Query("tenant_id", "default"), "ACTION_APPROVED", "Action approved", id)
+	}
+
 	if c.Get("HX-Request") == "true" {
 		return c.SendString("")
 	}

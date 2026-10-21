@@ -193,20 +193,15 @@ class ToneFilter:
             f"{name_hint}\n\n"
             f"Rewrite this message:\n\n{message}"
         )
-        response = self._client.post(
-            "/chat/completions",
-            json={
-                "model": self._model,
-                "messages": [
-                    {"role": "system", "content": TONE_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                "temperature": 0.25,
-            },
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": TONE_SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.25,
         )
-        response.raise_for_status()
-        data = response.json()
-        raw = data["choices"][0]["message"]["content"].strip()
+        raw = response.choices[0].message.content.strip()
         try:
             parsed = json.loads(raw)
             text = parsed.get("text", parsed.get("rewritten", raw))
@@ -215,17 +210,12 @@ class ToneFilter:
         return text
 
     def _translate_hindi(self, text: str) -> str:
-        response = self._client.post(
-            "/chat/completions",
-            json={
-                "model": self._model,
-                "messages": [
-                    {"role": "system", "content": HINDI_SYSTEM_PROMPT},
-                    {"role": "user", "content": text},
-                ],
-                "temperature": 0.15,
-            },
+        response = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": HINDI_SYSTEM_PROMPT},
+                {"role": "user", "content": text},
+            ],
+            temperature=0.15,
         )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        return response.choices[0].message.content.strip()

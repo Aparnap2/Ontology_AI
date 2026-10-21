@@ -103,8 +103,14 @@ services:
       - --overprovisioned
       - --unsafe-bypass-fsync=true
     ports:
-      - "19092:9092"  # Kafka API (internal)
-      - "9094:9094"   # Kafka API (external - for local dev)
+      # PLAINTEXT listener advertises "redpanda:9092" (container hostname) and is
+      # for in-network clients ONLY (e.g. iterateswarm-consumer KAFKA_BROKERS).
+      # Host-based clients CANNOT use 19092: metadata resolution fails because the
+      # advertised hostname does not resolve from the host.
+      - "19092:9092"  # Kafka API (in-network only - NOT host-reachable)
+      # EXTERNAL listener advertises "localhost:9094" and is the HOST entrypoint.
+      # Host clients (tests, local tooling) must use localhost:9094.
+      - "9094:9094"   # Kafka API (host entrypoint - advertised as localhost:9094)
       - "18081:8081"  # Schema Registry (remapped: 8081 used by MiniSky)
       - "8082:8082"   # REST Proxy
       - "33145:33145" # RPC

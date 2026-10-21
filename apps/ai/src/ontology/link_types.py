@@ -16,8 +16,6 @@ Expected ``db`` interface
 
 This keeps the helper fully testable without a real Postgres connection.
 """
-from typing import Callable, Optional, Union
-
 from pydantic import BaseModel, ConfigDict
 
 from src.ontology.object_types import OBJECT_TYPES
@@ -133,6 +131,103 @@ LINK_TYPES: dict[str, LinkType] = {
         cardinality="one_to_many",
         semantic_meaning="An order (Engagement kind='order') is fulfilled by one or more shipments.",
         source_refs=["revenue_protection_slice"],
+    ),
+    # ── V6 domain links (Virtual COO operating model) ──────────────────────
+    "stakeholder_owns_process": LinkType(
+        name="stakeholder_owns_process",
+        source_type="Stakeholder",
+        target_type="Process",
+        cardinality="one_to_many",
+        semantic_meaning="A stakeholder owns or sponsors one or more processes.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "process_has_sop": LinkType(
+        name="process_has_sop",
+        source_type="Process",
+        target_type="SOP",
+        cardinality="one_to_many",
+        semantic_meaning="A process is documented by one or more SOPs.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "sop_versions": LinkType(
+        name="sop_versions",
+        source_type="SOP",
+        target_type="SOPVersion",
+        cardinality="one_to_many",
+        semantic_meaning="An SOP has a version history.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "employee_runs_mission": LinkType(
+        name="employee_runs_mission",
+        source_type="Employee",
+        target_type="Mission",
+        cardinality="one_to_many",
+        semantic_meaning="An AI employee runs one or more missions.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "mission_involves_process": LinkType(
+        name="mission_involves_process",
+        source_type="Mission",
+        target_type="Process",
+        cardinality="many_to_many",
+        semantic_meaning="A mission operates on one or more processes.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "mission_generates_actions": LinkType(
+        name="mission_generates_actions",
+        source_type="Mission",
+        target_type="Action",
+        cardinality="one_to_many",
+        semantic_meaning="A mission generates governed actions.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "action_targets_entity": LinkType(
+        name="action_targets_entity",
+        source_type="Action",
+        target_type="*",
+        cardinality="many_to_one",
+        semantic_meaning="An action targets any ontology entity.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "action_result_from": LinkType(
+        name="action_result_from",
+        source_type="ActionResult",
+        target_type="Action",
+        cardinality="many_to_one",
+        semantic_meaning="An action result belongs to an action.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "action_results_of": LinkType(
+        name="action_results_of",
+        source_type="Action",
+        target_type="ActionResult",
+        cardinality="one_to_many",
+        semantic_meaning="An action produces one or more results.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "review_of_process": LinkType(
+        name="review_of_process",
+        source_type="Review",
+        target_type="Process",
+        cardinality="many_to_one",
+        semantic_meaning="A review is conducted against a process.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "outcome_of_mission": LinkType(
+        name="outcome_of_mission",
+        source_type="Outcome",
+        target_type="Mission",
+        cardinality="many_to_one",
+        semantic_meaning="An outcome is the result of a mission.",
+        source_refs=["v6_frozen_direction"],
+    ),
+    "kpi_monitors_entity": LinkType(
+        name="kpi_monitors_entity",
+        source_type="KPI",
+        target_type="*",
+        cardinality="many_to_one",
+        semantic_meaning="A KPI monitors any ontology entity.",
+        source_refs=["v6_frozen_direction"],
     ),
 }
 

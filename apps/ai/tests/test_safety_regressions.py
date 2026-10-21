@@ -92,17 +92,39 @@ def test_agent_output_isolation():
         pytest.skip(f"Agent outputs module not available: {e}")
 
 
-def test_qa_graph_has_max_iterations():
-    """QA graph should limit iterations to prevent infinite loops."""
-    try:
-        from apps.ai.src.agents.qa.graph import QAGraph
+def test_qa_graph_has_max_iterations(monkeypatch):
+    """The QA graph must be bounded against runaway loops.
 
-        # Check if graph has max_iterations
-        graph = QAGraph()
-        if hasattr(graph, "max_iterations"):
-            assert graph.max_iterations <= 10, "max_iterations too high"
-            print(f"QA graph max_iterations: {graph.max_iterations}")
-        else:
-            print("QA graph: max_iterations defined in graph execution")
+    ``QAGraph.invoke`` issues exactly one ``chat_completion`` call and contains
+    no loop or recursion, so it cannot iterate unboundedly: its bound is
+    structural ("single-shot"), and it intentionally has no ``max_iterations``
+    attribute. This asserts that real property.
+
+    The previous version was broken and vacuous: it constructed ``QAGraph()``
+    without the required ``tenant_id`` (TypeError), and its only assertion was
+    gated behind ``hasattr(graph, "max_iterations")`` which is always False here.
+    """
+    try:
+        from apps.ai.src.agents.qa import graph as qa_graph_module
+        from apps.ai.src.agents.qa.graph import QAGraph
     except ImportError as e:
         pytest.skip(f"QA graph module not available: {e}")
+
+    calls = []
+
+    def _fake_completion(**kwargs):
+        calls.append(kwargs)
+        return "stub answer"
+
+    monkeypatch.setattr(qa_graph_module, "chat_completion", _fake_completion)
+
+    graph = QAGraph(tenant_id="test-tenant")
+
+    # Retain the original bound if the attribute is ever introduced.
+    if hasattr(graph, "max_iterations"):
+        assert graph.max_iterations <= 10, "max_iterations too high"
+
+    state = graph.invoke({"tenant_id": "test-tenant", "question": "What is revenue?"})
+
+    assert len(calls) == 1, f"QA graph is single-shot; issued {len(calls)} model calls"
+    assert state["answer"] == "stub answer"

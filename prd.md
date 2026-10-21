@@ -1,95 +1,275 @@
-# OntologyAI PRD v6 — Decision Intelligence Platform
+# OntologyAI PRD — V6 "Virtual COO Office for B2B SaaS Founders"
 
-## 1. Vision
-Convert fragmented enterprise evidence into a living Enterprise Knowledge Model and stakeholder-specific Decision Workspaces.
+> **Canonical Product Requirements Document.** This file is the single source of truth for the OntologyAI product.
+> Version: **V6 — Virtual COO Office** (supersedes all prior "Decision Intelligence Platform" framing).
+> Last updated: **August 2026**.
 
-## 2. Problem
-Enterprise knowledge is scattered across meetings, docs, chat, spreadsheets, CRM, and ERP, creating duplicated effort, inconsistent decisions, and slow alignment.
+## 1. Product
 
-## 3. Outcome
-One canonical model, many synchronized stakeholder views, and validated decision-ready artifacts.
+- **Name:** OntologyAI
+- **Category:** Virtual COO / Organizational Operations Intelligence
+- **Target:** Founder-led B2B SaaS companies
+- **Scope:** Portfolio project, not production SaaS
 
-## 4. Target Users
-CEO, COO, CFO, CTO, product leaders, business analysts, enterprise architects, ops leads, and implementation teams.
+## 2. Vision
 
-## 5. Product Principle
-Evidence first, knowledge second, decision third, artifact last.
+Demonstrate how a B2B SaaS founder can use a continuously operating digital workforce to reduce the four recurring dependencies: information, standards, decision, and execution.
 
-## 6. Scope
-MVP supports 4 connectors only: Notion, Slack, Jira/Linear, Salesforce; all other systems are future adapters behind the same connector interface.
+## 3. Problem
 
-## 7. Non-Goals
-No freeform document generation, no autonomous side effects, no generic chatbot, no broad connector sprawl, no production deployment automation in v6.
+Operational knowledge is fragmented across CRM, project management, communication, and documentation systems. The founder repeatedly becomes the integration layer between them. OntologyAI creates persistent organizational context and gives scoped AI employees the ability to observe, investigate, coordinate, and execute digital operational work.
 
-## 8. Canonical Data Model
-Evidence, Source, Stakeholder, OrgUnit, Capability, Process, System, Requirement, BusinessRule, Assumption, Constraint, Risk, Decision, Option, TradeOff, KPI, Project, Artifact, ArtifactVersion, Conflict, ValidationResult, FeasibilityScore, AuditEvent.
+## 4. MVP Boundaries
 
-## 9. Ingestion & Parsing
-Accept chat, upload, connector sync, transcript, spreadsheet, email export, screenshot, and API event; parse into typed Evidence objects with source, timestamp, tenant, confidence, and provenance.
+- **Integrations:** exactly Salesforce, Jira, Slack, Notion. No additional connectors in MVP.
+- **Business pillars:** exactly Marketing, Sales, Operations, Finance.
+- **AI employees:** exactly RevOps Intern, ProductOps Intern, Organizational Intelligence Intern.
+- **Core missions:** nine canonical missions rather than automating an entire company.
+  - RevOps: stalled-opportunity investigation, CRM hygiene review, follow-up coordination.
+  - ProductOps: blocked-work investigation, roadmap/process health review, documentation synchronization.
+  - Org Intelligence: decision capture, SOP freshness review, ownership/bottleneck investigation.
 
-## 10. Knowledge Pipeline
-Ingest → parse → normalize → dedupe → alias resolve → entity/relationship build → conflict detection → knowledge graph update → gap analysis → decision analysis → feasibility scoring → artifact projection → validation → publish.
+**Pillar ↔ employee coverage (intentional, not symmetric).** Business pillars are the domain model; employees are role configurations. Coverage is deliberately uneven — the project proves the digital-workforce architecture, not per-pillar automation:
 
-## 11. Artifact Catalog — External Decision Artifacts
-1. Executive Decision Brief
-2. Stakeholder Register + Influence Matrix
-3. Org / Ownership Map
-4. Current-State Pack (capability map + SIPOC + context diagram + process map)
-5. Feasibility & Options Report
-6. PRD / Solution Brief
-7. User Stories + Acceptance Criteria
-8. Wireframes / Storyboards
-9. Solution Architecture Pack
-10. Requirements Traceability Matrix
-11. Delivery Plan (WBS + roadmap + RACI)
-12. Measurement Pack (KPIs + baseline + target + retrospective)
+| Business area | Primary AI employee | MVP coverage |
+|---------------|---------------------|--------------|
+| Marketing | RevOps Intern | Limited |
+| Sales | RevOps Intern | Strong |
+| Operations | ProductOps Intern | Strong |
+| Finance | Org Intelligence / existing finance capabilities | Monitoring / context only |
+| Cross-functional | Org Intelligence Intern | Strong |
 
-## 12. Artifact Catalog — Internal Control Artifacts
-13. Evidence Register
-14. Data Quality / Mismatch Report
-15. Conflict Register
-16. Decision Log
-17. Feasibility Scorecard
-18. Artifact Health Report
+**Do not create a Finance Intern to make the pillar coverage symmetric.** The four pillars (Marketing, Sales, Operations, Finance) are covered by the three interns because none of the nine canonical missions is a finance mission; a finance intern is not a priority unless a finance mission is authored.
 
-## 13. Artifact Generation Rules
-Every artifact must be template-driven, evidence-linked, versioned, and regenerated only from the canonical model; LLM output may fill fields but may not invent sections or authoritative facts.
+## 5. Domain Model
 
-## 14. Feasibility Engine
-Score every recommendation across business value, technical complexity, operational fit, financial impact, compliance risk, data readiness, change effort, and stakeholder alignment.
+Core entities: Organization, BusinessPillar, Process, ProcessStep, SOP, SOPVersion, Owner, Role, KPI, MetricObservation, Mission, MissionEvent, MissionSnapshot, Evidence, Source, CanonicalEntity, EntityAlias, Relationship, Decision, Recommendation, Capability, Skill, EmployeeDefinition, EmployeeRun, Action, ActionResult, Policy, Approval, Memory, Workspace, Outcome.
 
-## 15. Decision Readiness Gates
-85–100 publish; 70–84 publish with caveats; 60–69 human review; below 60 block and return to discovery.
+Rule: do not add entities merely to look comprehensive; each entity must support an actual MVP behavior.
 
-## 16. Validation Engine
-Block if any requirement lacks evidence, any claim lacks traceability, any artifact section conflicts with the model, any KPI lacks baseline/owner, any numeric claim fails source reconciliation, or any policy/gov rule is violated.
+**Three things that must never merge — strict separation across three tables/models:**
 
-## 17. Decision Workspace Contract
-Every workspace must answer: what is happening, why it matters, what evidence supports it, what options exist, what is recommended, what are the trade-offs, what happens if nothing changes, who owns the decision, and what changes downstream.
+- **`EmployeeDefinition`** — what the employee IS: role config, skills, capabilities, permissions, policies, authority, risk threshold, KPIs, memory namespace.
+- **`EmployeeRun`** — what it is CURRENTLY DOING: runtime state, current mission, memory/learned context, allowed capabilities.
+- **`Mission`** — the persistent objective it is working toward.
 
-## 18. Agent Model
-ChiefOfStaff, IngestionParser, KnowledgeMapper, ConflictResolver, FeasibilityAnalyst, DecisionAnalyst, ArtifactComposer, GovernanceAgent, EvaluationAgent.
+**Rule: "You can't put what an employee is doing INTO what an employee is."** Role config, runtime state, and mission objective are three separate tables/models. Runtime state and learned context stay out of the role configuration.
 
-## 19. Agent Rules
-One responsibility per agent; typed I/O only; no agent mutates canonical state directly; no agent bypasses validation; no agent executes side effects without governance.
+**Implementation status:** a canonical entity model exists at `apps/ai/src/entities/models.py` (strict Pydantic entities, `extra="forbid"`, including Evidence, Source, KPI, Decision, Policy, Workspace, and others). BusinessPillar, SOP, Mission, Action, Review, and AIEmployee entities are **PLANNED** — not yet present in the model.
 
-## 20. Workflow Contract
-Temporal owns long-running orchestration; activities do parsing, scoring, validation, and generation; signals/updates carry human inputs; continue-as-new is used when history grows; workflow state is deterministic and replayable.
+## 6. Process Contract
 
-## 21. Context Engineering
-Assemble context in layers: tenant → engagement → stakeholder → evidence slice → conflict slice → decision slice → artifact slice → policy slice; never pass raw unbounded history when a rolling window suffices.
+Every operational process: Input → Trigger → Preconditions → Steps → Decision Points → Output → KPI → Feedback. Every process defines: owner, objective, scope, allowed actors, SOP, expected output, Definition of Done, escalation conditions, review cadence.
 
-## 22. Evaluation
-Measure parser accuracy, entity merge accuracy, conflict detection rate, evidence coverage, traceability coverage, artifact completeness, decision readiness, feasibility calibration, human override rate, stakeholder usefulness, regeneration correctness, and freshness.
+**Implementation status:** BusinessPillar/Process entities are **PLANNED** (not yet in `apps/ai/src/entities/models.py`).
 
-## 23. NFRs
-Multi-tenant, secure, observable, low-latency, fault-tolerant, idempotent, replay-safe, versioned, auditable, and schema-valid at every boundary.
+## 7. SOP Contract
 
-## 24. Guardrails
-No evidence = no artifact; no traceability = block; low confidence = review; unresolved conflict = reject publish; unsupported side effect = forbidden; stale evidence = warning or block depending on severity.
+An SOP contains: objective, scope, owner, prerequisites, steps, decision rules, Definition of Done, FAQ/troubleshooting, linked systems, revision history, last-reviewed timestamp. SOPs are living knowledge objects. AI execution may propose an SOP update but must never silently rewrite authoritative SOPs.
 
-## 25. Test Matrix
-Unit tests for parsers, merge logic, scoring, template rendering, and validators; integration tests for connectors, evidence flow, artifact projection, and approval gates; Temporal tests for replay, pause/resume, retries, signals, updates, and continue-as-new; adversarial tests for conflicting sources, missing fields, duplicates, stale data, prompt injection, malformed files, and inconsistent numbers; end-to-end tests for executive brief → PRD → architecture → RTM → delivery plan → measurement pack.
+**Implementation status:** the SOP module/contract is **PLANNED** — currently missing.
 
-## 26. Definition of Done
-A feature is done only when it updates the canonical model, survives validation, appears correctly in all affected workspaces, passes tests, carries traceability, and can be replayed from evidence.
+## 8. Mission Runtime
+
+A mission is a persistent operational objective. Example: Mission "Investigate stalled Enterprise opportunities", Owner RevOps Intern, Goal "Reduce stale Enterprise pipeline", Inputs Salesforce + Slack + Jira, SOP stalled-opportunity-v2, KPI opportunity_age, Authority medium, Review every 6 hours.
+
+Mission states: CREATED, ACTIVE, WAITING, INVESTIGATING, AWAITING_APPROVAL, EXECUTING, MONITORING, COMPLETED, ARCHIVED, FAILED, PAUSED.
+
+Mission supports: pause, resume, redirect, reprioritize, interrupt, approve, reject, escalate, retry, replan, continue-as-new.
+
+**Implementation status:** mission machinery exists in `apps/ai/src/mission/` (`timeline.py`, `decision.py`, `storage.py`, `runtime.py`, `orchestrator.py`, `coordinator.py`) and `apps/ai/src/session/` (`mission_state.py`, `relevance_gate.py`). The mission-state write path `POST /api/mission-state` → PostgreSQL is working. The frozen V6 set of nine canonical mission configs is **PLANNED** (5+ Temporal workflows exist today).
+
+## 9. Employee Runtime
+
+An employee is: Role + Goals + Permissions + KPIs + Memory + SOPs + Skills + Capabilities + Policies + Authority + Risk Threshold. The runtime can perform: sequential, parallel, branching, looping, iteration, delegation, verification, reflection, replanning, human interruption. Do NOT create a separate hard-coded workflow graph per employee.
+
+**Implementation status:** `apps/ai/src/mission/employee.py` defines DigitalEmployee plus RevOps/ProductOps/OrgIntelligence intern classes. Current state: **hard-coded classes, not yet configs over a shared runtime** — the config-driven shared Employee Runtime is **PLANNED**.
+
+## 10. Skill Model
+
+Reusable reasoning/work units with typed inputs/outputs. Examples: retrieve evidence, retrieve organizational memory, resolve entities, investigate anomaly, analyze KPI, compare options, summarize evidence, generate recommendation, draft communication, verify action, update SOP proposal, capture decision. Skills are composable.
+
+## 11. Capability Runtime
+
+Employees never directly access connector SDKs; they invoke capabilities (Employee → Skill → Capability → Connector). Capabilities enforce: authorization, schema validation, idempotency, timeout, retry, risk policy, audit, result validation. MVP capabilities: Salesforce read/update, Jira read/create/update, Slack read/send, Notion read/update.
+
+**Implementation status:** capability machinery exists in `apps/ai/src/mission/capability.py` and the capability model in `apps/ai/src/ontology/capability_*.py`. The V6Connector Protocol lives in `apps/ai/src/connectors/` (`v6_contract.py`, `v6_base.py`, `transport.py`, `sync_state.py`, `registry.py`).
+
+## 12. Agentic Control Model
+
+**MVP control patterns are exactly:** Sequential, Parallel, Branch, Loop, Wait/Human-signal, Replan, Verify.
+
+- Sequential (retrieve → analyze → recommend)
+- Parallel (Salesforce/Slack/Jira → aggregate)
+- Branch (event → determine affected pillar/process → select employee/mission)
+- Loop (observe → choose next skill → execute → observe → continue) — only when the next action can't reasonably be predetermined
+- Wait/Human-signal (pause for founder approval or intervention)
+- Replan (redirect or reprioritize after human input)
+- Verify (confirm the outcome before the mission completes)
+
+Delegate and Reflect are behavior WITHIN the loop, not separate infrastructure.
+
+**Guardrail: do not build a generic workflow engine.** The control model is a bounded set of patterns over the shared Employee Runtime — not a LangGraph/Temporal clone.
+
+## 13. Context Engineering
+
+LLMs never receive arbitrary raw connector dumps. Context assembled from: Mission + Employee role + Business pillar + Process + SOP + Current evidence + Knowledge graph + Hybrid retrieval + Memory + Recent decisions + KPIs + Policies + Permissions + Workspace state + User instructions. Pipeline: Retrieve → Filter → Rank → Deduplicate → Compress → Assemble → Validate → LLM → Pydantic.
+
+## 14. RAG
+
+Hybrid retrieval: BM25 + Vector + Graph + Metadata + Recency + Importance. RAG is infrastructure, not the product. Every generated recommendation retains evidence references; unsupported claims rejected or marked uncertain.
+
+**Implementation status:** memory/RAG machinery exists in `apps/ai/src/memory/` (`spine.py` — Qdrant L2/L5, threshold 0.82 — plus Graphiti and Qdrant). The memory stack is under **ADR-009 review** (Qdrant vs pgvector — unresolved).
+
+## 15. Continuous Data Pipeline
+
+Connector → Event → Deduplication → Evidence → Normalization → Validation → Entity Resolution → Knowledge Graph → Memory → Mission Evaluation → Employee Work → Workspace Update. Requirements: replay-safe, idempotent, retryable, observable, tenant-aware, fault tolerant.
+
+**Implementation status:** evidence (`apps/ai/src/evidence/`), pipeline engines (`apps/ai/src/pipeline/` — artifact, decision, feasibility, validation with rules V001–V008), and knowledge (`apps/ai/src/knowledge/` — entity_resolver, graph_builder, conflict_resolver, semantic_layer) exist.
+
+## 16. Event Fabric
+
+Redpanda is the event backbone. Events contain: event ID, tenant/org ID, source, entity ID, timestamp, schema version, correlation ID, causation ID, payload. Duplicate events must not cause duplicate work.
+
+**Implementation status:** the current event bus in `apps/ai/src/events/` is Redis Streams-based; Redpanda is provisioned in `docker-compose.yml`. The Redpanda event backbone is the target per this spec.
+
+## 17. Memory
+
+Four logical namespaces: Enterprise, Workspace, Mission, Conversation. Use existing Qdrant/Neo4j infrastructure (ADR-009 stack review pending). Memory must remain evidence-grounded.
+
+**Implementation status:** `apps/ai/src/memory/` (spine, Qdrant, Graphiti) exists. Stack choice is under **ADR-009 review** — do not assume a single stack.
+
+## 18. Decision and Autonomy
+
+Two different classifications, applied at different stages:
+
+1. **Work design decision — Automate / Delegate / Eliminate.** Decides WHAT should happen to a piece of work. Produced by Process Review.
+2. **Runtime risk policy — LOW / MEDIUM / HIGH / CRITICAL.** Decides HOW MUCH AUTHORITY the AI has for a given action.
+
+**The automation decision (Automate/Delegate/Eliminate) is NOT the same as the risk tier (LOW/MEDIUM/HIGH/CRITICAL).**
+
+Cascade (ordered flow):
+
+```
+Process Review
+→ Automate / Delegate / Eliminate
+→ if automated or delegated: Action
+→ Risk Classification → LOW / MEDIUM / HIGH / CRITICAL
+→ Policy Decision → Execute / Recommend / Approve / Block
+```
+
+Risk-based execution: LOW = auto-execute if policy allows; MEDIUM = recommendation + approval or configured auto-execution; HIGH = mandatory human approval; CRITICAL = no automatic execution. Every action records: reason, evidence, confidence, authority, policy decision, idempotency key, result, rollback/recovery metadata where applicable.
+
+**Implementation status:** HITL approvals and Temporal signals exist (`apps/ai/src/hitl/`, `@governed_write` in `apps/ai/src/ontology/governance.py`, `SignalWorkflow("hitl-approval")`). The work-classification layer (Automate/Delegate/Eliminate) and the risk-tier policy layer are **PLANNED**.
+
+## 19. Human Control
+
+Owner can pause, resume, redirect, reprioritize, approve, reject, interrupt, request explanation. Temporal Signals used for durable intervention.
+
+**Implementation status:** `SignalWorkflow("hitl-approval")` unblocks `AwaitWithTimeout` via the Temporal client in `apps/core/internal/temporal/client.go`; the HITL approval queue panel is served by `apps/core/internal/web/command_center_approvals.go`.
+
+## 20. Operational Workspace
+
+Keep existing Go + HTMX architecture; no React/GenUI for MVP. Components: KPI card, mission card, recommendation, timeline, evidence list, knowledge graph, approval card, activity feed, process/SOP status. SSE provides live updates. Workspace renders typed workspace state; it is not the source of business logic.
+
+**Implementation status:** `apps/core/internal/web/` serves the command center (Fiber + HTMX + SSE): `handler.go`, `sse.go` + `sse_hub.go` (per-tenant Subscribe with event-type filtering, buffered channels), `command_center_*.go` panels, `telemetry_handler.go`, and `templates/command_center.html` + `partials/`. The `/v6` routes are **PLANNED** — currently 501 Not Implemented stubs in `apps/core/internal/v6/`.
+
+## 21. Mission Timeline
+
+Append-only event history + versioned snapshots. Required events: MISSION_CREATED, MISSION_STARTED, MISSION_REVIEWED, MISSION_PAUSED, MISSION_RESUMED, MISSION_REPLANNED, MISSION_REDIRECTED, MISSION_APPROVED, MISSION_REJECTED, MISSION_EXECUTED, MISSION_CONFIDENCE_CHANGED, MISSION_STATUS_CHANGED, MISSION_PRIORITY_CHANGED, MISSION_COMPLETED. Every significant transition traceable.
+
+**Implementation status:** `apps/ai/src/mission/timeline.py` implements frozen `MissionEventType` verbs, append-only `timeline_events`, versioned `mission_snapshots`, and snapshot diffing.
+
+## 22. Observability
+
+Use existing OpenTelemetry, Langfuse, Sentry. Trace: event → retrieval → context → LLM → decision → skill → capability → execution → outcome. Record: latency, tokens, model, cost, retrieval, tool calls, retries, errors, confidence, outcome. Never log secrets or unrestricted customer content.
+
+**Implementation status:** `apps/ai/src/observability/` provides typed `TraceContext` (trace_id/correlation_id/tenant_id) and `PipelineRun`/`run_stage` (retry, latency, status); Langfuse traces are in use.
+
+## 23. Security
+
+Tenant isolation, authentication, authorization, tool allowlists, policy enforcement, prompt-injection defenses, output validation, secret isolation, context isolation, audit logging, approval enforcement. LLM output is untrusted input.
+
+**Implementation status:** governed writes (`@governed_write`), an authority manifest with role/permission/tool allowlists (`apps/ai/src/agents/authority_manifest.py`), and the HITL approval queue (`apps/ai/src/hitl/`) exist.
+
+## 24. Evaluation
+
+- Deterministic: schema correctness, permissions, policy, idempotency, replay, state transitions, tool contracts.
+- AI: retrieval relevance, evidence grounding, recommendation quality, reasoning consistency, instruction adherence.
+- Operational: mission completion, time to investigation, recommendation acceptance, execution success, founder intervention, process consistency.
+
+## 25. Golden Scenarios
+
+stalled enterprise opportunity, blocked product work, stale SOP, undocumented decision, ownership gap, KPI deterioration, cross-system contradiction, human redirect, failed tool execution, infrastructure restart. Each defines: input events, expected evidence, expected context, expected mission, allowed actions, expected tool calls, expected human gate, expected outcome.
+
+## 26. Reliability Requirements
+
+Duplicate events harmless; missions survive restart; Temporal replay produces identical state; continue-as-new preserves mission state; tool retries do not duplicate actions; LLM transient failures recover; unavailable connectors degrade gracefully; malformed LLM output rejected; stale evidence detected; partial failures observable; tenant data cannot cross boundaries.
+
+## 27. Portfolio Demonstration
+
+Simulated B2B SaaS over several days: Day 1 business data arrives; Day 2 pipeline problem appears, RevOps investigates automatically, evidence from Salesforce+Slack+Jira correlated, recommendation generated, founder redirects mission, employee replans, approved work executed; Day 3 new evidence arrives, mission wakes automatically, confidence changes, outcome evaluated, organizational memory updated. Feels like a continuously operating digital team, not a chatbot.
+
+## 28. Explicit Non-Goals
+
+No generic autonomous company; no unrestricted general-purpose agent; no agent marketplace; no 10+ employees; no additional connectors; no custom LLM training; no React/GenUI rewrite; no artifact-generation platform; no generic BI replacement; no unrestricted autonomous financial/legal decisions.
+
+## 29. Definition of Done
+
+Complete when the three AI employees can operate their bounded missions against the four systems through the shared runtime, cycling Observe → Understand → Investigate → Act → Verify → Remember continuously and safely. Proof: a founder can see a digital operations team continuously monitoring the company, understanding context, performing bounded work, and escalating only what requires human judgment.
+
+**Portfolio acceptance (single criterion):** A simulated B2B SaaS runs for multiple days while OntologyAI continuously ingests events from four connected systems, updates organizational knowledge, wakes appropriate missions, allows its three AI employees to investigate and execute bounded work using sequential/parallel/branching behavior, handles human interruption and replanning, survives retries/restarts/replay, records an auditable timeline, verifies outcomes, and continuously maintains the founder operational workspace. If it works, stop.
+
+---
+
+## Example — the 8-day stalled opportunity
+
+A Salesforce opportunity remains unchanged for eight days:
+
+```
+Salesforce event
+→ Evidence
+→ Opportunity resolved in ontology
+→ Revenue process identified
+→ SOP retrieved
+→ Slack/Jira context investigated in parallel
+→ Engineering dependency discovered
+→ Mission confidence decreases
+→ RevOps Intern prepares recommendation
+→ Founder receives explanation
+→ Approved capability updates Salesforce
+→ Jira follow-up created
+→ Slack owner notified
+→ Mission verifies outcome
+→ Memory updated
+```
+
+The founder did not manually coordinate those steps.
+
+---
+
+## Architecture view
+
+```mermaid
+flowchart LR
+    CB["Connected Business<br/>(Salesforce · Jira · Slack · Notion)"] --> EF["Event Fabric"]
+    EF --> EV["Evidence Runtime"]
+    EV --> KR["Knowledge Runtime"]
+    KR --> PM["Process / SOP Model"]
+    PM --> MR["Mission Runtime"]
+    MR --> ER["Employee Runtime"]
+    ER --> CR["Capability Runtime"]
+    CR --> TA["Tool / API"]
+    TA --> VF["Verify"]
+    VF --> MS["Mission State / Outcome"]
+    MS --> CB
+
+    SK["Skill Model"] --> CR
+    CX["Context Engineering"] --> CR
+    PO["Policy / Autonomy"] --> CR
+
+    MS --> MT["Memory / Timeline"]
+    MT --> FW["Founder Workspace"]
+    SS["HTMX / SSE"] --> FW
+    FW --> CB
+```

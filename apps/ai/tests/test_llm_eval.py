@@ -8,6 +8,8 @@ import pytest
 import json
 from src.config.llm import get_llm_client
 
+pytestmark = pytest.mark.llm
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # LLM-as-Judge Helper
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -18,7 +20,7 @@ def llm_judge(statement: str, text: str) -> bool:
     Returns True if judge says YES with confidence > 0.8.
     """
     client = get_llm_client()
-    response = client.chat(
+    response = client.chat.completions.create(
         model="qwen3-next:80b-cloud",
         messages=[{
             "role": "user",
@@ -29,10 +31,50 @@ Statement: {statement}
 
 Text:\n{text}"""
         }],
-        options={"temperature": 0},
+        temperature=0,
     )
-    result = json.loads(response["message"]["content"])
+    result = json.loads(response.choices[0].message.content)
     return result["verdict"] == "yes" and result["confidence"] >= 0.8
+
+
+def test_llm_judge_uses_openai_chat_completions(monkeypatch):
+    """Regression: llm_judge must use the OpenAI SDK surface.
+
+    It previously called ``client.chat(model=..., options=...)`` (an Ollama
+    shape), which raised ``TypeError: 'Chat' object is not callable`` because
+    get_llm_client() returns an openai.OpenAI client.
+    """
+    import sys
+
+    mod = sys.modules[__name__]
+
+    class _Msg:
+        content = '{"verdict": "yes", "confidence": 0.9}'
+
+    class _Choice:
+        message = _Msg()
+
+    class _Resp:
+        choices = [_Choice()]
+
+    captured = {}
+
+    class _Completions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return _Resp()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Client:
+        chat = _Chat()
+
+    monkeypatch.setattr(mod, "get_llm_client", lambda: _Client())
+
+    assert llm_judge("the statement holds", "some text") is True
+    assert captured["messages"][0]["role"] == "user"
+    assert captured["temperature"] == 0
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

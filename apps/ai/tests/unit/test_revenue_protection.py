@@ -38,12 +38,20 @@ import sys
 from typing import Any
 from unittest.mock import MagicMock
 
-# Mock heavy external deps before ANY project-level import.
-# The src.agents package imports all agents eagerly via __init__.py,
-# which pulls in qdrant_client, temporalio, redis, aiokafka, etc.
-import types as _types
+import pytest
 
-for _mod_name in (
+from src.ontology.link_types import LINK_TYPES
+from src.ontology.object_types import OBJECT_TYPES, PlannedAction, Shipment
+
+
+# ---------------------------------------------------------------------------
+# Scoped stubbing of heavy third-party dependencies
+# ---------------------------------------------------------------------------
+# ``src.agents.__init__`` imports every agent eagerly, which pulls in qdrant,
+# temporalio, redis and aiokafka. They are stubbed only for the duration of this
+# module's tests — see ``_scoped_external_stubs`` below.
+
+_STUBBED_MODULES = (
     "structlog",
     "qdrant_client",
     "qdrant_client.grpc",
@@ -66,35 +74,78 @@ for _mod_name in (
     "dspy",
     "tiktoken",
     "sentence_transformers",
-):
-    sys.modules[_mod_name] = MagicMock()
+)
 
-# Wire module-level attributes that deeper code expects.
-import structlog
-structlog.get_logger.return_value = MagicMock()
+_MISSING = object()
 
-import qdrant_client
-qdrant_client.AsyncQdrantClient = MagicMock()
-qdrant_client.QdrantClient = MagicMock()
-qdrant_client.models.PointStruct = MagicMock()
-qdrant_client.models.Filter = MagicMock()
-qdrant_client.models.FilterSelector = MagicMock()
-qdrant_client.models.Distance = MagicMock()
-qdrant_client.models.VectorParams = MagicMock()
 
-import temporalio
-temporalio.client.Client = MagicMock()
-temporalio.worker.Worker = MagicMock()
-temporalio.activity = MagicMock()
-temporalio.common.RetryPolicy = MagicMock()
+def _install_external_stubs() -> dict[str, object]:
+    """Replace heavy third-party modules with mocks; return the prior entries."""
+    saved = {name: sys.modules.get(name, _MISSING) for name in _STUBBED_MODULES}
+    for name in _STUBBED_MODULES:
+        sys.modules[name] = MagicMock()
 
-import pytest
+    # Wire module-level attributes that deeper code expects.
+    import qdrant_client
+    import structlog
+    import temporalio
 
-# ---------------------------------------------------------------------------
-# Safe top-level imports — these modules have no external dependencies.
-# ---------------------------------------------------------------------------
-from src.ontology.object_types import OBJECT_TYPES, PlannedAction, Shipment
-from src.ontology.link_types import LINK_TYPES
+    structlog.get_logger.return_value = MagicMock()
+
+    qdrant_client.AsyncQdrantClient = MagicMock()
+    qdrant_client.QdrantClient = MagicMock()
+    qdrant_client.models.PointStruct = MagicMock()
+    qdrant_client.models.Filter = MagicMock()
+    qdrant_client.models.FilterSelector = MagicMock()
+    qdrant_client.models.Distance = MagicMock()
+    qdrant_client.models.VectorParams = MagicMock()
+
+    temporalio.client.Client = MagicMock()
+    temporalio.worker.Worker = MagicMock()
+    temporalio.activity = MagicMock()
+    temporalio.common.RetryPolicy = MagicMock()
+
+    return saved
+
+
+def _restore_external_stubs(saved: dict[str, object]) -> None:
+    """Put ``sys.modules`` back exactly as it was before stubbing."""
+    for name, original in saved.items():
+        if original is _MISSING:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = original
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _scoped_external_stubs():
+    """Keep heavy-dependency stubs scoped to this module, then restore fully.
+
+    These stubs were previously assigned at import time, which permanently
+    poisoned ``sys.modules``: every later suite importing ``temporalio``,
+    ``redis`` or ``src.worker`` received a ``MagicMock``. That caused false
+    failures in ``tests/test_p0_worker_startup.py`` during full-suite runs.
+
+    Installing them in a fixture means module collection — and therefore every
+    other test module's imports — sees the real packages. Teardown runs on both
+    the success and exception paths, restoring the exact prior state and
+    evicting any ``src.*`` modules imported while the stubs were active, so
+    later suites re-import them against the real dependencies.
+    """
+    saved = _install_external_stubs()
+    pre_existing_src = {
+        name for name in sys.modules if name == "src" or name.startswith("src.")
+    }
+    try:
+        yield
+    finally:
+        _restore_external_stubs(saved)
+        for name in [
+            n
+            for n in list(sys.modules)
+            if (n == "src" or n.startswith("src.")) and n not in pre_existing_src
+        ]:
+            del sys.modules[name]
 
 
 # ===========================================================================

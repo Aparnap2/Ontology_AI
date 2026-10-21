@@ -1,0 +1,60 @@
+{{/* Morning Brief — Milestone #5 operational workspace panel. Real counts from
+     the V6 domain stores; system status reuses the /v6/status inventory. */}}
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Morning Brief</h3>
+        <span class="text-[10px] md:text-xs flex items-center gap-1.5" style="color:var(--text-muted)">
+            <span class="status-dot connected" style="width:6px;height:6px"></span>
+            Live
+        </span>
+    </div>
+
+    {{if .EmptyState}}
+    <div class="text-xs py-6 text-center" style="color:var(--text-muted)">
+        <svg class="w-6 h-6 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        No operational data yet — mission, action, and process counts will appear here as the V6 domain is populated.
+    </div>
+    {{else}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <p class="text-[10px]" style="color:var(--text-muted)">Active missions</p>
+            <p class="text-xl font-bold tabular-nums" style="color:var(--text)">{{.ActiveMissions}}</p>
+        </div>
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <p class="text-[10px]" style="color:var(--text-muted)">Pending approvals</p>
+            <p class="text-xl font-bold tabular-nums" style="color:var(--accent-yellow)">{{.PendingApprovals}}</p>
+        </div>
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <p class="text-[10px]" style="color:var(--text-muted)">Processes mapped</p>
+            <p class="text-xl font-bold tabular-nums" style="color:var(--text)">{{.ProcessesMapped}}</p>
+        </div>
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <p class="text-[10px]" style="color:var(--text-muted)">Trust score</p>
+            <p class="text-xl font-bold tabular-nums" style="color:var(--accent-blue)">{{if .TrustScoreValid}}{{.TrustScore}}{{else}}—{{end}}</p>
+        </div>
+    </div>
+    {{if .BurnAlert}}
+    <div class="text-[11px] px-3 py-2 rounded-lg mb-3" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);color:#fca5a5">
+        Burn alert active{{if .MRRTrend}} · MRR trend {{.MRRTrend}}{{end}}
+    </div>
+    {{end}}
+    {{if .ActiveAlerts}}
+    <div class="text-[11px] px-3 py-2 rounded-lg mb-3" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);color:#fcd34d">
+        {{.ActiveAlerts}}
+    </div>
+    {{end}}
+    {{end}}
+
+    <!-- System status — reuses the /v6/status runtime inventory -->
+    <div class="mb-3">
+        <p class="text-[10px] mb-1.5" style="color:var(--text-muted)">System status · v{{.Version}} · {{.Branch}}</p>
+        <div class="flex flex-wrap gap-1.5">
+        {{range .SystemInventory}}
+            <span class="text-[10px] px-2 py-0.5 rounded-full" style="background:rgba(52,211,153,0.1);color:#6ee7b7">{{.}}</span>
+        {{end}}
+        </div>
+    </div>
+    <div class="text-[10px]" style="color:var(--text-muted)">
+        {{.RouteImplemented}} of {{.RouteTotal}} V6 routes implemented · {{.RouteStubs}} stubbed
+    </div>
+</div>

@@ -35,6 +35,14 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Copy source
 COPY src/ src/
 
-EXPOSE 3001
+EXPOSE 3001 8081
+
+# The worker serves its own health endpoint (src/worker.py::_serve_health).
+# The previous compose healthcheck shelled out to `pg_isready`, which is not
+# installed in this image, so it could never pass.
+#   :8081/health        liveness  — process is up
+#   :8081/health/ready  readiness — Temporal connected, registry loaded
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:8081/health/ready || exit 1
 
 CMD ["python", "-m", "src.worker"]

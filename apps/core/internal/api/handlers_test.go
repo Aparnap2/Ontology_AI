@@ -50,16 +50,16 @@ func TestParseCustomID(t *testing.T) {
 		description    string
 	}{
 		{
-			name:           "Valid approve format with underscore",
-			customID:       "approve_feedback-123",
+			name:           "Valid approve format with colon",
+			customID:       "approve:feedback-123",
 			expectError:    false,
 			expectedAction: "approve",
 			expectedID:     "feedback-123",
-			description:    "Standard valid format with underscore separator",
+			description:    "Standard valid format with colon separator",
 		},
 		{
-			name:           "Valid reject format with underscore",
-			customID:       "reject_feedback-456",
+			name:           "Valid reject format with colon",
+			customID:       "reject:feedback-456",
 			expectError:    false,
 			expectedAction: "reject",
 			expectedID:     "feedback-456",
@@ -81,13 +81,13 @@ func TestParseCustomID(t *testing.T) {
 		},
 		{
 			name:        "Only action, no ID",
-			customID:    "approve_",
+			customID:    "approve:",
 			expectError: true,
 			description: "Missing workflow ID after separator",
 		},
 		{
 			name:        "Only ID, no action",
-			customID:    "_feedback-123",
+			customID:    ":feedback-123",
 			expectError: true,
 			description: "Missing action before separator",
 		},
@@ -99,19 +99,19 @@ func TestParseCustomID(t *testing.T) {
 		},
 		{
 			name:        "Invalid action",
-			customID:    "delete_feedback-123",
+			customID:    "delete:feedback-123",
 			expectError: true,
 			description: "Action not in allowed set (approve/reject)",
 		},
 		{
-			name:        "Too many parts with underscore",
-			customID:    "approve_feedback_123_extra",
+			name:        "Too many parts with colon",
+			customID:    "approve:feedback:123:extra",
 			expectError: true,
-			description: "More than 2 parts when split by underscore",
+			description: "More than 3 parts when split by colon",
 		},
 		{
 			name:        "XSS attempt",
-			customID:    "<script>_feedback-123",
+			customID:    "<script>:feedback-123",
 			expectError: true,
 			description: "XSS attempt in action part",
 		},
@@ -141,7 +141,7 @@ func TestParseCustomIDAllowedActions(t *testing.T) {
 
 	for _, action := range allowedActions {
 		t.Run("Valid action: "+action, func(t *testing.T) {
-			customID := action + "_workflow-123"
+			customID := action + ":workflow-123"
 			signalData, err := api.ParseCustomID(customID)
 			assert.NoError(t, err)
 			assert.Equal(t, action, signalData.Action)
@@ -154,7 +154,7 @@ func TestParseCustomIDAllowedActions(t *testing.T) {
 			continue
 		}
 		t.Run("Invalid action: "+action, func(t *testing.T) {
-			customID := action + "_workflow-123"
+			customID := action + ":workflow-123"
 			_, err := api.ParseCustomID(customID)
 			assert.Error(t, err, "Should reject invalid action: %s", action)
 		})

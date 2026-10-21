@@ -49,7 +49,14 @@ from src.mission.timeline import (
 )
 from src.observability import PipelineRun, TraceContext, run_stage, trace_context
 
+# CORRECTION: an earlier commit on this branch removed the `llm` marker from
+# this module on the grounds that its tests were "deterministic observability
+# assertions over an in-memory store". That was wrong. The module constructs
+# MissionDecisionEngine (line 282) and invokes engine.decide (line 310), which
+# reaches llm.chat_completion at src/mission/decision.py:116. It also connects
+# to live Postgres. A live-model suite belongs behind `-m llm`.
 pytestmark = [
+    pytest.mark.llm,
     pytest.mark.integration,
     pytest.mark.skipif(
         not os.environ.get("GROQ_API_KEY"), reason="GROQ_API_KEY not set"

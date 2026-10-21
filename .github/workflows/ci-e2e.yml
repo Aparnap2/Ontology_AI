@@ -70,7 +70,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
       - name: Install Node.js (for Mockoon CLI)
         uses: actions/setup-node@v4
@@ -82,7 +86,7 @@ jobs:
 
       - name: Install Python dependencies
         working-directory: apps/ai
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: uv sync --frozen
 
       - name: Run migrations + create collections
         working-directory: apps/ai
@@ -90,17 +94,17 @@ jobs:
           POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
           QDRANT_URL:   "http://localhost:6333"
         run: |
-          python -m alembic upgrade head
-          python scripts/create_collections.py
+          uv run --frozen python -m alembic upgrade head
+          uv run --frozen python scripts/create_collections.py
 
       - name: Start Mockoon (Slack delivery mock)
         run: |
           mockoon-cli start \
             --data mockoon/sarthi-demo.json \
-            --port 3001 &
+            --port 3010 &
           # Wait for Mockoon to be ready
           for i in $(seq 1 20); do
-            if curl -sf http://localhost:3001/health; then
+            if curl -sf http://localhost:3010/health; then
               echo "Mockoon ready"
               break
             fi
@@ -119,13 +123,13 @@ jobs:
           REDIS_URL:        "redis://localhost:6379"
           QDRANT_URL:       "http://localhost:6333"
           REDPANDA_BROKERS: "localhost:9092"
-          SLACK_DELIVERY_URL: "http://localhost:3001/slack/deliver"
+          SLACK_DELIVERY_URL: "http://localhost:3010/slack/deliver"
           DEMO_MODE:        "true"
           LLM_PROVIDER:     ${{ github.event.inputs.use_real_llm == 'true' && 'ollama_cloud' || 'mock' }}
           OLLAMA_API_KEY:   ${{ secrets.OLLAMA_API_KEY }}
           LLM_MODEL:        "nemotron-3-super:cloud"
         run: |
-          uvicorn src.main:app --port 8000 &
+          uv run --frozen uvicorn src.main:app --port 8000 &
           # Wait for worker to be ready
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8000/health; then
@@ -141,7 +145,7 @@ jobs:
           POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
           QDRANT_URL:   "http://localhost:6333"
         run: |
-          python scripts/demo_seed.py
+          uv run --frozen python scripts/demo_seed.py
           echo "Seed output captured"
 
       - name: Run E2E verification tests
@@ -153,7 +157,7 @@ jobs:
           CAPTURE_URL:      "http://localhost:3002"
           DEMO_MODE:        "true"
         run: |
-          pytest tests/e2e/ \
+          uv run --frozen pytest tests/e2e/ \
             -v \
             --tb=short \
             --timeout=90 \
@@ -166,7 +170,7 @@ jobs:
           POSTGRES_DSN: "postgresql://sarthi:sarthi_test@localhost:5432/sarthi_test"
           QDRANT_URL:   "http://localhost:6333"
         run: |
-          python - <<'EOF'
+          uv run --frozen python - <<'EOF'
           import os, sys, requests
 
           WORKER = "http://localhost:8000"

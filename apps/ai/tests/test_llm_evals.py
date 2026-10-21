@@ -14,6 +14,8 @@ import pytest
 import os
 import httpx
 
+pytestmark = pytest.mark.llm
+
 # CRITICAL: Clear Azure env vars to force Ollama usage
 # Azure credentials in .env take priority, so we must remove them
 for key in list(os.environ.keys()):

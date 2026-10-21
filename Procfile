@@ -1,1 +1,2 @@
-web: ./bin/demo_server
+web: ./bin/server
+worker: ./bin/worker

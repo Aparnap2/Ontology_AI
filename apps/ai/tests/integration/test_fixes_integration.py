@@ -10,7 +10,13 @@ Covers:
 import os
 import pytest
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+
+
 pytestmark = [
+    pytest.mark.llm,
     pytest.mark.skipif(
         not os.getenv("GROQ_API_KEY"),
         reason="GROQ_API_KEY not set — LLM-dependent tests skipped",

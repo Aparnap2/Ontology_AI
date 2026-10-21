@@ -1,0 +1,226 @@
+{
+  "uuid": "ontology-ai-demo-v1",
+  "lastMigration": 33,
+  "name": "OntologyAI Demo — Slack + Webhook + Core HITL/BI Mock",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3010,
+  "hostname": "0.0.0.0",
+  "routes": [
+    {
+      "uuid": "route-slack-deliver",
+      "documentation": "Replaces Slack delivery — captures guardian alerts for Playwright assertions",
+      "method": "post",
+      "endpoint": "slack/deliver",
+      "responses": [
+        {
+          "uuid": "resp-slack-deliver-ok",
+          "label": "Slack delivery accepted",
+          "statusCode": 200,
+          "latency": 80,
+          "body": "{\"ok\": true, \"ts\": \"{{now 'x'}}\", \"channel\": \"C_NOVAPULSE_DEMO\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-slack-chat-postmessage",
+      "documentation": "Slack API postMessage — captured for assertion",
+      "method": "post",
+      "endpoint": "api/chat.postMessage",
+      "responses": [
+        {
+          "uuid": "resp-slack-post-ok",
+          "label": "Slack postMessage OK",
+          "statusCode": 200,
+          "latency": 120,
+          "body": "{\"ok\": true, \"channel\": \"C_NOVAPULSE_DEMO\", \"ts\": \"{{now 'x'}}\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-stripe-webhook",
+      "documentation": "Synthetic Stripe webhook — payment_intent.payment_failed",
+      "method": "post",
+      "endpoint": "simulate/stripe-webhook",
+      "responses": [
+        {
+          "uuid": "resp-stripe-webhook-ok",
+          "label": "Webhook forwarded",
+          "statusCode": 200,
+          "latency": 50,
+          "body": "{\"forwarded\": true, \"event_type\": \"payment_intent.payment_failed\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-hitl-investigate",
+      "documentation": "HITL investigate signal — 400 when workflow_id absent, else 200",
+      "method": "post",
+      "endpoint": "internal/hitl/investigate",
+      "responses": [
+        {
+          "uuid": "resp-hitl-investigate-ok",
+          "label": "Investigate accepted (workflow_id present)",
+          "statusCode": 200,
+          "latency": 20,
+          "body": "{\"ok\": true, \"action\": \"investigate\", \"workflow_id\": \"{{body 'workflow_id'}}\", \"message\": \"Investigation started for workflow {{body 'workflow_id'}}\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}],
+          "disableTemplating": false,
+          "rules": [
+            {"target": "body", "modifier": "workflow_id", "operator": "null", "invert": true}
+          ],
+          "rulesOperator": "OR"
+        },
+        {
+          "uuid": "resp-hitl-investigate-missing",
+          "label": "Missing workflow_id (default)",
+          "statusCode": 400,
+          "default": true,
+          "latency": 0,
+          "body": "{\"error\": \"workflow_id is required\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-hitl-dismiss",
+      "documentation": "HITL dismiss signal — 400 when workflow_id absent, else 200",
+      "method": "post",
+      "endpoint": "internal/hitl/dismiss",
+      "responses": [
+        {
+          "uuid": "resp-hitl-dismiss-ok",
+          "label": "Dismiss accepted (workflow_id present)",
+          "statusCode": 200,
+          "latency": 20,
+          "body": "{\"ok\": true, \"action\": \"dismiss\", \"workflow_id\": \"{{body 'workflow_id'}}\", \"message\": \"Workflow {{body 'workflow_id'}} dismissed\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}],
+          "disableTemplating": false,
+          "rules": [
+            {"target": "body", "modifier": "workflow_id", "operator": "null", "invert": true}
+          ],
+          "rulesOperator": "OR"
+        },
+        {
+          "uuid": "resp-hitl-dismiss-missing",
+          "label": "Missing workflow_id (default)",
+          "statusCode": 400,
+          "default": true,
+          "latency": 0,
+          "body": "{\"error\": \"workflow_id is required\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-bi-query",
+      "documentation": "BI query submit — 400 when query absent, else 202",
+      "method": "post",
+      "endpoint": "internal/query",
+      "responses": [
+        {
+          "uuid": "resp-bi-query-ok",
+          "label": "Query accepted (query present)",
+          "statusCode": 202,
+          "latency": 20,
+          "body": "{\"ok\": true, \"workflow_id\": \"wf-bi-001\", \"query_id\": \"q-001\", \"message\": \"BI query accepted for processing\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}],
+          "disableTemplating": false,
+          "rules": [
+            {"target": "body", "modifier": "query", "operator": "null", "invert": true}
+          ],
+          "rulesOperator": "OR"
+        },
+        {
+          "uuid": "resp-bi-query-missing",
+          "label": "Missing query (default)",
+          "statusCode": 400,
+          "default": true,
+          "latency": 0,
+          "body": "{\"error\": \"query is required\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-telegram-sendmessage",
+      "documentation": "Telegram Bot API sendMessage — echoes chat_id and text",
+      "method": "post",
+      "endpoint": "bot:test-token/sendMessage",
+      "responses": [
+        {
+          "uuid": "resp-telegram-sendmessage-ok",
+          "label": "sendMessage OK",
+          "statusCode": 200,
+          "latency": 20,
+          "body": "{\"ok\": true, \"result\": {\"message_id\": 4242, \"chat\": {\"id\": \"{{body 'chat_id'}}\", \"type\": \"private\"}, \"text\": \"{{body 'text'}}\"}}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}],
+          "disableTemplating": false
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-telegram-sendphoto",
+      "documentation": "Telegram Bot API sendPhoto — echoes chat_id, returns a photo object",
+      "method": "post",
+      "endpoint": "bot:test-token/sendPhoto",
+      "responses": [
+        {
+          "uuid": "resp-telegram-sendphoto-ok",
+          "label": "sendPhoto OK",
+          "statusCode": 200,
+          "latency": 20,
+          "body": "{\"ok\": true, \"result\": {\"message_id\": 4243, \"chat\": {\"id\": \"{{body 'chat_id'}}\", \"type\": \"private\"}, \"photo\": [{\"file_id\": \"{{body 'photo'}}\", \"width\": 1280, \"height\": 720, \"file_size\": 4096}], \"caption\": \"{{body 'caption'}}\"}}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}],
+          "disableTemplating": false
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    },
+    {
+      "uuid": "route-health",
+      "documentation": "Core mock health check (service name is a test contract)",
+      "method": "get",
+      "endpoint": "health",
+      "responses": [
+        {
+          "uuid": "resp-health-ok",
+          "label": "Healthy",
+          "statusCode": 200,
+          "latency": 0,
+          "body": "{\"status\": \"ok\", \"service\": \"ontology_ai-core-mock\", \"time\": \"{{now 'x'}}\"}",
+          "headers": [{"key": "Content-Type", "value": "application/json"}]
+        }
+      ],
+      "enabled": true,
+      "type": "http"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "cors": true,
+  "headers": [
+    {"key": "Content-Type", "value": "application/json"},
+    {"key": "Access-Control-Allow-Origin", "value": "*"}
+  ],
+  "data": [],
+  "callbacks": []
+}

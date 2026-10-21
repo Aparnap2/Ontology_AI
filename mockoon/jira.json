@@ -243,6 +243,86 @@
       "responseMode": null,
       "streamingMode": null,
       "streamingInterval": 0
+    },
+    {
+      "uuid": "b8daf4b9-257c-4310-b7eb-06ac5db2a2b4",
+      "type": "http",
+      "documentation": "Update issue",
+      "method": "put",
+      "endpoint": "rest/api/3/issue/:issueIdOrKey",
+      "responses": [
+        {
+          "uuid": "fe1105e9-484e-4b0a-8501-f13cdc189bbc",
+          "body": "",
+          "latency": 0,
+          "statusCode": "204",
+          "label": "Update issue (no content)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "d087c3cf-f697-4d27-a64f-0b3ab07cc3ac",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "randomResponse": false,
+      "sequentialResponse": false,
+      "folderChildren": [],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "290338a4-1878-4ce3-b9cc-d243c3378d18",
+      "type": "http",
+      "documentation": "Link issues",
+      "method": "post",
+      "endpoint": "rest/api/3/issueLink",
+      "responses": [
+        {
+          "uuid": "002311da-2791-44e7-b0a9-2112e2303032",
+          "body": "{\"linked\": true}",
+          "latency": 0,
+          "statusCode": "201",
+          "label": "Link issues (echo)",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "12cb7afc-cb8c-493e-a37b-429ee2979bfd",
+          "callbacks": []
+        }
+      ],
+      "enabled": true,
+      "randomResponse": false,
+      "sequentialResponse": false,
+      "folderChildren": [],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
     }
   ],
   "rootChildren": [
