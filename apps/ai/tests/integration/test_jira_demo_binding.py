@@ -88,15 +88,43 @@ def test_op_layer_demo_binding_end_to_end(monkeypatch):
             "jira.create",
             {"project": "PORTAL", "summary": "probe", "description": "", "issue_type": "Task"},
             "t1",
+            role_caps=["jira.create", "jira.update", "jira.read"],
         )
         assert created["ok"] is True and created["data"]
         updated = capability_ops.CapabilityOpRegistry.execute(
-            "jira.update", {"issue_id": "PORTAL-1", "fields": {"status": "Done"}}, "t1",
+            "jira.update",
+            {"issue_id": "PORTAL-1", "fields": {"status": "Done"}},
+            "t1",
+            role_caps=["jira.create", "jira.update", "jira.read"],
         )
         assert updated["ok"] is True
         read = capability_ops.CapabilityOpRegistry.execute(
-            "jira.read", {"jql": "key = PORTAL-1"}, "t1",
+            "jira.read",
+            {"jql": "key = PORTAL-1"},
+            "t1",
+            role_caps=["jira.create", "jira.update", "jira.read"],
         )
         assert read["ok"] is True and read["data"]
     finally:
         reset_binding_cache()
+
+
+def test_op_layer_denies_without_allowlist():
+    """A missing allowlist denies before any connector call (fail-closed)."""
+    with pytest.raises(capability_ops.CapabilityNotAllowedError):
+        capability_ops.CapabilityOpRegistry.execute(
+            "jira.create",
+            {"project": "PORTAL", "summary": "probe", "description": "", "issue_type": "Task"},
+            "t1",
+        )
+
+
+def test_op_layer_denies_unauthorized_capability():
+    """An allowlist that omits the op denies — no over-permission."""
+    with pytest.raises(capability_ops.CapabilityNotAllowedError):
+        capability_ops.CapabilityOpRegistry.execute(
+            "jira.create",
+            {"project": "PORTAL", "summary": "probe", "description": "", "issue_type": "Task"},
+            "t1",
+            role_caps=["jira.read"],
+        )
