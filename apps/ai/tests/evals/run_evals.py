@@ -320,6 +320,21 @@ def _evaluate_anomaly_explanation(explanation: str, scenario: AnomalyEvalScenari
             vendor=scenario.vendor,
         )
         if matched is None:
+            # Optional criterion — exclude from scoring
+            continue
+        # A2: Flag unscorable criteria (no verb prefix) instead of silently ignoring
+        lowered_crit = criterion.lower()
+        has_verb = any(
+            lowered_crit.startswith(prefix)
+            for prefix in ("mentions", "suggests", "recommends", "checks", "verifies", "reviews")
+        ) or any(
+            word in lowered_crit.split()
+            for word in ("mentions", "suggests", "recommends", "checks", "verifies", "reviews")
+        )
+        if not has_verb:
+            # Unscorable criterion — flag explicitly, do not count in denominator
+            checks[f"criterion_{index}"] = False
+            unmet.append(f"Unscorable criterion (no verb): {criterion}")
             continue
         required += 1
         key = f"criterion_{index}"

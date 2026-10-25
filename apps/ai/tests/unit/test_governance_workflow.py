@@ -55,8 +55,10 @@ class TestGovernanceValidation:
                       planned_actions=[_low_action()])
         actions = resp.engagement_state_patch["planned_actions"]
         assert actions
-        # Low blast radius, no approval required -> remains draft / allowed
-        assert actions[0]["status"] in ("draft", "approved")
+        # Low blast radius, no approval required -> auto-approved (authorization
+        # recorded separately from execution; "completed" requires execution + verification)
+        assert actions[0]["status"] == "approved"
+        assert actions[0]["governance_audit"]["ruling"] == "auto_approved"
 
     def test_medium_high_action_blocked_pending_approval(self):
         wf = _make_workflow()

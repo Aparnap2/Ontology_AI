@@ -119,12 +119,13 @@ class GovernanceWorkflow:
             out["status"] = "pending_approval"
             out["requires_approval"] = True
         else:
-            # Low + auto-allowed -> execute immediately, record audit (PRD §18.2).
-            out["status"] = "completed"
+            # Low blast radius -> auto-approved (authorization recorded separately
+            # from execution; "completed" requires successful execution + verification).
+            out["status"] = "approved"
             out["governance_audit"] = {
                 "auto_allowed": True,
                 "blast_radius": blast,
-                "ruling": "auto_execute",
+                "ruling": "auto_approved",
             }
         return out
 
