@@ -1,6 +1,7 @@
 """Tests for Qdrant Vector Service."""
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch, MagicMock
 import sys
 from pathlib import Path
@@ -43,8 +44,10 @@ class TestQdrantService:
             # Mock get_embedding
             service.get_embedding = AsyncMock(return_value=[0.1] * 768)
 
-            # Mock search returning no results
-            service.client.search = AsyncMock(return_value=[])
+            # Mock query_points returning no results
+            service.client.query_points = AsyncMock(
+                return_value=SimpleNamespace(points=[])
+            )
 
             is_duplicate, score = await service.check_duplicate("Test feedback")
 
@@ -55,7 +58,6 @@ class TestQdrantService:
     async def test_check_duplicate_found(self):
         """Test duplicate check when duplicate is found."""
         from src.services.qdrant import QdrantService
-        from qdrant_client.models import ScoredPoint
 
         with patch.object(QdrantService, "__init__", lambda x: None):
             service = QdrantService()
@@ -68,9 +70,11 @@ class TestQdrantService:
 
             service.get_embedding = AsyncMock(return_value=[0.1] * 768)
 
-            # Mock search returning a match
-            mock_point = ScoredPoint(id="test-id", score=0.92, payload={}, version=1)
-            service.client.search = AsyncMock(return_value=[mock_point])
+            # Mock query_points returning a match
+            mock_point = SimpleNamespace(id="test-id", score=0.92, payload={}, version=1)
+            service.client.query_points = AsyncMock(
+                return_value=SimpleNamespace(points=[mock_point])
+            )
 
             is_duplicate, score = await service.check_duplicate("Test feedback")
 
@@ -81,7 +85,6 @@ class TestQdrantService:
     async def test_ensure_collection(self):
         """Test collection creation."""
         from src.services.qdrant import QdrantService
-        from qdrant_client.models import CollectionsResponse
 
         with patch.object(QdrantService, "__init__", lambda x: None):
             service = QdrantService()

@@ -1,6 +1,5 @@
-"""Tests for ToneFilter — mechanical tests run against real code, LLM tests run against real Ollama Cloud."""
+"""Tests for ToneFilter — mechanical tests and mocked LLM rewrites (no network)."""
 import os
-import sys
 
 os.environ.setdefault("OLLAMA_BASE_URL", "https://ollama.com")
 os.environ.setdefault("OLLAMA_API_KEY", os.environ.get("OLLAMA_API_KEY", ""))
@@ -79,46 +78,46 @@ def test_tone_result_language_stored():
     assert result.language == "hi"
 
 
-# ── LLM-powered tone rewrite (real Ollama Cloud) ────────────────────
+# ── LLM-powered tone rewrite (mocked client, no network) ────────────
 
 
-@pytest.mark.slow
-def test_tone_rewrite_replaces_ebitda():
+def test_tone_rewrite_replaces_ebitda(monkeypatch):
     """LLM tone rewrite + mechanical jargon removal: EBITDA is gone."""
+    _install_fake_client(monkeypatch, "You keep less from each sale.")
     tf = ToneFilter()
     result = tf.apply("Your EBITDA dropped this month.")
     assert "EBITDA" not in result.text
     assert result.jargon_replaced >= 1
 
 
-@pytest.mark.slow
-def test_good_news_tone_is_celebratory():
+def test_good_news_tone_is_celebratory(monkeypatch):
     """LLM rewrite with is_good_news=True produces warm output."""
+    _install_fake_client(monkeypatch, "Revenue grew 20% this month — well done!")
     tf = ToneFilter()
     result = tf.apply("Revenue grew 20% this month.", is_good_news=True)
     assert result.text
 
 
-@pytest.mark.slow
-def test_bad_news_tone_is_calm():
+def test_bad_news_tone_is_calm(monkeypatch):
     """LLM rewrite with is_good_news=False produces calm output."""
+    _install_fake_client(monkeypatch, "Let's look at this together.")
     tf = ToneFilter()
     result = tf.apply("Revenue dropped this month.", is_good_news=False)
     assert result.text
 
 
-@pytest.mark.slow
-def test_hindi_output_contains_devanagari():
+def test_hindi_output_contains_devanagari(monkeypatch):
     """Hindi translation produces Devanagari script."""
+    _install_fake_client(monkeypatch, "आपकी बिक्री बढ़ी है।")
     tf = ToneFilter()
     result = tf.apply("Revenue is up this month.", language="hi")
     has_devanagari = any("\u0900" <= char <= "\u097F" for char in result.text)
     assert has_devanagari, f"Hindi output must contain Devanagari script: {result.text[:50]}"
 
 
-@pytest.mark.slow
-def test_apply_text_convenience_method():
+def test_apply_text_convenience_method(monkeypatch):
     """apply_text() returns just the string, not ToneResult."""
+    _install_fake_client(monkeypatch, "You keep less from each sale.")
     tf = ToneFilter()
     text = tf.apply_text("EBITDA is down.")
     assert isinstance(text, str)

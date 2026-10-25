@@ -481,7 +481,12 @@ class TestDSPyEvals:
     
     def test_clarity_score_good(self):
         """Test clarity score with good writing."""
-        result = ClarityScoreEvaluator.evaluate("Your balance is ₹500,000. This amount covers approximately 6 months of operating expenses at the current burn rate.")
+        result = ClarityScoreEvaluator.evaluate(
+            "Your current balance is ₹500,000, which covers approximately 6 months "
+            "of operating expenses at the present burn rate. This runway gives you "
+            "adequate time to improve collections and reduce discretionary spending "
+            "before the next funding milestone."
+        )
         assert result.passed
     
     def test_actionability_complete(self):

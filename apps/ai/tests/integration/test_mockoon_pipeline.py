@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from typing import Any, Dict, Generator
+from typing import Any
 from unittest.mock import patch
 
 import httpx
@@ -106,7 +106,7 @@ def mockoon_containers():
 # Env setup (module-scoped — restored before later suites run)
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def set_env_vars():
     """Set env vars so connectors hit Mockoon instead of real APIs.
 

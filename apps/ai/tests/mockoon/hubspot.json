@@ -52,7 +52,7 @@
       "responses": [
         {
           "uuid": "336ed324-2d26-427b-9cbd-90d855208305",
-          "body": "{\"results\": [{\"id\": \"deal-001\", \"properties\": {\"dealname\": \"Acme Corp - Q2 Renewal\", \"amount\": \"500000\", \"dealstage\": \"closedwon\", \"closedate\": \"2026-05-28T00:00:00Z\", \"createdate\": \"2026-01-15T00:00:00Z\"}}, {\"id\": \"deal-002\", \"properties\": {\"dealname\": \"Globex Inc - Platform Subscription\", \"amount\": \"350000\", \"dealstage\": \"negotiation\", \"closedate\": \"\", \"createdate\": \"2026-03-01T00:00:00Z\"}}, {\"id\": \"deal-003\", \"properties\": {\"dealname\": \"Initech - Enterprise Pilot\", \"amount\": \"400000\", \"dealstage\": \"discovery\", \"closedate\": \"\", \"createdate\": \"2026-05-10T00:00:00Z\"}}]}",
+          "body": "{\"results\": [{\"id\": \"deal-001\", \"properties\": {\"dealname\": \"Acme Corp - Q2 Renewal\", \"amount\": \"500000\", \"dealstage\": \"closedwon\", \"closedate\": \"{{now 'yyyy-MM-dd'}}T00:00:00Z\", \"createdate\": \"2026-01-15T00:00:00Z\"}}, {\"id\": \"deal-002\", \"properties\": {\"dealname\": \"Globex Inc - Platform Subscription\", \"amount\": \"350000\", \"dealstage\": \"negotiation\", \"closedate\": \"\", \"createdate\": \"2026-03-01T00:00:00Z\"}}, {\"id\": \"deal-003\", \"properties\": {\"dealname\": \"Initech - Enterprise Pilot\", \"amount\": \"400000\", \"dealstage\": \"discovery\", \"closedate\": \"\", \"createdate\": \"2026-05-10T00:00:00Z\"}}]}",
           "latency": 100,
           "statusCode": 200,
           "label": "",

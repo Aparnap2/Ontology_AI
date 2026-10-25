@@ -1,5 +1,6 @@
 """Integration tests for approval queue + StateStore with real Redis on localhost:6379."""
 
+import os
 import time
 from unittest.mock import patch
 
@@ -177,13 +178,11 @@ class TestApprovalQueueDocker:
     def test_postgresql_connectivity(self):
         import psycopg2
 
-        conn = psycopg2.connect(
-            host="localhost",
-            port=5432,
-            user="iterateswarm",
-            password="iterateswarm",
-            dbname="iterateswarm",
-        )
+        dsn = os.environ.get("TEST_DATABASE_URL")
+        if not dsn:
+            pytest.skip("TEST_DATABASE_URL is required for Postgres connectivity test")
+
+        conn = psycopg2.connect(dsn)
         try:
             cur = conn.cursor()
             cur.execute("SELECT 1")

@@ -14,6 +14,8 @@ Run with:
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
+from .criteria import criterion_matches
+
 
 @dataclass
 class NarrativeEvalScenario:
@@ -252,60 +254,67 @@ def get_scenario_by_id(scenario_id: str) -> NarrativeEvalScenario | None:
 
 
 def evaluate_narrative_output(narrative: str, scenario: NarrativeEvalScenario) -> dict:
-    """
-    Evaluate generated narrative against gold criteria.
-
-    Returns:
-        dict with passed (bool), score (float), and reasons (list)
-    """
+    """Evaluate generated narrative against weighted gold criteria."""
     reasons = []
     score = 0.0
     narrative_lower = narrative.lower()
 
-    # Check sentence count
-    sentences = [s.strip() for s in narrative.replace("!", ".").replace("?", ".").split(".") if s.strip()]
+    sentences = [
+        sentence.strip()
+        for sentence in narrative.replace("!", ".").replace("?", ".").split(".")
+        if sentence.strip()
+    ]
     sentence_count = len(sentences)
 
     if scenario.min_sentences <= sentence_count <= scenario.max_sentences:
         score += 0.2
     else:
-        reasons.append(f"Sentence count {sentence_count} outside range [{scenario.min_sentences}-{scenario.max_sentences}]")
+        reasons.append(
+            f"Sentence count {sentence_count} outside range "
+            f"[{scenario.min_sentences}-{scenario.max_sentences}]"
+        )
 
-    # Check tone appropriateness
     if scenario.expected_tone == "urgent":
         urgent_words = ["urgent", "critical", "immediate", "concern", "decline", "loss", "alert"]
-        if any(word in narrative_lower for word in urgent_words):
-            score += 0.15
-        else:
+        tone_matched = any(word in narrative_lower for word in urgent_words)
+        if not tone_matched:
             reasons.append("Missing urgent tone for critical data")
-    elif scenario.expected_tone == "informative":
-        # Should not have alarm words unless data is critical
-        alarm_words = ["critical", "urgent", "alert", "danger"]
-        if not any(word in narrative_lower for word in alarm_words):
-            score += 0.15
-        else:
-            reasons.append("Unnecessary alarm in informative narrative")
+    else:
+        alarm_words = ["critical", "urgent", "alert", "danger", "emergency", "crisis"]
+        tone_matched = not any(word in narrative_lower for word in alarm_words)
+        if not tone_matched:
+            reasons.append("Unnecessary alarm in narrative")
+    if tone_matched:
+        score += 0.15
 
-    # Check gold criteria
-    criteria_matched = 0
+    matched_criteria = 0
+    required_criteria = 0
     for criterion in scenario.gold_criteria:
-        # Simple keyword matching for evaluation
-        criterion_keywords = criterion.lower().replace("mentions ", "").replace("suggests ", "").split()
-        if any(kw in narrative_lower for kw in criterion_keywords if len(kw) > 3):
-            criteria_matched += 1
+        matched = criterion_matches(criterion, narrative)
+        if matched is None:
+            continue
+        required_criteria += 1
+        if matched:
+            matched_criteria += 1
+        else:
+            reasons.append(f"Missing: {criterion}")
 
-    criteria_score = (criteria_matched / len(scenario.gold_criteria)) * 0.65
-    score += criteria_score
+    criteria_ratio = matched_criteria / required_criteria if required_criteria else 1.0
+    score = min(1.0, score + 0.65 * criteria_ratio)
 
-    if criteria_matched < len(scenario.gold_criteria) * 0.7:
-        reasons.append(f"Only {criteria_matched}/{len(scenario.gold_criteria)} gold criteria met")
+    if criteria_ratio < 0.7:
+        reasons.append(f"Only {matched_criteria}/{required_criteria} gold criteria met")
 
-    # Normalize score
-    score = min(1.0, score)
+    passed = score >= 0.7
+    if passed:
+        if not reasons:
+            reasons = ["All checks passed"]
+    else:
+        reasons.append(f"Score {score:.2f} below pass threshold 0.70")
 
     return {
-        "passed": score >= 0.7,
+        "passed": passed,
         "score": round(score, 2),
-        "reasons": reasons if reasons else ["All checks passed"],
+        "reasons": reasons,
         "sentence_count": sentence_count,
     }

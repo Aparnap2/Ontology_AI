@@ -87,9 +87,8 @@ class TestSQLEvals:
         """Test that generated SQL includes tenant_id filter."""
         result = run_sql_evals()
 
-        # Check that all scenarios have tenant_id in generated SQL
         for eval_result in result.results:
-            assert "tenant_id" in eval_result.reasons or eval_result.score >= 0.8, (
+            assert eval_result.checks.get("tenant_id") is True, (
                 f"SQL scenario {eval_result.scenario_id} missing tenant_id filter"
             )
 

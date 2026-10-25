@@ -165,8 +165,9 @@ def get_quickbooks_snapshot(tenant_id: str) -> Dict[str, Any]:
                 "finance_unpaid_invoices_30d_cents": unpaid_invoices_30d_cents,
                 "finance_days_sales_outstanding": dso,
             }
+            return _add_metadata(result, "quickbooks")
 
-        return _add_metadata(result, "quickbooks")
+        return retry_with_backoff(_fetch_invoices)
 
     except Exception as e:
         logger.error("Error fetching QuickBooks data for tenant %s: %s", tenant_id, e)
