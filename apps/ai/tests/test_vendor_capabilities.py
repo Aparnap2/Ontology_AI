@@ -152,7 +152,7 @@ def test_verify_recovery_predicates(vendor_double):
     assert bad["data"]["mismatches"]
 
 
-def test_vendor_writes_have_no_silent_verify():
+def test_vendor_writes_have_no_silent_verify(vendor_double):
     """Vendor writes lack read counterparts → verify fails closed, not pass."""
     from src.mission.verify import READ_COUNTERPART, verify_write
 
@@ -169,7 +169,7 @@ def test_vendor_writes_have_no_silent_verify():
 
     import asyncio
 
-    outcome = asyncio.get_event_loop().run_until_complete(go())
+    outcome = asyncio.run(go())
     assert outcome.verified is False
 
 
