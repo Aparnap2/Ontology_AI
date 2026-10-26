@@ -306,8 +306,36 @@ def _simulate_narrative_generation(scenario: NarrativeEvalScenario) -> str:
         return f"Query executed successfully. Total: ${total:,.0f} across {scenario.sql_result['count']} records."
 
 
+def _is_supported_criterion(criterion: str) -> bool:
+    """Whether the shared matcher has a dedicated scoring path for this criterion.
+
+    The shared matcher scores three shapes explicitly: optional criteria
+    (returned as ``None`` and excluded upstream), negative criteria
+    ("no ..." — rejected when the forbidden words appear), and verb-led /
+    identical-amount criteria ("mentions ...", "suggests ...",
+    "recommends ...").  Everything else falls through to naive all-keywords-
+    must-match logic, which cannot credit a criterion it does not understand.
+    """
+    lowered = criterion.lower().strip()
+    if lowered.startswith("no ") or any(
+        phrase in lowered
+        for phrase in ("no alarm", "no urgency", "no error", "no urgent")
+    ):
+        return True
+    if "identical" in lowered and "amount" in lowered:
+        return True
+    return lowered.startswith(("mentions", "suggests ", "recommends "))
+
+
 def _evaluate_anomaly_explanation(explanation: str, scenario: AnomalyEvalScenario) -> EvalResult:
-    """Evaluate anomaly explanation against weighted gold criteria."""
+    """Evaluate anomaly explanation against weighted gold criteria.
+
+    Scoring contract (owner decision #102 / A2):
+      * optional criterion  -> excluded from scoring, never an error;
+      * required + supported  -> scored by the shared matcher;
+      * required + unscorable -> rejected and flagged explicitly — never
+        silently omitted from the denominator.
+    """
     checks: Dict[str, bool] = {}
     unmet = []
     required = 0
@@ -320,24 +348,17 @@ def _evaluate_anomaly_explanation(explanation: str, scenario: AnomalyEvalScenari
             vendor=scenario.vendor,
         )
         if matched is None:
-            # Optional criterion — exclude from scoring
-            continue
-        # A2: Flag unscorable criteria (no verb prefix) instead of silently ignoring
-        lowered_crit = criterion.lower()
-        has_verb = any(
-            lowered_crit.startswith(prefix)
-            for prefix in ("mentions", "suggests", "recommends", "checks", "verifies", "reviews")
-        ) or any(
-            word in lowered_crit.split()
-            for word in ("mentions", "suggests", "recommends", "checks", "verifies", "reviews")
-        )
-        if not has_verb:
-            # Unscorable criterion — flag explicitly, do not count in denominator
-            checks[f"criterion_{index}"] = False
-            unmet.append(f"Unscorable criterion (no verb): {criterion}")
+            # Optional criterion — exclude from scoring without an error.
             continue
         required += 1
         key = f"criterion_{index}"
+        if not _is_supported_criterion(criterion):
+            # Required but unscorable — reject + flag, no silent omission.
+            checks[key] = False
+            unmet.append(
+                f"Unscorable criterion (no supported matcher path): {criterion}"
+            )
+            continue
         checks[key] = matched
         if not matched:
             unmet.append(f"Missing: {criterion}")
