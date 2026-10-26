@@ -8,7 +8,7 @@ import pytest
 
 
 class TestAuthorityManifest:
-    """Authority manifest canonical agent tests for the 9-runtime model."""
+    """Authority manifest canonical agent tests for the 6-agent V6 model."""
 
     CANONICAL_AGENTS = [
         "ChiefOfStaff",
@@ -17,9 +17,6 @@ class TestAuthorityManifest:
         "KnowledgeValidator",
         "SolutionArchitect",
         "Governance",
-        "DecisionAgent",
-        "ExecutionAgent",
-        "EvaluationAgent",
     ]
 
     def test_authority_manifest_has_canonical_agents(self):
@@ -96,9 +93,6 @@ class TestAuthorityManifest:
             "knowledge_validation",
             "workflow_building",
             "governance",
-            "decision",
-            "execution",
-            "evaluation",
         }
         for agent in AUTHORITY_MANIFEST:
             assert agent.domain in valid_domains, (

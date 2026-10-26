@@ -746,11 +746,14 @@ class TestGovernanceAutoAllowedAudit:
         )
         actions = resp.engagement_state_patch["planned_actions"]
         assert len(actions) == 1
-        assert actions[0]["status"] == "completed"
+        # Authorization ("approved") is recorded separately from execution;
+        # "completed" requires successful execution + verification.
+        assert actions[0]["status"] == "approved"
         audit = actions[0].get("governance_audit", {})
         assert audit.get("auto_allowed") is True
+        assert audit.get("authorized_by") == "ACTION_REGISTRY"
         assert audit.get("blast_radius") == "low"
-        assert audit.get("ruling") == "auto_execute"
+        assert audit.get("ruling") == "auto_approved"
 
     def test_high_blast_action_has_no_auto_allowed_audit(self):
         from src.workflows.governance_workflow import GovernanceWorkflow
