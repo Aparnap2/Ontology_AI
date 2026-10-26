@@ -97,14 +97,18 @@ class TestGovernanceApprovalFlow:
     """GovernanceWorkflow approves low-blast actions and blocks high-blast."""
 
     def test_low_blast_action_auto_allowed(self):
-        """Low blast radius, no explicit approval required -> auto-completed."""
+        """Low blast radius, no explicit approval required -> auto-approved."""
         wf = _make_workflow()
         resp = wf.run(tenant_id="t1", engagement_id="e1",
                       planned_actions=[_low_action()])
         actions = resp.engagement_state_patch["planned_actions"]
         assert actions
-        assert actions[0]["status"] == "completed"
-        assert actions[0].get("governance_audit", {}).get("auto_allowed") is True
+        # Authorization ("approved") is recorded separately from execution;
+        # "completed" requires successful execution + verification.
+        assert actions[0]["status"] == "approved"
+        audit = actions[0].get("governance_audit", {})
+        assert audit.get("auto_allowed") is True
+        assert audit.get("authorized_by") == "ACTION_REGISTRY"
 
     def test_high_blast_action_pending_approval(self):
         """High blast radius -> pending_approval + requires_hitl."""
@@ -124,7 +128,7 @@ class TestGovernanceApprovalFlow:
         actions = resp.engagement_state_patch["planned_actions"]
         assert len(actions) == 2
         statuses = {a["id"]: a["status"] for a in actions}
-        assert statuses["pa-low"] == "completed"
+        assert statuses["pa-low"] == "approved"
         assert statuses["pa-high"] == "pending_approval"
 
     def test_approval_sets_hitl_ids(self):
