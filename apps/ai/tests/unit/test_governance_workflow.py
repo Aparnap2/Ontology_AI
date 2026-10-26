@@ -55,8 +55,10 @@ class TestGovernanceValidation:
                       planned_actions=[_low_action()])
         actions = resp.engagement_state_patch["planned_actions"]
         assert actions
-        # Low blast radius, no approval required -> remains draft / allowed
-        assert actions[0]["status"] in ("draft", "approved")
+        # Low blast radius, no approval required -> auto-approved (authorization
+        # recorded separately from execution; "completed" requires execution + verification)
+        assert actions[0]["status"] == "approved"
+        assert actions[0]["governance_audit"]["ruling"] == "auto_approved"
 
     def test_medium_high_action_blocked_pending_approval(self):
         wf = _make_workflow()
@@ -240,3 +242,102 @@ class TestGovernanceResponse:
         assert resp.specialist == "Governance"
         assert resp.workflow_name == "GovernanceWorkflow"
         assert "planned_actions" in resp.engagement_state_patch
+
+
+class TestTrustedPolicyAuthorization:
+    """Owner decision #100 — authorization precedes execution.
+
+    * approval is granted only by a trusted policy document (never by the
+      caller-supplied payload);
+    * low blast radius is NOT authorization — unknown actions fail closed;
+    * authorization ("approved") is separate from execution ("completed").
+    """
+
+    @staticmethod
+    def _action(**overrides):
+        params = dict(
+            id="pa-auth", type="create_note", title="Add note",
+            blast_radius="low", status="draft", requested_by="bob",
+            target_object_type="Party", target_id="p1", rationale="note",
+            requires_approval=False, source_refs=[],
+        )
+        params.update(overrides)
+        return PlannedAction(**params).model_dump()
+
+    def _govern(self, **overrides):
+        wf = _make_workflow()
+        resp = wf.run(
+            tenant_id="t1", engagement_id="e1",
+            planned_actions=[self._action(**overrides)],
+        )
+        return resp, resp.engagement_state_patch["planned_actions"][0]
+
+    def test_approved_action_records_trusted_policy_source(self):
+        """Auto-approval carries an explicit trusted-policy authorization flag."""
+        _, action = self._govern()
+        audit = action["governance_audit"]
+        assert action["status"] == "approved"
+        assert audit["auto_allowed"] is True
+        assert audit["authorized_by"] == "ACTION_REGISTRY"
+        assert audit["policy_entry"] == {
+            "requires_approval": False,
+            "blast_radius": "low",
+        }
+
+    def test_write_action_authorizes_against_object_write_policy(self):
+        """``write:Obj.prop`` actions authorize against OBJECT_WRITE_POLICY."""
+        _, action = self._govern(
+            id="pa-write", type="write:Party.status",
+            target_object_type="Party",
+        )
+        audit = action["governance_audit"]
+        assert action["status"] == "approved"
+        assert audit["authorized_by"] == "OBJECT_WRITE_POLICY"
+
+    def test_low_blast_without_trusted_policy_record_is_blocked(self):
+        """Low blast radius alone is NOT authorization — fail closed."""
+        resp, action = self._govern(type="not_a_registered_action")
+        audit = action["governance_audit"]
+        assert action["status"] == "pending_approval"
+        assert action["requires_approval"] is True
+        assert audit["auto_allowed"] is False
+        assert audit["authorized_by"] is None
+        assert audit["ruling"] == "denied_no_trusted_policy"
+        assert resp.requires_hitl is True
+
+    def test_untrusted_payload_cannot_override_policy(self):
+        """Payload ``requires_approval=False`` cannot authorize a gated action."""
+        _, action = self._govern(
+            id="pa-money", type="money_state_change",
+            target_object_type="MoneyEvent", target_id="m1",
+            blast_radius="low", requires_approval=False,
+        )
+        audit = action["governance_audit"]
+        assert action["status"] == "pending_approval"
+        assert audit["auto_allowed"] is False
+        assert audit["authorized_by"] == "ACTION_REGISTRY"
+        assert audit["ruling"] == "denied_by_policy"
+
+    def test_write_to_money_event_requires_trusted_approval(self):
+        """OBJECT_WRITE_POLICY approval requirement wins over payload flags."""
+        _, action = self._govern(
+            id="pa-money-write", type="write:MoneyEvent.status",
+            target_object_type="MoneyEvent", target_id="m1",
+            blast_radius="low", requires_approval=False,
+        )
+        audit = action["governance_audit"]
+        assert action["status"] == "pending_approval"
+        assert audit["authorized_by"] == "OBJECT_WRITE_POLICY"
+        assert audit["ruling"] == "denied_by_policy"
+
+    def test_caller_can_escalate_but_never_grant(self):
+        """``requires_approval=True`` always escalates to pending approval."""
+        resp, action = self._govern(requires_approval=True)
+        assert action["status"] == "pending_approval"
+        assert resp.requires_hitl is True
+
+    def test_authorization_is_not_completion(self):
+        """Governance grants authorization only — never marks an action completed."""
+        _, action = self._govern()
+        assert action["status"] == "approved"
+        assert action["status"] != "completed"

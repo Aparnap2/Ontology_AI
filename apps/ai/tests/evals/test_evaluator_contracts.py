@@ -2,6 +2,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from evals.datasets.bi_narratives import NarrativeEvalScenario, evaluate_narrative_output
@@ -120,3 +122,108 @@ class TestNarrativeEvaluator:
         )
         assert result["passed"] is False
         assert any("alarm" in reason.lower() for reason in result["reasons"])
+
+
+class TestAnomalyScoringContracts:
+    """Owner decision #102 / A2 — anomaly explanation scoring contract.
+
+    * optional criteria (matcher returns ``None``) are excluded from scoring,
+      never counted as failures and never raise;
+    * required criteria with a supported matcher path are scored normally;
+    * required criteria with no supported matcher path are REJECTED and
+      FLAGGED — never silently omitted from the denominator;
+    * negative criteria ("no ...") must be scored by the matcher, not
+      misclassified as unscorable (regression pin for the verb-gate bug).
+    """
+
+    @staticmethod
+    def _scenario(gold_criteria, expected_action="ALERT"):
+        from evals.datasets.anomaly_explanations import AnomalyEvalScenario
+
+        return AnomalyEvalScenario(
+            id="a2-contract",
+            event_type="payment.success",
+            vendor="aws",
+            amount=10000.0,
+            avg_90d=5000.0,
+            anomaly_score=0.7,
+            runway_months=12.0,
+            past_context="No similar anomalies in past 90 days",
+            gold_criteria=gold_criteria,
+            expected_action=expected_action,
+        )
+
+    @staticmethod
+    def _evaluate(explanation, gold_criteria, expected_action="ALERT"):
+        from evals.run_evals import _evaluate_anomaly_explanation
+
+        return _evaluate_anomaly_explanation(
+            explanation,
+            TestAnomalyScoringContracts._scenario(gold_criteria, expected_action),
+        )
+
+    def test_optional_criterion_excluded_without_error(self):
+        criteria = [
+            "mentions aws payment.success",  # required, supported
+            "may mention industry benchmark",  # optional -> matcher returns None
+        ]
+        explanation = "Alert: aws payment.success spike of 2x vs 90d average."
+        result = self._evaluate(explanation, criteria)
+
+        # Optional criterion is excluded from the checks map entirely.
+        assert "criterion_1" not in result.checks
+        # ...and never produces a failure reason of any kind.
+        assert not any("benchmark" in reason for reason in result.reasons)
+        assert not any("Unscorable" in reason for reason in result.reasons)
+        # Required criterion still scores normally.
+        assert result.checks["criterion_0"] is True
+
+    def test_unsupported_required_criterion_rejected_and_flagged(self):
+        criteria = [
+            "mentions aws payment.success",  # supported
+            "references past similar event",  # no supported matcher path
+        ]
+        explanation = "Alert: aws payment.success spike of 2x vs 90d average."
+        result = self._evaluate(explanation, criteria)
+
+        # Flagged as False and reported — not silently dropped.
+        assert result.checks.get("criterion_1") is False
+        assert any(
+            "Unscorable criterion" in reason for reason in result.reasons
+        )
+        assert any(
+            "references past similar event" in reason for reason in result.reasons
+        )
+        # The flagged criterion counts in the denominator: one of two matched.
+        # score = 0.9 * (1/2) + action bonus (Alert present) = 0.55 < 0.60
+        assert result.passed is False
+        assert result.score == pytest.approx(0.55)
+
+    def test_negative_criterion_is_scored_not_flagged(self):
+        """Regression pin: negative criteria have a matcher path and must not
+        be misclassified as unscorable (the verb-gate regression)."""
+        criteria = ["no alarm language"]
+        explanation = "Brief summary: aws payment processed normally."
+        result = self._evaluate(explanation, criteria, expected_action="DIGEST")
+
+        assert result.checks["criterion_0"] is True
+        assert not any("Unscorable" in reason for reason in result.reasons)
+        assert not any("Missing" in reason for reason in result.reasons)
+
+    def test_negative_criterion_fails_when_forbidden_words_present(self):
+        """Negative criteria are actually scored — they can fail too."""
+        criteria = ["no alarm language"]
+        explanation = "Alert: critical alarm on aws payment failure."
+        result = self._evaluate(explanation, criteria, expected_action="ALERT")
+
+        assert result.checks["criterion_0"] is False
+        assert not any("Unscorable" in reason for reason in result.reasons)
+        assert any("Missing" in reason for reason in result.reasons)
+
+    def test_supported_verb_criterion_scored_normally(self):
+        criteria = ["mentions aws"]
+        explanation = "Alert: aws charge doubled today."
+        result = self._evaluate(explanation, criteria)
+
+        assert result.checks["criterion_0"] is True
+        assert not any("Unscorable" in reason for reason in result.reasons)
