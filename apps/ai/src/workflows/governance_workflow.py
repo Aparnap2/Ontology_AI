@@ -21,11 +21,49 @@ from src.runtime.deployers import DeployerResult, deploy_custom_agent, deploy_to
 from src.schemas.specialist_response import SpecialistResponse
 from src.ontology.object_types import PlannedAction
 from src.ontology.workflow_drafts import ExecutableWorkflowDraft
-from src.ontology.governance import GovernanceError
+from src.ontology.action_types import ACTION_REGISTRY
+from src.ontology.governance import OBJECT_WRITE_POLICY, GovernanceError
 
 
 _BLAST_RANK = {"low": 1, "medium": 2, "high": 3}
 _GOVERNANCE_ONLY = {"activated", "exported", "executing", "completed"}
+
+
+def _trusted_policy(
+    action_type: str, target_object_type: str
+) -> tuple[Optional[str], Optional[dict[str, Any]]]:
+    """Resolve the trusted write-policy entry for a ``PlannedAction``.
+
+    Authorization must come from a trusted, code-declared policy document —
+    never from the caller-supplied ``requires_approval`` / ``blast_radius``
+    fields of the action payload (owner decision #100: "low risk is not
+    authorization").
+
+    Returns ``(source, entry)`` where ``source`` names the policy document
+    (``"OBJECT_WRITE_POLICY"`` or ``"ACTION_REGISTRY"``) and ``entry`` is
+    ``{"requires_approval": bool, "blast_radius": str}``.  ``(None, None)``
+    means no trusted record exists for this action, which fails closed.
+    """
+    if action_type.startswith("write:"):
+        _, _, rest = action_type.partition(":")
+        object_name, dot, property_name = rest.partition(".")
+        if not dot or object_name != target_object_type:
+            return None, None
+        entry = OBJECT_WRITE_POLICY.get(object_name, {}).get(property_name)
+        if entry is None:
+            return None, None
+        return "OBJECT_WRITE_POLICY", {
+            "requires_approval": bool(entry.get("requires_approval", True)),
+            "blast_radius": str(entry.get("blast_radius", "high")),
+        }
+
+    entry = ACTION_REGISTRY.get(action_type)
+    if entry is None:
+        return None, None
+    return "ACTION_REGISTRY", {
+        "requires_approval": entry.requires_approval,
+        "blast_radius": entry.default_blast_radius,
+    }
 
 
 class GovernanceWorkflow:
@@ -111,21 +149,51 @@ class GovernanceWorkflow:
             raise GovernanceError(f"Invalid PlannedAction rejected: {exc}") from exc
 
         blast = validated.blast_radius
-        requires_approval = validated.requires_approval or _BLAST_RANK[blast] >= 2
-
         out = validated.model_dump()
-        if requires_approval:
-            # Medium/high -> pending approval + block (no execution).
+
+        # 1. Caller-supplied flags can only REQUEST approval, never grant it.
+        #    Untrusted payload input cannot authorize an action.
+        if validated.requires_approval or _BLAST_RANK[blast] >= 2:
             out["status"] = "pending_approval"
             out["requires_approval"] = True
-        else:
-            # Low + auto-allowed -> execute immediately, record audit (PRD §18.2).
-            out["status"] = "completed"
+            return out
+
+        # 2. Authorization comes from a trusted policy document only.
+        source, entry = _trusted_policy(validated.type, validated.target_object_type)
+        if entry is None:
+            # Fail closed: no trusted record -> not authorized, regardless of
+            # how low the caller-declared blast radius is (owner decision #100).
+            out["status"] = "pending_approval"
+            out["requires_approval"] = True
             out["governance_audit"] = {
-                "auto_allowed": True,
-                "blast_radius": blast,
-                "ruling": "auto_execute",
+                "auto_allowed": False,
+                "authorized_by": None,
+                "ruling": "denied_no_trusted_policy",
             }
+            return out
+        if entry["requires_approval"] or _BLAST_RANK.get(entry["blast_radius"], 3) >= 2:
+            # Trusted policy requires approval -> block (no execution).
+            out["status"] = "pending_approval"
+            out["requires_approval"] = True
+            out["governance_audit"] = {
+                "auto_allowed": False,
+                "authorized_by": source,
+                "policy_entry": entry,
+                "ruling": "denied_by_policy",
+            }
+            return out
+
+        # 3. Trusted policy authorizes -> approved.  Authorization is recorded
+        #    separately from execution; "completed" requires successful
+        #    execution + verification.
+        out["status"] = "approved"
+        out["governance_audit"] = {
+            "auto_allowed": True,
+            "authorized_by": source,
+            "policy_entry": entry,
+            "blast_radius": blast,
+            "ruling": "auto_approved",
+        }
         return out
 
     # ------------------------------------------------------------------

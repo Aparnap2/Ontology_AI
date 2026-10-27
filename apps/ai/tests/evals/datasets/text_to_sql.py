@@ -11,8 +11,9 @@ Each scenario includes:
 Run with:
     cd apps/ai && uv run python tests/evals/run_evals.py
 """
+import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -195,64 +196,115 @@ def get_scenario_by_id(scenario_id: str) -> SQLEvalScenario | None:
     return None
 
 
+_COLUMN_ALIASES: Dict[str, List[str]] = {
+    "sum": ["sum(", "count(", "avg("],
+    "vendor": ["vendor", "description"],
+    "date": ["date_trunc", "extract(", "txn_date", "snapshot_date", "month", "week"],
+    "revenue": ["credit", "revenue"],
+    "expenses": ["debit", "expenses"],
+    "growth": ["lag(", "growth"],
+    "percentage": ["100.0", "percentage", "%"],
+    "category": ["category"],
+    "avg": ["avg("],
+    "count": ["count("],
+    "runway_months": ["runway_months"],
+    "baseline": ["baseline"],
+    "actual": ["actual"],
+    "week": ["week", "extract(week"],
+    "id": ["id"],
+    "debit": ["debit"],
+    "description": ["description"],
+    "txn_date": ["txn_date"],
+}
+
+
+def _has_time_predicate(gold: str) -> bool:
+    lowered = gold.lower()
+    if "now()" in lowered or "interval" in lowered:
+        return True
+    return bool(
+        re.search(
+            r"\b(?:txn_date|created_at|snapshot_date)\b\s*(?:>=|<=|>|<|between)",
+            lowered,
+        )
+    )
+
+
+def _expected_columns_ratio(generated: str, expected_columns: List[str]) -> float:
+    if not expected_columns:
+        return 1.0
+
+    generated_lower = generated.lower()
+    if re.search(r"\bselect\s+\*", generated_lower):
+        return 1.0
+
+    matched = 0
+    for column in expected_columns:
+        aliases = _COLUMN_ALIASES.get(column.lower(), [column.lower()])
+        if any(alias in generated_lower for alias in aliases):
+            matched += 1
+    return matched / len(expected_columns)
+
+
 def evaluate_sql_output(generated_sql: str, scenario: SQLEvalScenario) -> dict:
-    """
-    Evaluate generated SQL against gold pattern.
+    """Evaluate generated SQL using only checks applicable to the gold SQL."""
+    generated_lower = generated_sql.lower()
+    gold = scenario.gold_sql_pattern
+    gold_lower = gold.lower()
 
-    Returns:
-        dict with passed (bool), score (float), and reasons (list)
-    """
-    reasons = []
-    score = 0.0
+    checks: Dict[str, bool] = {
+        "select": bool(re.search(r"\bselect\b", generated_lower)),
+        "tenant_id": "tenant_id" in generated_lower,
+    }
 
-    generated_upper = generated_sql.upper()
+    applicable = ["select", "tenant_id"]
+    if _has_time_predicate(gold):
+        checks["time_filter"] = bool(re.search(r"\b(?:now\s*\(|interval\b)", generated_lower))
+        applicable.append("time_filter")
+    if re.search(r"\bgroup\s+by\b", gold_lower):
+        checks["group_by"] = bool(re.search(r"\bgroup\s+by\b", generated_lower))
+        applicable.append("group_by")
+    if re.search(r"\border\s+by\b", gold_lower):
+        checks["order_by"] = bool(re.search(r"\border\s+by\b", generated_lower))
+        applicable.append("order_by")
 
-    # Check for required SQL elements from gold pattern
-    gold_upper = scenario.gold_sql_pattern.upper()
+    columns_ratio = _expected_columns_ratio(generated_sql, scenario.expected_columns)
+    checks["expected_columns"] = columns_ratio == 1.0
+    applicable.append("expected_columns")
 
-    # Check for SELECT
-    if "SELECT" in generated_upper:
-        score += 0.2
+    weight = 1.0 / len(applicable)
+    score = sum(
+        weight * (columns_ratio if check == "expected_columns" else float(checks[check]))
+        for check in applicable
+    )
+    score = round(min(1.0, score), 2)
+
+    failures = []
+    if not checks["select"]:
+        failures.append("Missing SELECT statement")
+    if not checks["tenant_id"]:
+        failures.append("Missing tenant_id filter (security issue)")
+    if "time_filter" in checks and not checks["time_filter"]:
+        failures.append(f"Missing time filter for {scenario.time_hint}")
+    if "group_by" in checks and not checks["group_by"]:
+        failures.append("Missing GROUP BY required by the gold SQL")
+    if "order_by" in checks and not checks["order_by"]:
+        failures.append("Missing ORDER BY required by the gold SQL")
+    if not checks["expected_columns"]:
+        failures.append("Missing one or more expected result columns")
+
+    passed = score >= 0.7 and all(checks[check] for check in ("select", "tenant_id"))
+    if passed:
+        if failures:
+            reasons = [f"Passed with score {score:.2f}; unmet: " + "; ".join(failures)]
+        else:
+            reasons = ["All checks passed"]
     else:
-        reasons.append("Missing SELECT statement")
-
-    # Check for tenant_id filter (security requirement)
-    if "TENANT_ID" in generated_upper:
-        score += 0.2
-    else:
-        reasons.append("Missing tenant_id filter (security issue)")
-
-    # Check for time-based filter if applicable
-    if scenario.time_hint != "current" and scenario.time_hint != "all time":
-        if "INTERVAL" in generated_upper or "txn_date" in generated_upper.lower():
-            score += 0.2
-        else:
-            reasons.append(f"Missing time filter for {scenario.time_hint}")
-
-    # Check for GROUP BY if breakdown/trend
-    if scenario.query_category in ("breakdown", "trend"):
-        if "GROUP BY" in generated_upper:
-            score += 0.2
-        else:
-            reasons.append("Missing GROUP BY for breakdown/trend query")
-
-    # Check for ORDER BY if top-N or comparison
-    if scenario.query_category in ("comparison",) or "top" in scenario.nl_query.lower():
-        if "ORDER BY" in generated_upper:
-            score += 0.2
-        else:
-            reasons.append("Missing ORDER BY for ranking query")
-
-    # Bonus: Check for expected columns
-    for col in scenario.expected_columns:
-        if col.upper() in generated_upper or any(col in c.lower() for c in ["sum", "count", "avg", "date", "category", "vendor"]):
-            score += 0.05
-
-    # Normalize score to 0-1
-    score = min(1.0, score)
+        reasons = failures + [f"Score {score:.2f} below pass threshold 0.70"]
 
     return {
-        "passed": score >= 0.7,
+        "passed": passed,
         "score": score,
-        "reasons": reasons if reasons else ["All checks passed"],
+        "reasons": reasons,
+        "checks": checks,
     }

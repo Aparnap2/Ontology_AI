@@ -39,6 +39,11 @@ from src.config.llm import (
     strip_reasoning,
 )
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+pytestmark = pytest.mark.llm
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Fixtures

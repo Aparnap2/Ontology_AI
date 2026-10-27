@@ -4,6 +4,10 @@
 ``src.ontology.object_types`` (the single source of truth for object types)
 and re-exported here so callers may import it from either location.
 
+``ActionIntent`` / ``AuthorizedAction`` are the ADR-011 authority
+contracts. Their canonical home is ``src.control_plane.contracts`` — this
+module ONLY re-exports them and must never define competing models.
+
 This module also provides a small ``ActionRegistry`` helper used by the
 SolutionArchitect and Governance workflows to mint deterministic ``PlannedAction``
 records without an LLM in the loop.
@@ -14,11 +18,19 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from src.control_plane.contracts import ActionIntent, AuthorizedAction
 from src.ontology.object_types import PlannedAction
 
-# Re-export the canonical model so `from src.ontology.action_types import
-# PlannedAction` works (and legacy governance.py import path is preserved).
-__all__ = ["PlannedAction", "ActionRegistry", "ActionRegistryEntry"]
+# Re-export the canonical models so `from src.ontology.action_types import
+# ...` works. ActionIntent/AuthorizedAction are owned by the control plane;
+# PlannedAction is owned by the ontology registry. No competing definitions.
+__all__ = [
+    "PlannedAction",
+    "ActionIntent",
+    "AuthorizedAction",
+    "ActionRegistry",
+    "ActionRegistryEntry",
+]
 
 
 class ActionRegistryEntry(BaseModel):

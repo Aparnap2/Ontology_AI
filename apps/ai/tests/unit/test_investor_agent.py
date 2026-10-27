@@ -14,12 +14,31 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 # Force mock environment before any imports
-os.environ["STRIPE_API_KEY"] = ""
-os.environ["PLAID_ACCESS_TOKEN"] = ""
-os.environ["SLACK_WEBHOOK_URL"] = ""
-os.environ["DATABASE_URL"] = ""
-os.environ["PRODUCT_DB_URL"] = ""
-os.environ["OLLAMA_BASE_URL"] = "http://localhost:11434/v1"
+# Force a mock environment before any project-level import. The prior values
+# are captured first and restored by the `_restore_env` fixture so these
+# overrides do not leak into later suites (which broke P0 worker-startup tests
+# by leaving DATABASE_URL empty).
+_MOCK_ENV = {
+    "STRIPE_API_KEY": "",
+    "PLAID_ACCESS_TOKEN": "",
+    "SLACK_WEBHOOK_URL": "",
+    "DATABASE_URL": "",
+    "PRODUCT_DB_URL": "",
+    "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+}
+_PRIOR_ENV = {_k: os.environ.get(_k) for _k in _MOCK_ENV}
+os.environ.update(_MOCK_ENV)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _restore_env():
+    """Undo this module's env overrides once its tests finish."""
+    yield
+    for _k, _original in _PRIOR_ENV.items():
+        if _original is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _original
 
 TENANT = "test-investor-tenant-unit"
 

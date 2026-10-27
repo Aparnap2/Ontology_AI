@@ -85,13 +85,34 @@ async def test_emit_consume_ack_round_trip(redis_url):
     consumer = "test-consumer"
 
     try:
-        # Emit
-        msg_id = await emit(topic, tenant_id, {"key": "value", "test": "roundtrip"})
+        # Hermetic setup. Cleanup below only runs if the test gets far enough to
+        # reach it, so an interrupted run can leave entries in this stream's PEL.
+        # Those leftovers would fail the pending==0 assertion for reasons that have
+        # nothing to do with this test, making it non-repeatable.
+        try:
+            setup_client = await bus._get_client()
+            await setup_client.delete(f"ontology_ai:{tenant_id}:{topic}")
+        except Exception:
+            pass
+
+        # Emit. Use the per-test `bus` instance rather than the module-level
+        # helpers: get_event_bus() is a singleton whose cached Redis client stays
+        # bound to whichever event loop created it, and pytest-asyncio gives each
+        # test a fresh loop ("Event loop is closed").
+        msg_id = await bus.emit(topic, tenant_id, {"key": "value", "test": "roundtrip"})
         assert msg_id is not None, "Emit returned None"
+
+        # The consumer group must exist before XREADGROUP can read it. Per the
+        # EventBus contract the CALLER owns group creation (consume() does not
+        # ensure it), so the fixture must create it -- otherwise Redis answers
+        # NOGROUP and the message is never consumed.
+        assert await bus.ensure_group(topic, tenant_id, group) is True, (
+            f"could not create consumer group {group!r} for stream"
+        )
 
         # Consume
         await asyncio.sleep(0.1)
-        messages = await consume(
+        messages = await bus.consume(
             topic=topic,
             tenant_id=tenant_id,
             group=group,
@@ -101,14 +122,18 @@ async def test_emit_consume_ack_round_trip(redis_url):
 
         found = False
         found_msg_id = None
-        for _stream, entries in (messages or {}):
-            for mid, fields in entries:
-                payload = json.loads(fields["payload"])
+        # consume() returns {stream_key: [{"id":..., "payload":...}, ...]}
+        for _stream, entries in (messages or {}).items():
+            for entry in entries:
+                mid = entry["id"]
+                payload = entry["payload"]
                 if payload.get("key") == "value":
                     found = True
                     found_msg_id = mid
-                    # Acknowledge this message
-                    await acknowledge(topic, tenant_id, group, mid)
+                    # Acknowledge this message. EventBus has no acknowledge()
+                    # method, so ack on the same client's stream key.
+                    ack_client = await bus._get_client()
+                    await ack_client.xack(f"ontology_ai:{tenant_id}:{topic}", group, mid)
 
         assert found, "Emitted event not consumed"
 

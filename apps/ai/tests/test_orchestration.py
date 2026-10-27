@@ -3,7 +3,7 @@ Tests for orchestration wrapper call order.
 
 Verifies:
 1. Finance guardian calls existing helpers in correct order
-2. No Slack when shouldalert=False
+2. No Slack when the guardian reports no matched patterns (match_count == 0)
 """
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock, call
@@ -16,13 +16,12 @@ async def test_finance_guardian_call_order():
     Existing PRD defines: fetch → memory → agent → alert → write
     The wrapper must call them in this order.
     """
-    mock_fetch = AsyncMock(return_value={"mrr": 1000})
+    mock_fetch = AsyncMock(return_value={"ok": True, "mrr": 1000})
     mock_memory = AsyncMock(return_value={"history": []})
     mock_agent = AsyncMock(return_value={
-        "shouldalert": True,
-        "alertmessage": "Test alert",
-        "anomalseverity": "warning",
-        "anomalytype": "mrrdrop"
+        "ok": True,
+        "match_count": 1,
+        "blindspots_triggered": ["mrr_drop"],
     })
     mock_slack = AsyncMock(return_value={"ok": True})
     mock_write = AsyncMock(return_value={"ok": True})
@@ -41,7 +40,7 @@ async def test_finance_guardian_call_order():
         # Verify calls happened
         assert mock_fetch.called, "run_pulse_agent never called"
         assert mock_agent.called, "run_guardian_watchlist never called"
-        assert mock_slack.called, "send_slack_message never called (shouldalert=True)"
+        assert mock_slack.called, "send_slack_message never called (match_count>0)"
         assert mock_emit.called, "emit never called"
 
         # Verify memory got fetch result (dependency chain)
@@ -51,10 +50,10 @@ async def test_finance_guardian_call_order():
 
 @pytest.mark.asyncio
 async def test_finance_guardian_no_slack_when_no_alert():
-    """When shouldalert=False, Slack must NOT be called."""
-    mock_fetch = AsyncMock(return_value={"mrr": 1000, "narrative": "All good"})
+    """When no guardian patterns match (match_count == 0), Slack must NOT be called."""
+    mock_fetch = AsyncMock(return_value={"ok": True, "mrr": 1000, "narrative": "All good"})
     mock_agent = AsyncMock(return_value={
-        "shouldalert": False,
+        "ok": True,
         "match_count": 0,
         "blindspots_triggered": []
     })
@@ -73,7 +72,7 @@ async def test_finance_guardian_no_slack_when_no_alert():
 
         # Slack should NOT be called when no alerts
         assert not mock_slack.called, \
-            "Slack was called despite shouldalert=False — alert fatigue risk"
+            "Slack was called despite match_count=0 — alert fatigue risk"
 
 
 @pytest.mark.asyncio
@@ -138,3 +137,34 @@ async def test_weekly_synthesis_gathers_all_data():
         assert mock_get_decisions.called, "get_recent_decisions never called"
         assert mock_synthesize.called, "synthesize_weekly_brief never called"
         assert mock_slack.called, "send_slack_message never called"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_weekly_brief_uses_canonical_llm_path():
+    """Regression: the activity must call src.config.llm.chat_completion.
+
+    It previously instantiated ``LLMClient()`` from the non-existent
+    ``src.llm.client`` module, which made this module unimportable (dangling
+    import) and left a phantom client call. Pin the canonical factory path.
+    """
+    captured = {}
+
+    def fake_chat_completion(*, messages, max_tokens=None, temperature=None):
+        captured["messages"] = messages
+        captured["max_tokens"] = max_tokens
+        return "ONE THING: Ship the brief"
+
+    from src.activities import synthesize_weekly_brief as mod
+
+    with patch.object(mod, "chat_completion", fake_chat_completion):
+        out = await mod.synthesize_weekly_brief(
+            tenant_id="t1",
+            alerts=[{"title": "a"}],
+            decisions=[{"decided": "d"}],
+            metrics={"mrr": 1000},
+            investor_status={"narrative": "n"},
+        )
+
+    assert out == "ONE THING: Ship the brief"
+    assert captured["messages"][0]["role"] == "user"
+    assert captured["max_tokens"] == 300

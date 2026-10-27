@@ -1,0 +1,69 @@
+# Phase E reference org (ACME) — minimum ownership data for owner resolution.
+#
+# Tiny and documented on purpose: teams, roles, process owners,
+# project/account ownership, escalation owner, active/inactive status.
+# Connector-specific identity mapping stays at the adapter boundary —
+# every owner reference below is a directory `user_id`, never a raw
+# Slack/Jira/Salesforce handle.
+#
+# Env-template pattern (same as employees.yaml): `${VAR}` placeholders are
+# expanded at load time (see src/mission/owner_resolution.py).
+# Additive file only: existing loaders ignore it entirely.
+
+tenant_id: acme
+
+# Directory of selectable owners. `active: false` users are never selected
+# (skipped, precedence continues). `tenant_id` != requesting tenant users
+# are rejected (tenant isolation).
+users:
+  - user_id: priya
+    tenant_id: acme
+    team: onboarding
+    roles: [sso-oncall, onboarding-ops]
+    active: true
+  - user_id: alice
+    tenant_id: acme
+    team: onboarding
+    roles: [onboarding-ops]
+    active: true
+  - user_id: bob
+    tenant_id: acme
+    team: onboarding
+    roles: [onboarding-ops]
+    active: false # inactive: skipped, precedence continues
+  - user_id: carol
+    tenant_id: acme
+    team: sales
+    roles: [sales-closer]
+    active: true
+  - user_id: mallory
+    tenant_id: evilcorp
+    team: external
+    roles: []
+    active: true # foreign tenant: always rejected for acme queries
+  - user_id: fiona
+    tenant_id: acme
+    team: founder
+    roles: [founder]
+    active: true # configured escalation owner
+
+# Team/role mapping (L3): role -> member user_ids in precedence order.
+roles:
+  sso-oncall: [priya]
+  onboarding-ops: [priya, alice]
+  sales-closer: [carol]
+
+# Process/SOP owners (L2): process_id -> owner user_id.
+processes:
+  sso-setup: priya
+  billing-run: bob # inactive owner: skipped, precedence continues
+
+# Project/account owners (L4): id -> owner user_id.
+projects:
+  PROJ-1: alice
+
+accounts:
+  acme-corp: priya
+
+# Configured escalation owner (L5). Final human route before HITL (L7).
+escalation_owner: fiona

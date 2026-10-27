@@ -353,11 +353,102 @@ func (h *Handler) HandleInteraction(c *fiber.Ctx) error {
 	})
 }
 
-// HandleHealth returns a simple health status.
+// HandleHealth is the LIVENESS probe: it answers "is this process running?".
+//
+// It deliberately performs NO dependency checks. A liveness probe that fails
+// when Postgres or Temporal is down causes the orchestrator to restart the
+// entire fleet during a dependency outage, turning a recoverable degradation
+// into a cascading outage. Dependency state belongs on /health/ready.
 func (h *Handler) HandleHealth(c *fiber.Ctx) error {
 	return c.JSON(map[string]interface{}{
-		"status":    "healthy",
+		"status":    "alive",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// HandleReadiness is the READINESS probe: "can this process serve traffic?".
+//
+// It checks the dependencies that must be reachable for the service to do
+// useful work — PostgreSQL and Temporal — and returns 503 when any required
+// dependency is down so a load balancer stops routing to this instance.
+// Redpanda is reported but not treated as required: the HTTP API and the
+// Temporal workflow path remain usable without an event bus.
+func (h *Handler) HandleReadiness(c *fiber.Ctx) error {
+	ctx := c.Context()
+	checks := make(map[string]interface{})
+	ready := true
+
+	// PostgreSQL — required.
+	pgStart := time.Now()
+	required := map[string]bool{"postgres": true, "temporal": true, "redpanda": false}
+
+	if h.db != nil {
+		if err := h.db.PingContext(ctx); err != nil {
+			checks["postgres"] = map[string]interface{}{
+				"status": "unhealthy", "error": err.Error(),
+				"latency_ms": time.Since(pgStart).Milliseconds(),
+			}
+			ready = false
+		} else {
+			checks["postgres"] = map[string]interface{}{
+				"status": "healthy", "latency_ms": time.Since(pgStart).Milliseconds(),
+			}
+		}
+	} else {
+		checks["postgres"] = map[string]interface{}{"status": "unavailable"}
+		ready = false
+	}
+
+	// Temporal — required.
+	if h.temporalClient != nil {
+		tStart := time.Now()
+		if err := h.temporalClient.Health(ctx); err != nil {
+			checks["temporal"] = map[string]interface{}{
+				"status": "unhealthy", "error": err.Error(),
+				"latency_ms": time.Since(tStart).Milliseconds(),
+			}
+			ready = false
+		} else {
+			checks["temporal"] = map[string]interface{}{
+				"status": "healthy", "latency_ms": time.Since(tStart).Milliseconds(),
+			}
+		}
+	} else {
+		checks["temporal"] = map[string]interface{}{
+			"status": "unavailable", "error": "temporal client not initialized",
+		}
+		ready = false
+	}
+
+	// Redpanda — reported, not required.
+	if h.redpandaClient != nil {
+		rStart := time.Now()
+		if err := h.redpandaClient.Health(ctx); err != nil {
+			checks["redpanda"] = map[string]interface{}{
+				"status": "degraded", "error": err.Error(),
+				"latency_ms": time.Since(rStart).Milliseconds(),
+			}
+		} else {
+			checks["redpanda"] = map[string]interface{}{
+				"status": "healthy", "latency_ms": time.Since(rStart).Milliseconds(),
+			}
+		}
+	} else {
+		checks["redpanda"] = map[string]interface{}{"status": "unavailable"}
+	}
+
+	_ = required
+	status := "ready"
+	code := fiber.StatusOK
+	if !ready {
+		status = "not_ready"
+		code = fiber.StatusServiceUnavailable
+	}
+	return c.Status(code).JSON(map[string]interface{}{
+		"status":    status,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"service":   "iterateswarm-core",
+		"checks":    checks,
 	})
 }
 

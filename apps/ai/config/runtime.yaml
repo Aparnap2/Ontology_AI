@@ -1,0 +1,33 @@
+# V6 Milestone — Runtime Profile (onboarding_v6).
+#
+# Declares the active runtime profile and the integration allowlists for the
+# worker gating path (see src/worker.py). Additive keys only: existing loaders
+# for employees.yaml / missions.yaml ignore this file entirely.
+#
+# Env override: set RUNTIME_PROFILE in the environment (worker.py reads it
+# first, before this file). Keep the value below a plain literal — the
+# loader uses os.path.expandvars, which does not understand ${VAR:-default}.
+
+runtime_profile: onboarding_v6
+
+# Phase E P0 — capability binding: test|demo|prod (default test preserves
+# the historical in-memory mock seam; demo = real HTTP to local Mockoon;
+# prod = real SDK/HTTP, NotConfigured until creds exist). Env override:
+# ONTOLOGY_CAPABILITY_BINDING wins over this file. Additive key only:
+# existing loaders ignore it.
+capability_binding: test
+
+# V6 connectors — imported and registered on the worker path.
+enabled_integrations:
+  - slack
+  - salesforce
+  - jira
+  - notion
+
+# Legacy V5.2 integrations — never imported when profile is onboarding_v6.
+legacy_integrations:
+  - stripe
+  - plaid
+  - erpnext
+  - hubspot
+  - quickbooks

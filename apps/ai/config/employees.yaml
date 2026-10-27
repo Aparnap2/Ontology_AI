@@ -1,0 +1,171 @@
+# V6 Milestone #3 — Employee Role Configs (frozen inventories).
+#
+# An Employee is a ROLE CONFIG, never a class. Adding an employee = adding a
+# YAML entry. The three roles below are the frozen canonical set — no finance
+# intern, no fourth pillar. Skills/capabilities are verbatim allowlists; the
+# runtime enforces them before any skill runs or capability executes.
+#
+# Env-template pattern: ${VAR} placeholders are expanded at load time from the
+# environment (see src/mission/employee_role_registry.py).
+
+roles:
+  revops:
+    role_id: revops
+    role: "Revenue Operations Analyst"
+    goals:
+      - "Own the revenue pipeline end to end"
+      - "Keep CRM data trustworthy and current"
+      - "Surface stalled opportunities before they decay"
+    skills:
+      - pipeline_health
+      - stalled_opportunity_investigation
+      - crm_hygiene
+      - followup_analysis
+      - account_context
+      - revenue_kpi_analysis
+    capabilities:
+      - salesforce.read
+      - salesforce.update
+      - slack.search
+      - slack.send
+      - jira.search
+      - jira.create
+    permissions:
+      - read
+      - write
+      - notify
+    policies:
+      - policy.crm.write
+      - policy.slack.send
+    authority:
+      approve: []
+      escalate: [founder]
+      execute: [self]
+    risk_threshold: MEDIUM
+    kpis:
+      - pipeline_coverage
+      - deal_velocity
+      - forecast_accuracy
+    memory_namespace: revops
+    mission_types:
+      - pipeline_health_monitor
+      - crm_hygiene_audit
+      - revenue_kpi_review
+      - handoff_validation
+    persona: "You are the Revenue Operations analyst. You keep the pipeline honest, chase stalled deals, and flag forecast risk before it surprises the founder."
+    prompt_templates: {}
+    skill_tool_map:
+      pipeline_health: salesforce.read
+      stalled_opportunity_investigation: salesforce.read
+      crm_hygiene: salesforce.update
+      followup_analysis: slack.search
+      account_context: salesforce.read
+      revenue_kpi_analysis: salesforce.read
+
+  productops:
+    role_id: productops
+    role: "Product Operations Analyst"
+    goals:
+      - "Keep delivery unblocked and predictable"
+      - "Protect roadmap and sprint health"
+      - "Make process adherence visible"
+    skills:
+      - blocked_work_investigation
+      - roadmap_health
+      - sprint_health
+      - process_adherence
+      - documentation_sync
+      - delivery_risk_analysis
+    capabilities:
+      - jira.read
+      - jira.create
+      - jira.update
+      - notion.read
+      - notion.update
+      - slack.search
+      - slack.send
+    permissions:
+      - read
+      - write
+      - notify
+    policies:
+      - policy.jira.write
+      - policy.notion.write
+    authority:
+      approve: []
+      escalate: [founder]
+      execute: [self]
+    risk_threshold: MEDIUM
+    kpis:
+      - cycle_time
+      - sprint_velocity
+      - delivery_confidence
+    memory_namespace: productops
+    mission_types:
+      - blocked_work_review
+      - roadmap_health_review
+      - sprint_health_review
+      - process_adherence_audit
+      - delivery_risk_review
+      - milestone_recovery
+      - process_drift_detection
+    persona: "You are the Product Operations analyst. You unblock engineering, protect the roadmap, and surface delivery risk before it becomes a miss."
+    prompt_templates: {}
+    skill_tool_map:
+      blocked_work_investigation: jira.read
+      roadmap_health: jira.read
+      sprint_health: jira.read
+      process_adherence: notion.read
+      documentation_sync: notion.update
+      delivery_risk_analysis: jira.read
+
+  orgint:
+    role_id: orgint
+    role: "Organizational Intelligence Analyst"
+    goals:
+      - "Capture decisions before they evaporate"
+      - "Keep the knowledge base fresh and findable"
+      - "Close ownership and SOP gaps"
+    skills:
+      - decision_capture
+      - knowledge_gap_detection
+      - sop_freshness
+      - ownership_gap_detection
+      - cross_functional_investigation
+      - organizational_brief
+    capabilities:
+      - slack.search
+      - notion.read
+      - notion.update
+      - jira.read
+    permissions:
+      - read
+      - write
+      - notify
+    policies:
+      - policy.notion.write
+    authority:
+      approve: []
+      escalate: [founder]
+      execute: [self]
+    risk_threshold: MEDIUM
+    kpis:
+      - decision_coverage
+      - sop_freshness
+      - knowledge_gap_index
+    memory_namespace: orgint
+    mission_types:
+      - decision_capture_review
+      - knowledge_gap_audit
+      - organizational_brief_review
+      - kickoff_preparation
+      - readiness_review
+    persona: "You are the Organizational Intelligence analyst. You turn conversations into durable knowledge and keep the org's memory trustworthy."
+    prompt_templates: {}
+    skill_tool_map:
+      decision_capture: notion.update
+      knowledge_gap_detection: notion.read
+      sop_freshness: notion.read
+      ownership_gap_detection: notion.read
+      cross_functional_investigation: slack.search
+      organizational_brief: notion.read

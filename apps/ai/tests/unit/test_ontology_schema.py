@@ -145,18 +145,23 @@ class TestObjectTypeStrictTyping:
 
 
 # ---------------------------------------------------------------------------
-# OBJECT_TYPES registry contains exactly the seven canonical types
+# OBJECT_TYPES registry contains the 27 canonical types (23 + Onboarding/Task/Evidence per ADR-010 + Situation per E2)
 # ---------------------------------------------------------------------------
 class TestObjectTypeRegistry:
-    def test_exactly_seven_types(self):
+    def test_exactly_twenty_three_types(self):
         assert set(OBJECT_TYPES.keys()) == {
             "Party", "Engagement", "MoneyEvent", "Issue", "Message",
             "PlannedAction", "Shipment",
+            "Stakeholder", "Pillar", "Process", "ProcessStep", "SOP",
+            "SOPVersion", "Employee", "EmployeeRun", "Mission",
+            "MissionEvent", "MissionSnapshot", "Action", "ActionResult",
+            "Outcome", "Review", "KPI",
+            "Onboarding", "Task", "Evidence", "Situation",
         }
 
 
 # ---------------------------------------------------------------------------
-# LINK_TYPES registry — exactly 12 canonical links
+# LINK_TYPES registry — 24 canonical links (12 core + 12 V6)
 # ---------------------------------------------------------------------------
 class TestLinkTypesRegistry:
     EXPECTED = {
@@ -165,9 +170,14 @@ class TestLinkTypesRegistry:
         "money_event_planned_action", "party_planned_action",
         "engagement_planned_action", "workflow_action",
         "workflow_object_dependency", "order_shipment",
+        "stakeholder_owns_process", "process_has_sop", "sop_versions",
+        "employee_runs_mission", "mission_involves_process",
+        "mission_generates_actions", "action_targets_entity",
+        "action_result_from", "action_results_of", "review_of_process",
+        "outcome_of_mission", "kpi_monitors_entity",
     }
 
-    def test_all_twelve_present(self):
+    def test_all_twenty_four_present(self):
         assert set(LINK_TYPES.keys()) == self.EXPECTED
 
     def test_each_is_linktype_with_required_fields(self):

@@ -1,14 +1,12 @@
-"""Tests for OntologyAI 9-runtime workflow roster (PRD §7).
+"""Tests for OntologyAI 6-canonical workflow roster (V5.2).
 
-Default roster is exactly 9 canonical workflows (9-runtime model).
+Default roster is exactly 6 canonical workflows.
 V6 StrategyWorkflow is gated behind ``ENABLE_V6_WORKFLOWS=on``.
+Legacy FDE modules are gated behind ``LEGACY_FDE_MODULES=on``.
 Run:
     cd /home/aparna/Desktop/iterate_swarm/apps/ai
     uv run pytest tests/unit/test_workflow_names.py -v
 """
-import os
-import pytest
-
 from src.workflows import ACTIVE_WORKFLOWS, WORKFLOW_REGISTRY
 
 
@@ -19,15 +17,12 @@ CANONICAL_V5_WORKFLOWS = {
     "KnowledgeValidationWorkflow",
     "SolutionArchitectWorkflow",
     "GovernanceWorkflow",
-    "DecisionWorkflow",
-    "ExecutionWorkflow",
-    "EvaluationWorkflow",
 }
 
 
 class TestWorkflowRoster:
-    def test_default_roster_is_exactly_9(self):
-        assert len(ACTIVE_WORKFLOWS) == 9
+    def test_default_roster_is_exactly_6(self):
+        assert len(ACTIVE_WORKFLOWS) == 6
 
     def test_exact_names_match_prd(self):
         assert set(ACTIVE_WORKFLOWS.keys()) == CANONICAL_V5_WORKFLOWS

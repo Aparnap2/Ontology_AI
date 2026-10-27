@@ -1,6 +1,5 @@
-"""Tests for ToneFilter — mechanical tests run against real code, LLM tests run against real Ollama Cloud."""
+"""Tests for ToneFilter — mechanical tests and mocked LLM rewrites (no network)."""
 import os
-import sys
 
 os.environ.setdefault("OLLAMA_BASE_URL", "https://ollama.com")
 os.environ.setdefault("OLLAMA_API_KEY", os.environ.get("OLLAMA_API_KEY", ""))
@@ -79,47 +78,111 @@ def test_tone_result_language_stored():
     assert result.language == "hi"
 
 
-# ── LLM-powered tone rewrite (real Ollama Cloud) ────────────────────
+# ── LLM-powered tone rewrite (mocked client, no network) ────────────
 
 
-@pytest.mark.slow
-def test_tone_rewrite_replaces_ebitda():
+def test_tone_rewrite_replaces_ebitda(monkeypatch):
     """LLM tone rewrite + mechanical jargon removal: EBITDA is gone."""
+    _install_fake_client(monkeypatch, "You keep less from each sale.")
     tf = ToneFilter()
     result = tf.apply("Your EBITDA dropped this month.")
     assert "EBITDA" not in result.text
     assert result.jargon_replaced >= 1
 
 
-@pytest.mark.slow
-def test_good_news_tone_is_celebratory():
+def test_good_news_tone_is_celebratory(monkeypatch):
     """LLM rewrite with is_good_news=True produces warm output."""
+    _install_fake_client(monkeypatch, "Revenue grew 20% this month — well done!")
     tf = ToneFilter()
     result = tf.apply("Revenue grew 20% this month.", is_good_news=True)
     assert result.text
 
 
-@pytest.mark.slow
-def test_bad_news_tone_is_calm():
+def test_bad_news_tone_is_calm(monkeypatch):
     """LLM rewrite with is_good_news=False produces calm output."""
+    _install_fake_client(monkeypatch, "Let's look at this together.")
     tf = ToneFilter()
     result = tf.apply("Revenue dropped this month.", is_good_news=False)
     assert result.text
 
 
-@pytest.mark.slow
-def test_hindi_output_contains_devanagari():
+def test_hindi_output_contains_devanagari(monkeypatch):
     """Hindi translation produces Devanagari script."""
+    _install_fake_client(monkeypatch, "आपकी बिक्री बढ़ी है।")
     tf = ToneFilter()
     result = tf.apply("Revenue is up this month.", language="hi")
     has_devanagari = any("\u0900" <= char <= "\u097F" for char in result.text)
     assert has_devanagari, f"Hindi output must contain Devanagari script: {result.text[:50]}"
 
 
-@pytest.mark.slow
-def test_apply_text_convenience_method():
+def test_apply_text_convenience_method(monkeypatch):
     """apply_text() returns just the string, not ToneResult."""
+    _install_fake_client(monkeypatch, "You keep less from each sale.")
     tf = ToneFilter()
     text = tf.apply_text("EBITDA is down.")
     assert isinstance(text, str)
     assert "EBITDA" not in text
+
+
+# ── Client contract (regression — no network) ─────────────────────
+# ToneFilter.__init__ wires get_llm_client(), which returns an
+# openai.OpenAI client. The chat call must go through the SDK
+# (chat.completions.create); the old httpx-style
+# self._client.post("/chat/completions", json=...) raised
+# TypeError: SyncAPIClient.post() got an unexpected keyword argument 'json'.
+
+
+class _FakeResponse:
+    def __init__(self, content: str) -> None:
+        self.choices = [type("_C", (), {"message": type("_M", (), {"content": content})()})()]
+
+
+class _FakeCompletions:
+    def __init__(self, content: str) -> None:
+        self._content = content
+        self.calls: list[dict] = []
+
+    def create(self, **kwargs) -> _FakeResponse:
+        self.calls.append(kwargs)
+        return _FakeResponse(self._content)
+
+
+class _FakeClient:
+    """Stand-in for openai.OpenAI exposing only chat.completions.create.
+
+    Deliberately has no ``post`` attribute: any regression back to the
+    httpx-style call raises AttributeError and fails the test.
+    """
+
+    def __init__(self, content: str) -> None:
+        self.completions = _FakeCompletions(content)
+        self.chat = type("_Chat", (), {"completions": self.completions})()
+
+
+def _install_fake_client(monkeypatch, content: str) -> _FakeClient:
+    fake = _FakeClient(content)
+    monkeypatch.setattr("src.services.tone_filter.get_llm_client", lambda: fake)
+    return fake
+
+
+def test_tone_rewrite_calls_openai_chat_completions(monkeypatch):
+    """Tone rewrite must use the OpenAI SDK, not httpx .post(json=)."""
+    fake = _install_fake_client(monkeypatch, "You keep less from each sale.")
+    result = ToneFilter().apply("Your EBITDA dropped this month.")
+
+    assert result.text == "You keep less from each sale."
+    assert len(fake.completions.calls) == 1
+    call = fake.completions.calls[0]
+    assert call["messages"][0]["role"] == "system"
+    assert "model" in call
+    assert "temperature" in call
+
+
+def test_translate_hindi_calls_openai_chat_completions(monkeypatch):
+    """Hindi path uses chat.completions.create for both rewrite and translate."""
+    fake = _install_fake_client(monkeypatch, "आपकी बिक्री बढ़ी है।")
+    result = ToneFilter().apply("Revenue is up this month.", language="hi")
+
+    assert result.text == "आपकी बिक्री बढ़ी है।"
+    assert result.language == "hi"
+    assert len(fake.completions.calls) == 2

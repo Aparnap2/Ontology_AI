@@ -1,0 +1,37 @@
+{{/* Missions feed — Milestone #5 operational workspace panel. Rows come from
+     the missions table; status badges use the frozen workspace verbs. */}}
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Missions</h3>
+        <span class="text-[10px] md:text-xs flex items-center gap-1.5" style="color:var(--text-muted)">
+            <span class="status-dot connected" style="width:6px;height:6px"></span>
+            Live
+        </span>
+    </div>
+
+    {{if .EmptyState}}
+    <div class="text-xs py-6 text-center" style="color:var(--text-muted)">
+        <svg class="w-6 h-6 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        No missions yet — new missions will appear here in real time.
+    </div>
+    {{else}}
+    <div class="space-y-2">
+    {{range .Missions}}
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <p class="text-xs font-medium truncate" style="color:var(--text)">{{.Title}}</p>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium {{.StatusPill}}">{{.StatusLabel}}</span>
+                    {{if .Priority}}<span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium {{.PriorityPill}}">{{.Priority}}</span>{{end}}
+                </div>
+            </div>
+            {{if .Description}}<p class="text-[11px] mt-1 line-clamp-2" style="color:var(--text-secondary)">{{.Description}}</p>{{end}}
+            <div class="flex items-center justify-between mt-2 text-[10px]" style="color:var(--text-muted)">
+                <span>{{if .EmployeeRole}}{{.EmployeeRole}}{{else}}unassigned{{end}}</span>
+                <span class="tabular-nums">{{if .Confidence}}{{.Confidence}}% confidence{{else}}—{{end}}</span>
+            </div>
+        </div>
+    {{end}}
+    </div>
+    {{end}}
+</div>

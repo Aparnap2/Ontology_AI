@@ -12,10 +12,8 @@ Tests cover:
 Run with:
   cd apps/ai && uv run pytest tests/unit/test_workflow_service.py -v --timeout=60
 """
-import os
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from typing import Any
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.fixture(autouse=True)
@@ -41,9 +39,14 @@ class TestWorkflowRegistry:
     """Tests for workflow registry and schemas."""
 
     def test_workflow_names_contains_expected(self):
-        """Test that workflow names include all expected workflows."""
-        from src.services.workflow.schemas import WORKFLOW_NAMES
+        """Legacy-gated registry exposes exactly the 8 legacy workflow names.
 
+        Default ``WORKFLOW_NAMES`` is empty (legacy gated off); the names
+        live in ``_LEGACY_NAMES`` and appear only with LEGACY_FDE_MODULES=on.
+        """
+        from src.services.workflow.schemas import WORKFLOW_NAMES, _LEGACY_NAMES
+
+        assert WORKFLOW_NAMES == []
         expected = [
             "PulseWorkflow",
             "InvestorWorkflow",
@@ -55,13 +58,15 @@ class TestWorkflowRegistry:
             "WeightDecayWorkflow",
         ]
 
+        assert sorted(_LEGACY_NAMES) == sorted(expected)
         for name in expected:
-            assert name in WORKFLOW_NAMES, f"Missing workflow: {name}"
+            assert name in _LEGACY_NAMES, f"Missing legacy workflow: {name}"
 
     def test_workflow_registry_has_all_inputs(self):
-        """Test that workflow registry has input schemas for all workflows."""
-        from src.services.workflow.schemas import WORKFLOW_REGISTRY
+        """Legacy-gated registry has input schemas keyed by legacy slugs."""
+        from src.services.workflow.schemas import WORKFLOW_REGISTRY, _LEGACY_REGISTRY
 
+        assert WORKFLOW_REGISTRY == {}
         expected_keys = [
             "pulse",
             "investor",
@@ -73,8 +78,9 @@ class TestWorkflowRegistry:
             "weight_decay",
         ]
 
+        assert sorted(_LEGACY_REGISTRY.keys()) == sorted(expected_keys)
         for key in expected_keys:
-            assert key in WORKFLOW_REGISTRY, f"Missing registry entry: {key}"
+            assert key in _LEGACY_REGISTRY, f"Missing registry entry: {key}"
 
     def test_pulse_workflow_input_schema(self):
         """Test PulseWorkflowInput schema."""
@@ -190,14 +196,15 @@ class TestWorkflowServiceList:
     """Tests for listing available workflows."""
 
     def test_list_workflows_returns_list(self):
-        """Test that list_workflows returns a list."""
+        """Service mirrors the (legacy-gated, default-empty) registry."""
         from src.services.workflow import WorkflowService
+        from src.services.workflow.schemas import WORKFLOW_NAMES
 
         service = WorkflowService()
         workflows = service.list_workflows()
 
         assert isinstance(workflows, list)
-        assert len(workflows) > 0
+        assert workflows == list(WORKFLOW_NAMES) == []
 
     def test_list_workflows_returns_copy(self):
         """Test that list_workflows returns a copy, not original."""
@@ -254,21 +261,24 @@ class TestWorkflowServiceStart:
 
     @pytest.mark.asyncio
     async def test_start_workflow_success(self):
-        """Test successful workflow start returns run_id."""
+        """Registry gate rejects ungated names even when connected."""
         from src.services.workflow import WorkflowService
+        from src.services.workflow.worker import Client
         from src.services.workflow.schemas import WORKFLOW_NAMES
 
-        # Create service and verify it starts correctly
-        service = WorkflowService()
-        
-        # Verify PulseWorkflow is in the registry
-        assert "PulseWorkflow" in WORKFLOW_NAMES
-        
-        # Verify service can list workflows even when not connected
-        workflows = service.list_workflows()
-        assert "PulseWorkflow" in workflows
-        
-        # Verify run_id generation logic (without actually connecting)
+        assert WORKFLOW_NAMES == []
+
+        with patch.object(Client, "connect", new_callable=AsyncMock):
+            with patch.object(Client, "get_workflow_handle"):
+                service = WorkflowService()
+                await service.connect()
+
+                from src.services.workflow import WorkflowNotFoundError
+
+                with pytest.raises(WorkflowNotFoundError):
+                    await service.start_workflow("PulseWorkflow", "test-tenant")
+
+        # Run ID generation logic (without actually connecting)
         # Run ID should include workflow name and tenant
         import os
         run_id = f"run-pulseworkflow-test-tenant-{os.urandom(4).hex()}"
@@ -381,9 +391,10 @@ class TestGracefulDegradation:
             service = WorkflowService()
             await service.connect()  # Will fail but service should still work
 
-            # These should work even without Temporal
+            # These should work even without Temporal (registry is
+            # legacy-gated off by default, so the list is empty but valid)
             workflows = service.list_workflows()
-            assert len(workflows) > 0
+            assert workflows == []
 
             # Start workflow should fail with clear error
             from src.services.workflow import TemporalUnavailableError
@@ -426,9 +437,6 @@ class TestAPSchedulerDevMode:
         """Test that APScheduler is only in dev scheduler module."""
         # The scheduler should only be used from src.scheduler (dev-only)
         # Not from src.services.workflow
-        import sys
-
-        # Check that workflow service doesn't import apscheduler
         import src.services.workflow as workflow_module
 
         # Get all imported modules
@@ -450,7 +458,7 @@ class TestAPSchedulerDevMode:
 
 
 class TestWorkerModuleRegistration:
-    """Tests that ``src.worker`` exposes the correct 9-runtime canonical roster.
+    """Tests that ``src.worker`` exposes the correct 6-canonical roster.
 
     These were migrated from the consolidated ``test_workflows.py`` and
     ``test_workflows_v2.py`` files (deleted). Legacy V4.2 workflows
@@ -462,7 +470,7 @@ class TestWorkerModuleRegistration:
     # -- From test_workflows.py :: TestWorkerRegistration ---------------------
 
     def test_worker_task_queue_configured(self):
-        """9-runtime default task queue is ONTOLOGYAI-MAIN-QUEUE."""
+        """6-canonical default task queue is ONTOLOGYAI-MAIN-QUEUE."""
         import os
         from unittest.mock import patch
 
@@ -474,16 +482,34 @@ class TestWorkerModuleRegistration:
 
     # -- From test_workflows_v2.py :: TestWorkerRegistrationV2 ----------------
 
-    def test_worker_imports_canonical_workflows(self):
-        """9-runtime canonical workflows are exposed on the worker module."""
+    def test_worker_exposes_real_temporal_workflows(self):
+        """The worker module exposes the real @workflow.defn workflows.
+
+        IncidentWorkflow is imported lazily inside _build_workflow_list, so it
+        is not a module attribute. The five V5.2 names that were previously
+        asserted here carry no @workflow.defn; registering them made
+        Worker() raise "missing attributes, was it decorated with
+        @workflow.defn?", so they are no longer imported at module scope.
+        """
         from src import worker
+        from src.workflows.incident_workflow import IncidentWorkflow
+        from temporalio.workflow import _Definition
 
         assert hasattr(worker, "ChiefOfStaffWorkflow")
-        assert hasattr(worker, "DiscoveryWorkflow")
-        assert hasattr(worker, "OntologyMappingWorkflow")
-        assert hasattr(worker, "KnowledgeValidationWorkflow")
-        assert hasattr(worker, "SolutionArchitectWorkflow")
-        assert hasattr(worker, "GovernanceWorkflow")
+        _Definition.must_from_class(worker.ChiefOfStaffWorkflow)
+        _Definition.must_from_class(IncidentWorkflow)
+
+        for undecorated in (
+            "DiscoveryWorkflow",
+            "OntologyMappingWorkflow",
+            "KnowledgeValidationWorkflow",
+            "SolutionArchitectWorkflow",
+            "GovernanceWorkflow",
+        ):
+            assert not hasattr(worker, undecorated), (
+                f"{undecorated} is not a Temporal workflow and must not be "
+                "imported at worker module scope"
+            )
 
     def test_worker_does_not_import_legacy_workflows_by_default(self):
         """Legacy V4.2 workflows are NOT in the default worker module scope."""

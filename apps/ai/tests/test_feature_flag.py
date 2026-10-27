@@ -8,7 +8,7 @@ Verifies:
 import ast
 import os
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 GRPC_MISSING = True
 try:
@@ -44,9 +44,12 @@ def test_apscheduler_env_disabled(monkeypatch):
 
 @pytest.mark.skipif(GRPC_MISSING, reason="Protobuf not generated (grpc_server imports ai.v1.agent_pb2)")
 @pytest.mark.asyncio
-async def test_bootstrap_registers_all_tenants():
-    """Every active tenant must get jobs registered at startup."""
+async def test_bootstrap_registers_all_tenants(monkeypatch):
+    """Every configured active tenant must get jobs registered at startup."""
     active_tenants = ["tenant-1", "tenant-2", "tenant-3"]
+    # bootstrap_scheduler() reads tenants from ACTIVE_TENANTS (default "default").
+    # The fixture must configure the input it then asserts on.
+    monkeypatch.setenv("ACTIVE_TENANTS", ",".join(active_tenants))
 
     mock_register = AsyncMock()
 
@@ -66,25 +69,37 @@ async def test_bootstrap_registers_all_tenants():
 
 @pytest.mark.skipif(GRPC_MISSING, reason="Protobuf not generated")
 @pytest.mark.asyncio
-async def test_bootstrap_empty_tenants():
-    """Empty tenant list must not raise."""
-    mock_register = AsyncMock()
+async def test_bootstrap_empty_tenants(monkeypatch):
+    """An explicitly empty tenant set registers nothing and does not raise.
+
+    The previous version patched ``os.environ.get`` to return "" for *every* key
+    and then asserted ``register_tenant_schedules`` was called with "default" --
+    internally contradictory. It also never configured ACTIVE_TENANTS, so the
+    product correctly fell back to the "default" tenant and the test failed for
+    a reason unrelated to its intent.
+    """
+    monkeypatch.setenv("ACTIVE_TENANTS", "")
+
+    mock_register = MagicMock()
+    mock_start = MagicMock()
 
     with patch("src.main.register_tenant_schedules", mock_register), \
-         patch("os.environ.get", return_value=""), \
-         patch("src.main.start_scheduler"):
+         patch("src.main.start_scheduler", mock_start):
 
         from src.main import bootstrap_scheduler
 
         await bootstrap_scheduler()
 
-        mock_register.assert_called_with("default")
+        assert not mock_register.called, "empty tenant set must register nothing"
+        assert mock_start.call_count == 1, "scheduler must still be started"
 
 
 @pytest.mark.skipif(GRPC_MISSING, reason="Protobuf not generated")
 @pytest.mark.asyncio
-async def test_bootstrap_single_tenant():
-    """Single tenant should work correctly."""
+async def test_bootstrap_single_tenant(monkeypatch):
+    """A single configured tenant registers exactly that tenant."""
+    monkeypatch.setenv("ACTIVE_TENANTS", "tenant-solo")
+
     mock_register = AsyncMock()
 
     with patch("src.main.register_tenant_schedules", mock_register), \
@@ -94,7 +109,7 @@ async def test_bootstrap_single_tenant():
 
         await bootstrap_scheduler()
 
-        mock_register.assert_called_once()
+        mock_register.assert_called_once_with("tenant-solo")
 
 
 @pytest.mark.skipif(GRPC_MISSING, reason="Protobuf not generated")

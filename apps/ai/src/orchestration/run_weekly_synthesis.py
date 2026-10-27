@@ -13,7 +13,6 @@ from src.activities.synthesize_weekly_brief import synthesize_weekly_brief
 from src.activities.send_slack_message import send_slack_message
 from src.config.database import get_database_url
 from src.events import emit
-from src.db.db import get_db_connection
 
 log = logging.getLogger(__name__)
 

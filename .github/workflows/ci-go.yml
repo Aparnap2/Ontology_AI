@@ -8,16 +8,43 @@ on:
     paths:
       - "apps/core/**"
       - "apps/gateway/**"
+      - "proto/**"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+      - "gen/**"
   pull_request:
     paths:
       - "apps/core/**"
       - "apps/gateway/**"
+      - "proto/**"
+      - "buf.yaml"
+      - "buf.gen.yaml"
+      - "gen/**"
 
 jobs:
   go-tests:
     name: Go Gateway (Unit + Integration)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    # Webhook tests (razorpay_test.go, telegram_test.go) expect
+    # postgres://postgres:postgres@localhost:5432/iterateswarm_test (see setupTestDB).
+    # The service only creates an EMPTY database — the "Apply Go migrations"
+    # step below creates the tables before tests run.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: iterateswarm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d iterateswarm_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -29,8 +56,67 @@ jobs:
           go-version: "1.22"
           cache: true
 
+      # apps/core/go.mod replaces github.com/Aparnap2/iterate_swarm/gen/go
+      # with ../../gen/go, but gen/ is gitignored — so a fresh checkout has
+      # no generated protobuf code and every package importing it fails with
+      # "[setup failed]". Regenerate from proto/ before building or testing.
+      # Remote plugins run on the public BSR; no BUF_TOKEN needed for them.
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@a47c93e0b1648d5651a065437926377d060baa99 # v1.50.0
+        with:
+          version: v1.55.1
+          github_token: ${{ github.token }}
+
+      - name: Generate protobuf code
+        run: buf generate
+
+      - name: Wait for Postgres
+        env:
+          TEST_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/iterateswarm_test?sslmode=disable"
+        run: |
+          for i in $(seq 1 30); do
+            if psql "$TEST_DATABASE_URL" -c "SELECT 1" >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Postgres never became ready"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      # Webhook tests (razorpay_test.go, telegram_test.go) and internal/db
+      # tests are PG-backed and need real tables: the postgres service only
+      # creates an EMPTY iterateswarm_test database, so without this step
+      # every valid-path webhook test fails with 500 (storage_failed).
+      # Migrations are independently authored and individually idempotent
+      # (IF NOT EXISTS), so tolerate per-file ordering gaps instead of
+      # letting one legacy ALTER/INDEX block the rest of the schema —
+      # then verify the tables the tests actually need.
+      # Order matters: apps/core/migrations first so founders carries
+      # slack_user_id and employees carries role/capabilities (verified by
+      # dry-running both orders against postgres:16-alpine); the remaining
+      # tolerated errors are pre-existing drift (planned_actions and
+      # mission_states have no CREATE TABLE in either directory).
+      - name: Apply Go migrations
+        env:
+          TEST_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/iterateswarm_test?sslmode=disable"
+        run: |
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          for f in apps/core/migrations/*.sql apps/core/internal/db/migrations/*.sql; do
+            echo "--- Applying $f"
+            psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=0 -f "$f"
+          done
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c "SELECT 1 FROM raw_events LIMIT 0;" \
+            -c "SELECT 1 FROM dead_letter_events LIMIT 0;" \
+            -c "SELECT 1 FROM founders LIMIT 0;"
+
       - name: Run Go unit tests
         working-directory: apps/core
+        env:
+          TEST_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/iterateswarm_test?sslmode=disable"
         run: |
           go test ./... \
             -v \

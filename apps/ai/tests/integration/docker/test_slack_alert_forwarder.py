@@ -1,5 +1,6 @@
 """Integration tests for SlackAlertForwarder with real Redis and Mockoon."""
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -200,13 +201,11 @@ class TestSlackAlertForwarderDocker:
     def test_postgres_connectivity(self):
         import psycopg2
 
-        conn = psycopg2.connect(
-            host="localhost",
-            port=5432,
-            user="iterateswarm",
-            password="iterateswarm",
-            dbname="iterateswarm",
-        )
+        dsn = os.environ.get("TEST_DATABASE_URL")
+        if not dsn:
+            pytest.skip("TEST_DATABASE_URL is required for Postgres connectivity test")
+
+        conn = psycopg2.connect(dsn)
         try:
             cur = conn.cursor()
             cur.execute("SELECT 1")

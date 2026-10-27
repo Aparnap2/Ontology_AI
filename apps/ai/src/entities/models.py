@@ -7,9 +7,10 @@ field injection, and ``from_attributes=True`` for ORM compatibility.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OntologyBaseModel(BaseModel):
@@ -139,14 +140,57 @@ class Capability(OntologyBaseModel):
 # ── Entity 6: Process ───────────────────────────────────────────────────
 
 
+class BusinessPillar(str, Enum):
+    """The four MVP business pillars (frozen V6 direction).
+
+    Exactly four pillars: Marketing, Sales, Operations, Finance.
+    """
+
+    MARKETING = "marketing"
+    SALES = "sales"
+    OPERATIONS = "operations"
+    FINANCE = "finance"
+
+
+class ProcessStep(OntologyBaseModel):
+    """A single step within a business process."""
+
+    id: str
+    tenant_id: str
+    process_id: str
+    name: str
+    description: str = ""
+    order_index: int = 0
+    owner_id: str | None = None
+    status: Literal["draft", "active", "deprecated"] = "draft"
+
+
 class Process(OntologyBaseModel):
-    """Business process mapped during discovery."""
+    """Business process mapped during discovery.
+
+    Extended for V6 with the operating-model fields: owner (Stakeholder ref),
+    objective, scope, decision rules, definition of done, KPIs, dependencies,
+    allowed actions, review cadence, pillar, process type, and steps.
+    """
 
     id: str
     tenant_id: str
     name: str
     description: str = ""
     status: Literal["mapped", "analyzed", "improved", "retired"] = "mapped"
+    owner_id: str | None = None
+    relationship_to_owner: Literal["owns", "sponsors", "operates", "supports"] | None = None
+    objective: str = ""
+    scope: str = ""
+    decision_rules: list[str] = Field(default_factory=list)
+    definition_of_done: list[str] = Field(default_factory=list)
+    kpi_ids: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
+    allowed_actions: list[str] = Field(default_factory=list)
+    review_cadence: str | None = None
+    pillar: BusinessPillar | None = None
+    process_type: str = "core"
+    steps: list[ProcessStep] = Field(default_factory=list)
 
 
 # ── Entity 7: System ────────────────────────────────────────────────────
@@ -412,3 +456,449 @@ class Workspace(OntologyBaseModel):
     name: str
     purpose: str = ""
     status: Literal["active", "archived", "closed"] = "active"
+
+
+# ── V6 Domain entities ────────────────────────────────────────────────────
+
+
+class SOP(OntologyBaseModel):
+    """Standard Operating Procedure for a business process."""
+
+    id: str
+    tenant_id: str
+    name: str
+    process_id: str | None = None
+    objective: str = ""
+    scope: str = ""
+    owner_id: str | None = None
+    prerequisites: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    decision_rules: list[str] = Field(default_factory=list)
+    definition_of_done: list[str] = Field(default_factory=list)
+    faq: list[str] = Field(default_factory=list)
+    linked_systems: list[str] = Field(default_factory=list)
+    revision_history: list[str] = Field(default_factory=list)
+    last_reviewed_at: datetime | None = None
+    status: Literal["draft", "active", "archived"] = "draft"
+    current_version_id: str | None = None
+
+
+class SOPVersion(OntologyBaseModel):
+    """A versioned snapshot of an SOP."""
+
+    id: str
+    tenant_id: str
+    sop_id: str
+    version: str
+    content_hash: str
+    changes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    author: str
+    supersedes_id: str | None = None
+
+
+class Mission(OntologyBaseModel):
+    """A persistent business objective assigned to an AI employee."""
+
+    id: str
+    tenant_id: str
+    title: str
+    description: str = ""
+    owner_id: str | None = None
+    employee_role: str | None = None
+    status: Literal[
+        "pending", "active", "stalled", "completed", "failed", "archived"
+    ] = "pending"
+    priority: Literal["low", "medium", "high", "urgent"] = "medium"
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    kpi_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    knowledge_ids: list[str] = Field(default_factory=list)
+    decision_ids: list[str] = Field(default_factory=list)
+    process_ids: list[str] = Field(default_factory=list)
+    # DEPRECATED (V7): prefer target_type/target_id for new code.
+    # ``onboarding_id`` is a backward-compat alias — new missions MUST use
+    # explicit target_type/target_id.  Will be removed in a future PR once
+    # all onboarding-era tests are migrated.
+    onboarding_id: str | None = None
+    situation_id: str | None = None
+    # Generic mission target: explicit ``target_*`` wins;
+    # ``onboarding_id``-only derives ("onboarding", onboarding_id).
+    target_type: str | None = None
+    target_id: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @model_validator(mode="after")
+    def _resolve_target(self) -> "Mission":
+        if self.target_type is None and self.target_id is None:
+            if self.onboarding_id is not None:
+                self.target_type = "onboarding"
+                self.target_id = self.onboarding_id
+        elif (
+            self.target_type == "onboarding"
+            and self.target_id is not None
+            and self.onboarding_id is not None
+            and self.target_id != self.onboarding_id
+        ):
+            raise ValueError(
+                "contradictory mission target: explicit target_* "
+                f"({self.target_type!r}, {self.target_id!r}) disagrees with "
+                f"onboarding_id={self.onboarding_id!r}"
+            )
+        return self
+
+
+class MissionEvent(OntologyBaseModel):
+    """An immutable, append-only event on a mission timeline."""
+
+    id: str
+    mission_id: str
+    version: int = 1
+    event_type: Literal[
+        "created", "started", "reviewed", "paused", "resumed", "replanned",
+        "redirected", "approved", "rejected", "executed", "confidence_changed",
+        "status_changed", "priority_changed", "evidence_added",
+        "recommendation_updated", "completed", "archived",
+    ]
+    actor: str | None = None
+    source: str | None = None
+    payload: dict = Field(default_factory=dict)
+    causation_id: str | None = None
+    correlation_id: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MissionSnapshot(OntologyBaseModel):
+    """A point-in-time capture of a mission's composed state."""
+
+    id: str
+    mission_id: str
+    version: int = 1
+    snapshot_type: Literal["periodic", "on_change", "manual"] = "periodic"
+    body: dict = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Action(OntologyBaseModel):
+    """A governed, idempotent unit of work executed by an AI employee."""
+
+    id: str
+    tenant_id: str
+    mission_id: str
+    employee_role: str
+    capability: str
+    input_snapshot: dict = Field(default_factory=dict)
+    risk_tier: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "LOW"
+    policy_tier: str | None = None
+    status: Literal[
+        "draft", "pending_approval", "approved", "rejected",
+        "executing", "completed", "failed",
+    ] = "draft"
+    idempotency_key: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    reason: str = ""
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ActionResult(OntologyBaseModel):
+    """The result of executing an Action, with verification metadata."""
+
+    id: str
+    action_id: str
+    result_summary: str = ""
+    output_snapshot: dict = Field(default_factory=dict)
+    error: str | None = None
+    rollback_metadata: dict = Field(default_factory=dict)
+    verified: bool = False
+    verified_by: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EmployeeDefinition(OntologyBaseModel):
+    """Static configuration of an AI employee role (config, not runtime)."""
+
+    id: str
+    tenant_id: str
+    role: str
+    goals: list[str] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    policies: list[str] = Field(default_factory=list)
+    authority: dict = Field(default_factory=dict)
+    risk_threshold: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "MEDIUM"
+    kpis: list[str] = Field(default_factory=list)
+    memory_namespace: str = ""
+    mission_types: list[str] = Field(default_factory=list)
+
+
+class EmployeeRun(OntologyBaseModel):
+    """Runtime state of an AI employee (state, not config)."""
+
+    id: str
+    tenant_id: str
+    employee_definition_id: str
+    role: str
+    status: Literal["idle", "active", "paused", "offline"] = "idle"
+    current_mission_id: str | None = None
+    active_mission_ids: list[str] = Field(default_factory=list)
+    memory_state: dict = Field(default_factory=dict)
+    last_active_at: datetime | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Outcome(OntologyBaseModel):
+    """The result of a mission, tied to evidence."""
+
+    id: str
+    tenant_id: str
+    mission_id: str
+    result: Literal["success", "partial", "failure", "na"] = "na"
+    evidence_refs: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Review(OntologyBaseModel):
+    """A scheduled review of a process, SOP, or other target."""
+
+    id: str
+    tenant_id: str
+    target_type: str
+    target_id: str
+    reviewer: str
+    cadence: str | None = None
+    last_reviewed_at: datetime | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ── V7 vendor operations domain (Phase 3: models only) ───────────────────
+# Models-only phase: no runtime, capability, API, or UI changes. All
+# cross-entity holders are REFERENCE IDs (never embedded mutable objects);
+# tenant isolation across refs is enforced at the application layer, not
+# here (Pydantic has no registry to resolve against). ``VendorContract``
+# is named thus to avoid colliding with the connector-interface contract
+# (``src/connectors/v6_contract.py``).
+
+
+class Vendor(OntologyBaseModel):
+    """An external vendor supplying services to the tenant."""
+
+    id: str
+    tenant_id: str
+    name: str
+    status: Literal[
+        "active", "onboarding", "suspended", "blocked", "offboarded"
+    ] = "active"
+    contacts: list[str] = Field(default_factory=list)
+    services: list[str] = Field(default_factory=list)  # Service ID refs
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Service(OntologyBaseModel):
+    """A business service, optionally supplied by a vendor."""
+
+    id: str
+    tenant_id: str
+    name: str
+    criticality: Literal["low", "medium", "high", "critical"] = "medium"
+    owner_id: str
+    vendor_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ServiceDependency(OntologyBaseModel):
+    """A directed DEPENDS_ON edge: ``service_a_id`` depends on ``service_b_id``."""
+
+    id: str
+    tenant_id: str
+    service_a_id: str
+    service_b_id: str
+    dependency_type: Literal["DEPENDS_ON"] = "DEPENDS_ON"
+
+
+class VendorContract(OntologyBaseModel):
+    """Commercial terms between the tenant and a vendor.
+
+    Named ``VendorContract`` (not ``Contract``) to avoid colliding with
+    the connector-interface contract in ``src/connectors/v6_contract.py``.
+    """
+
+    id: str
+    tenant_id: str
+    vendor_id: str
+    service_ids: list[str] = Field(default_factory=list)
+    terms_summary: str = ""
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SLA(OntologyBaseModel):
+    """Service-level agreement against a service under a vendor contract."""
+
+    id: str
+    tenant_id: str
+    name: str
+    service_id: str
+    contract_id: str
+    priority: Literal["critical", "high", "medium", "low"] = "medium"
+    acknowledgement_minutes: int = Field(gt=0)
+    update_minutes: int | None = Field(default=None, gt=0)
+    resolution_minutes: int = Field(gt=0)
+    escalation_policy_id: str
+    business_calendar: str = "24x7"
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BusinessImpact(OntologyBaseModel):
+    """Nested impact assessment embedded in an ``Incident``.
+
+    Nested value object: carries no ``id``/``tenant_id`` of its own;
+    tenancy is inherited from the parent ``Incident``.
+    """
+
+    customer_impact_count: int | None = Field(default=None, ge=0)
+    affected_process_ids: list[str] = Field(default_factory=list)
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    estimated_downtime_minutes: int | None = Field(default=None, gt=0)
+    criticality: Literal["low", "medium", "high", "critical"] = "medium"
+
+
+class Incident(OntologyBaseModel):
+    """A vendor/service incident tracked against a service, SLA, and situation."""
+
+    id: str
+    tenant_id: str
+    title: str
+    description: str = ""
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    status: Literal[
+        "open",
+        "acknowledged",
+        "escalated",
+        "awaiting_evidence",
+        "verified",
+        "closed",
+    ] = "open"
+    service_id: str
+    vendor_id: str | None = None
+    business_process_ids: list[str] = Field(default_factory=list)
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+    impact: BusinessImpact = Field(default_factory=BusinessImpact)
+    sla_id: str | None = None
+    vendor_ticket_id: str | None = None
+    owner_id: str | None = None
+    situation_id: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    version: int = Field(default=1, ge=1)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VendorTicket(OntologyBaseModel):
+    """A ticket opened with a vendor against an incident."""
+
+    id: str
+    tenant_id: str
+    vendor_id: str
+    incident_id: str
+    external_ticket_id: str
+    status: Literal[
+        "open", "acknowledged", "pending_vendor", "resolved", "closed"
+    ] = "open"
+    opened_at: datetime = Field(default_factory=datetime.utcnow)
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
+    last_vendor_update_at: datetime | None = None
+    external_url: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class EscalationPolicy(OntologyBaseModel):
+    """Tiered escalation path from vendor primary up to human approval.
+
+    Tiers hold contact/owner reference IDs. ``authority`` records the
+    authority requirements for escalation steps; ``requires_hitl`` marks
+    whether the terminal tier needs human-in-the-loop approval.
+    """
+
+    id: str
+    tenant_id: str
+    name: str
+    t0_vendor_primary: str
+    t1_vendor_escalation: str
+    t2_internal_owner: str
+    t3_hitl_material: str
+    authority: dict = Field(default_factory=dict)
+    requires_hitl: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ── Outcome canonical-state mapping (additive; Outcome untouched) ─────────
+# ``Outcome.result`` already carries success/partial/failure/na and its
+# fields/tests are frozen. The V7 canonical states below are a SEPARATE
+# mapping layer — no existing field is altered.
+
+OutcomeCanonicalState = Literal["verified", "failed", "partial", "indeterminate"]
+
+OUTCOME_RESULT_TO_CANONICAL: dict[str, str] = {
+    "success": "verified",
+    "failure": "failed",
+    "partial": "partial",
+    "na": "indeterminate",
+}
+
+OUTCOME_CANONICAL_TO_RESULT: dict[str, str] = {
+    "verified": "success",
+    "failed": "failure",
+    "partial": "partial",
+    "indeterminate": "na",
+}
+
+
+def canonical_outcome_state(result: str) -> str:
+    """Map a legacy ``Outcome.result`` value to its canonical state."""
+    try:
+        return OUTCOME_RESULT_TO_CANONICAL[result]
+    except KeyError:
+        raise ValueError(f"unknown Outcome.result value: {result!r}") from None
+
+
+def outcome_result_from_canonical(state: str) -> str:
+    """Map a canonical outcome state back to its ``Outcome.result`` value."""
+    try:
+        return OUTCOME_CANONICAL_TO_RESULT[state]
+    except KeyError:
+        raise ValueError(f"unknown canonical outcome state: {state!r}") from None
+
+
+class ROIMeasurement(OntologyBaseModel):
+    """A raw ROI measurement tied to a mission/situation and source events.
+
+    Measurements only — this model carries no savings claims, computed
+    savings fields, or projections of any kind.
+    """
+
+    id: str
+    tenant_id: str
+    mission_id: str
+    situation_id: str
+    metric_type: str
+    baseline_value: float | None = None
+    actual_value: float | None = None
+    unit: str = ""
+    source_event_ids: list[str] = Field(default_factory=list)
+    measured_at: datetime = Field(default_factory=datetime.utcnow)

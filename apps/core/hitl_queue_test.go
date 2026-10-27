@@ -14,7 +14,7 @@ import (
 
 func setupTestAppWithRealHandlers(db *sql.DB) *fiber.App {
 	app := fiber.New()
-	h := web.NewHandler(db)
+	h := web.NewHandler(db, nil)
 
 	apiGroup := app.Group("/api")
 	apiGroup.Get("/hitl/count", h.APIPendingHITL)

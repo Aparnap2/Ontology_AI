@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from temporalio import activity
 
-from src.llm.client import LLMClient
+from src.config.llm import chat_completion
 
 log = logging.getLogger(__name__)
 
@@ -79,15 +79,15 @@ async def synthesize_weekly_brief(
             decisions=decisions_str,
         )
 
-        # Call LLM
-        llm_client = LLMClient()
-        response = await llm_client.generate_completion(
-            prompt=prompt,
+        # Call LLM through the canonical factory (no direct client instantiation).
+        text = await asyncio.to_thread(
+            chat_completion,
+            messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
             temperature=0.3,
         )
 
-        brief = response.get("text", "").strip()
+        brief = (text or "").strip()
         if not brief:
             # Fallback brief
             brief = f"🎯 ONE THING: Review business metrics\n\nWeekly Brief for {founder_name} at {company_name}\n\nMetrics this week:\n{metrics_str}\n\n[Ask OntologyAI anything]"

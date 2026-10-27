@@ -8,6 +8,14 @@ Per the error attribution: this proves API health before testing parsing.
 import pytest
 
 
+# CORRECTION (issue #71): these are LIVE-MODEL tests and were unmarked,
+# so they executed inside the deterministic gate and failed with HTTP 401
+# when credentials were stripped. Marked `llm` for the same reason as the
+# other eight suites: a live-model suite is not a deterministic test.
+
+pytestmark = [
+    pytest.mark.llm,
+]
 @pytest.mark.agentic
 def test_llm_api_health(ollama_client, llm_model):
     """Health check: LLM API is reachable before any agent test runs.

@@ -1,19 +1,18 @@
-"""Tests for worker.py / workflows.__init__ 9-runtime workflow registration.
+"""Tests for worker.py / workflows.__init__ 6-canonical workflow registration.
 
-Asserts the 9-runtime default contract: exactly 9 canonical workflows.
+Asserts the 6-canonical default contract: exactly 6 V5.2 workflows.
 V6 StrategyWorkflow is gated behind ``ENABLE_V6_WORKFLOWS=on``.
+Legacy FDE modules are gated behind ``LEGACY_FDE_MODULES=on``.
 """
 from __future__ import annotations
-
-import os
 
 import pytest
 
 
 class TestWorkerRegistration:
-    """Verify the 9-runtime active workflow roster contract."""
+    """Verify the 6-canonical active workflow roster contract."""
 
-    # 9-runtime canonical roster: exactly 9 (PRD §7).
+    # 6-canonical roster: exactly 6 V5.2 workflows.
     CANONICAL_V51 = {
         "ChiefOfStaffWorkflow",
         "DiscoveryWorkflow",
@@ -21,25 +20,22 @@ class TestWorkerRegistration:
         "KnowledgeValidationWorkflow",
         "SolutionArchitectWorkflow",
         "GovernanceWorkflow",
-        "DecisionWorkflow",
-        "ExecutionWorkflow",
-        "EvaluationWorkflow",
     }
 
     V6_WORKFLOWS = {"StrategyWorkflow"}
 
     ALL_V51_PLUS_V6 = CANONICAL_V51 | V6_WORKFLOWS
 
-    def test_default_roster_is_exactly_9(self):
-        """Default ACTIVE_WORKFLOWS (no flags) has exactly 9 entries."""
+    def test_default_roster_is_exactly_6(self):
+        """Default ACTIVE_WORKFLOWS (no flags) has exactly 6 entries."""
         from src.workflows import ACTIVE_WORKFLOWS
 
-        assert len(ACTIVE_WORKFLOWS) == 9, (
-            f"9-runtime contract requires exactly 9 active workflows, got {len(ACTIVE_WORKFLOWS)}: "
+        assert len(ACTIVE_WORKFLOWS) == 6, (
+            f"6-canonical contract requires exactly 6 active workflows, got {len(ACTIVE_WORKFLOWS)}: "
             f"{sorted(ACTIVE_WORKFLOWS.keys())}"
         )
         assert set(ACTIVE_WORKFLOWS.keys()) == self.CANONICAL_V51, (
-            f"9-runtime roster mismatch. Expected: {sorted(self.CANONICAL_V51)}, "
+            f"6-canonical roster mismatch. Expected: {sorted(self.CANONICAL_V51)}, "
             f"Got: {sorted(ACTIVE_WORKFLOWS.keys())}"
         )
 
@@ -69,7 +65,7 @@ class TestWorkerRegistration:
 
         active = _build_active_workflows()
         assert "StrategyWorkflow" in active
-        assert len(active) == 10
+        assert len(active) == 7
 
         route_map = _build_route_map()
         assert "@strategy" in route_map
@@ -83,7 +79,7 @@ class TestWorkerRegistration:
         )
 
     def test_v51_workflows_importable(self):
-        """All 9 canonical workflows can be imported from their modules."""
+        """All 6 canonical workflows can be imported from their modules."""
         from src.workflows.discovery_workflow import DiscoveryWorkflow
         from src.workflows.ontology_mapping_workflow import (
             OntologyMappingWorkflow,
@@ -126,12 +122,22 @@ class TestWorkerRegistration:
                             if isinstance(elt, ast.Name):
                                 workflows_list_elts.add(elt.id)
 
+        # Only classes carrying @workflow.defn may be registered: Temporal
+        # raises "missing attributes, was it decorated with @workflow.defn?"
+        # for anything else, which made Worker() unconstructable.
+        assert "IncidentWorkflow" in workflows_list_elts
         assert "ChiefOfStaffWorkflow" in workflows_list_elts
-        assert "DiscoveryWorkflow" in workflows_list_elts
-        assert "OntologyMappingWorkflow" in workflows_list_elts
-        assert "KnowledgeValidationWorkflow" in workflows_list_elts
-        assert "SolutionArchitectWorkflow" in workflows_list_elts
-        assert "GovernanceWorkflow" in workflows_list_elts
+        for undecorated in (
+            "DiscoveryWorkflow",
+            "OntologyMappingWorkflow",
+            "KnowledgeValidationWorkflow",
+            "SolutionArchitectWorkflow",
+            "GovernanceWorkflow",
+        ):
+            assert undecorated not in workflows_list_elts, (
+                f"{undecorated} carries no @workflow.defn and must not be "
+                "registered with the worker"
+            )
         # StrategyWorkflow should NOT be in the default list
         assert "StrategyWorkflow" not in workflows_list_elts, (
             "StrategyWorkflow must NOT be in default worker workflow list"
@@ -155,6 +161,21 @@ class TestActivityRegistration:
         "optimize_memory_performance",
     }
 
+    # V7 incident hero-path activities (9). NOT optional: IncidentWorkflow is
+    # registered unconditionally, so omitting these would advertise the
+    # workflow and then fail every activity dispatch.
+    INCIDENT_ACTIVITIES = {
+        "create_situation",
+        "assemble_checkpoint",
+        "run_investigation",
+        "generate_action_intent",
+        "submit_to_control_plane",
+        "execute_capability",
+        "verify_recovery_activity",
+        "resolve_situation",
+        "escalate_situation",
+    }
+
     # Legacy V4.1 activities (4)
     LEGACY_ACTIVITIES = {
         "run_pulse_agent",
@@ -163,19 +184,17 @@ class TestActivityRegistration:
         "run_qa_agent",
     }
 
-    ALL_ACTIVITIES = BASE_ACTIVITIES | LEGACY_ACTIVITIES  # 10 total
+    ALL_ACTIVITIES = BASE_ACTIVITIES | INCIDENT_ACTIVITIES | LEGACY_ACTIVITIES
 
-    def test_default_roster_is_exactly_6(self):
-        """Default _build_activity_list() (no flags) returns exactly 6."""
+    def test_default_roster_is_base_plus_incident(self):
+        """Default _build_activity_list() returns the 6 base + 9 incident activities."""
         from src.worker import _build_activity_list
 
         acts = _build_activity_list()
         names = {f.__name__ for f in acts}
-        assert len(acts) == 6, (
-            f"Default activity roster must have exactly 6, got {len(acts)}: {sorted(names)}"
-        )
-        assert names == self.BASE_ACTIVITIES, (
-            f"Default activities mismatch. Expected: {sorted(self.BASE_ACTIVITIES)}, "
+        expected = self.BASE_ACTIVITIES | self.INCIDENT_ACTIVITIES
+        assert names == expected, (
+            f"Default activity roster mismatch. Expected: {sorted(expected)}, "
             f"Got: {sorted(names)}"
         )
 
@@ -189,16 +208,16 @@ class TestActivityRegistration:
             f"{names & self.LEGACY_ACTIVITIES}"
         )
 
-    def test_legacy_flag_includes_all_10(self, monkeypatch):
-        """Setting LEGACY_FDE_MODULES=on includes all 10 activities."""
+    def test_legacy_flag_includes_legacy_activities(self, monkeypatch):
+        """Setting LEGACY_FDE_MODULES=on adds the 4 legacy activities."""
         monkeypatch.setenv("LEGACY_FDE_MODULES", "on")
 
         from src.worker import _build_activity_list
 
         acts = _build_activity_list()
         names = {f.__name__ for f in acts}
-        assert len(acts) == 10, (
-            f"With LEGACY_FDE_MODULES=on, must have exactly 10 activities, "
+        assert names == self.ALL_ACTIVITIES, (
+            f"With LEGACY_FDE_MODULES=on, expected base+incident+legacy, "
             f"got {len(acts)}: {sorted(names)}"
         )
         assert names == self.ALL_ACTIVITIES, (

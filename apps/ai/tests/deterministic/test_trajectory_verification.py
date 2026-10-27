@@ -133,13 +133,46 @@ class TestGoldenTrajectories:
         ids=[s.name for s in GOLDEN_TRAJECTORIES],
     )
     def test_connector_order(self, scenario: TrajectoryScenario) -> None:
-        """Connectors are called in the expected order."""
+        """Every declared connector runs exactly once; completion order is NOT a contract.
+
+        `run_startup_guardian` dispatches connectors with `asyncio.gather`
+        (run_startup_guardian.py:80), so they execute concurrently and complete in
+        nondeterministic order. No production caller depends on that order: the only
+        consumers are the scheduler job and the CLI, which both read the resulting
+        snapshot map.
+
+        This test previously asserted that completion order equalled the declared
+        order, which the implementation never guaranteed. It failed for 8 of 15
+        scenarios and was only observable once two production hangs stopped masking
+        it (see issue #83). The invariant worth protecting is that every connector
+        is invoked exactly once; the declaration order itself is asserted in
+        `test_declared_connector_order_is_stable`.
+        """
         result = _run_orchestrator_sync(scenario)
         actual_order = result["_call_log"]
-        assert actual_order == scenario.connector_order, (
-            f"[{scenario.name}] Connector call order mismatch: "
-            f"expected {scenario.connector_order}, got {actual_order}"
+
+        assert sorted(actual_order) == sorted(scenario.connector_order), (
+            f"[{scenario.name}] Connectors not invoked exactly once: "
+            f"expected {sorted(scenario.connector_order)}, got {sorted(actual_order)}"
         )
+        duplicates = [n for n in set(actual_order) if actual_order.count(n) > 1]
+        assert not duplicates, f"[{scenario.name}] connectors called twice: {duplicates}"
+
+    def test_declared_connector_order_is_stable(self) -> None:
+        """The declared `_CONNECTORS` sequence itself is deterministic and ordered.
+
+        Order is a contract for the *declaration*, not for completion: the
+        orchestrator gathers concurrently, so completion order varies. This
+        pins the declaration so a future reordering is a deliberate, visible
+        change rather than an accident.
+        """
+        from src.orchestration.run_startup_guardian import _CONNECTORS
+
+        assert [name for name, _ in _CONNECTORS] == [
+            "erpnext",
+            "hubspot",
+            "quickbooks",
+        ]
 
     @pytest.mark.parametrize(
         "scenario",

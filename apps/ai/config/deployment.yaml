@@ -1,0 +1,52 @@
+# Deployment Parity Manifest — OntologyAI
+#
+# Lists every infrastructure dependency the application requires.
+# Each service is declared with:
+#   - env_var: environment variable name (runtime reads this, never hardcodes)
+#   - default: fallback value for local development
+#   - description: purpose in the system
+#
+# This file is the single source of truth for deployment parity evidence.
+# Tests in tests/test_deployment_parity.py validate that the application
+# actually consumes these values through the declared env vars.
+
+services:
+  database:
+    env_var: DATABASE_URL
+    default: "postgresql://localhost:5432/ontologyai"
+    description: "PostgreSQL with pgvector for entity storage and vector search"
+
+  temporal:
+    env_var: TEMPORAL_ADDRESS
+    default: "localhost:7233"
+    description: "Temporal workflow engine for durable orchestration"
+
+  llm:
+    env_var: LLM_ENDPOINT
+    default: "http://localhost:11434/v1"
+    description: "OpenAI-compatible LLM gateway (Ollama, Azure AI Foundry, Groq)"
+
+  event_bus:
+    env_var: EVENT_BROKER_URL
+    default: "redis://localhost:6379"
+    description: "Event transport via Redis Streams"
+
+  vendor_api:
+    env_var: VENDOR_API_URL
+    default: "http://localhost:3003"
+    description: "Vendor ticket system (Jira mock in test mode)"
+
+  otel:
+    env_var: OTEL_ENDPOINT
+    default: "http://localhost:4318"
+    description: "OpenTelemetry collector for distributed tracing"
+
+  qdrant:
+    env_var: QDRANT_URL
+    default: "http://localhost:6333"
+    description: "Qdrant vector database for semantic memory"
+
+  neo4j:
+    env_var: NEO4J_URI
+    default: "bolt://localhost:7687"
+    description: "Neo4j graph database for Graphiti memory"

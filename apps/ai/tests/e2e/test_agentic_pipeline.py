@@ -29,6 +29,12 @@ from src.config.llm import get_llm_client, get_chat_model
 from src.memory.spine import load_context, MemoryContext
 from src.memory.episodic import EpisodicMemory
 
+# ── Suite classification ────────────────────────────────────────────────
+# Live-model evaluation: requires provider credentials, incurs cost and
+# latency, and is excluded from the deterministic gate via `-m "not llm"`.
+pytestmark = pytest.mark.llm
+
+
 
 TENANT_ID = "test-e2e-pipeline-001"
 

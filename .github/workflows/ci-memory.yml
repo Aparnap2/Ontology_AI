@@ -39,11 +39,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         working-directory: apps/ai
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: uv sync --frozen
 
       - name: Wait for Qdrant
         run: |
@@ -60,14 +64,14 @@ jobs:
         working-directory: apps/ai
         env:
           QDRANT_URL: "http://localhost:6333"
-        run: python scripts/create_collections.py
+        run: uv run --frozen python scripts/create_collections.py
 
       - name: Run tenant isolation test
         working-directory: apps/ai
         env:
           QDRANT_URL: "http://localhost:6333"
         run: |
-          python - <<'EOF'
+          uv run --frozen python - <<'EOF'
           import os, sys
           os.environ["QDRANT_URL"] = "http://localhost:6333"
 
@@ -101,7 +105,7 @@ jobs:
         env:
           QDRANT_URL: "http://localhost:6333"
         run: |
-          python - <<'EOF'
+          uv run --frozen python - <<'EOF'
           import os, sys
           os.environ["QDRANT_URL"] = "http://localhost:6333"
 
@@ -140,7 +144,7 @@ jobs:
         env:
           QDRANT_URL: "http://localhost:6333"
         run: |
-          pytest tests/integration/test_memory*.py \
+          uv run --frozen pytest tests/integration/test_memory*.py \
             -v \
             --tb=short \
             --timeout=30 \

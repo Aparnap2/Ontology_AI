@@ -1,0 +1,43 @@
+{{/* Timeline — Milestone #5 operational workspace panel. Append-only MISSION_*
+     event feed from mission_events. Live rows stream in via SSE; the sse-swap
+     listens for every MISSION_* event name, the generic "timeline" refresh,
+     and the six-event workspace lifecycle contract (issue #61:
+     MISSION_UPDATED, ACTION_PROPOSED, ACTION_APPROVED, ACTION_EXECUTED,
+     ACTION_VERIFIED, MISSION_REPLANNED).
+     Keep the row markup in sync with renderTimelineRowHTML in v6_workspace.go. */}}
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Timeline</h3>
+        <span class="text-[10px] md:text-xs flex items-center gap-1.5" style="color:var(--text-muted)">
+            <span class="status-dot connected" style="width:6px;height:6px"></span>
+            Live
+        </span>
+    </div>
+
+    <div id="v6-timeline-feed"
+         hx-ext="sse"
+         sse-connect="/v6/timeline/events?tenant_id={{.TenantID}}"
+         sse-swap="timeline,MISSION_CREATED,MISSION_STARTED,MISSION_REVIEWED,MISSION_PAUSED,MISSION_RESUMED,MISSION_REPLANNED,MISSION_REDIRECTED,MISSION_APPROVED,MISSION_REJECTED,MISSION_EXECUTED,MISSION_CONFIDENCE_CHANGED,MISSION_STATUS_CHANGED,MISSION_PRIORITY_CHANGED,MISSION_EVIDENCE_ADDED,MISSION_RECOMMENDATION_UPDATED,MISSION_COMPLETED,MISSION_ARCHIVED,MISSION_UPDATED,ACTION_PROPOSED,ACTION_APPROVED,ACTION_EXECUTED,ACTION_VERIFIED"
+         hx-swap="afterbegin">
+        {{if .EmptyState}}
+        <div class="text-xs py-6 text-center" style="color:var(--text-muted)">
+            <svg class="w-6 h-6 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            No timeline events yet — mission activity will stream in here.
+        </div>
+        {{else}}
+        {{range .Events}}
+        <div class="flex items-start gap-3 py-2.5 px-2 rounded-lg transition-colors duration-150 hover:bg-white/[0.02]" style="border-bottom:1px solid rgba(255,255,255,0.04)">
+            <span class="text-[11px] font-mono flex-shrink-0 w-10 pt-0.5" style="color:var(--text-muted)">{{.Time}}</span>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap" style="background:rgba(125,211,252,0.12);color:#bae6fd">{{.SSEEvent}}</span>
+                    <span class="text-xs font-medium" style="color:var(--text)">{{.Summary}}</span>
+                </div>
+                {{if .Actor}}<p class="text-xs mt-0.5 truncate" style="color:var(--text-secondary)">actor: {{.Actor}}</p>{{end}}
+            </div>
+            <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style="background:var(--accent-blue);box-shadow:0 0 6px rgba(125,211,252,0.4)"></span>
+        </div>
+        {{end}}
+        {{end}}
+    </div>
+</div>

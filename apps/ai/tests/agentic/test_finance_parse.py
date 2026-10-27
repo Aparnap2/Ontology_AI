@@ -7,6 +7,14 @@ Per the error attribution: this proves the parser handles real LLM output.
 import pytest
 
 
+# CORRECTION (issue #71): these are LIVE-MODEL tests and were unmarked,
+# so they executed inside the deterministic gate and failed with HTTP 401
+# when credentials were stripped. Marked `llm` for the same reason as the
+# other eight suites: a live-model suite is not a deterministic test.
+
+pytestmark = [
+    pytest.mark.llm,
+]
 def call_llm_with_retry(ollama_client, llm_model, prompt, max_tokens=100, max_retries=1, json_mode=False):
     """Call LLM with retry on empty response."""
     last_error = None

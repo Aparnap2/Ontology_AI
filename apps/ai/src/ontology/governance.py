@@ -84,6 +84,41 @@ OBJECT_WRITE_POLICY: dict[str, dict[str, dict[str, Any]]] = {
         # Executing / completing an action is a governance-gated side effect.
         "status": {"requires_approval": True, "blast_radius": "high"},
     },
+    # ── V6 domain object types ─────────────────────────────────────────────
+    "Process": {
+        # Reassigning a process owner is a medium-blast write.
+        "owner_id": {"requires_approval": True, "blast_radius": "medium"},
+        "status": {"requires_approval": False, "blast_radius": "low"},
+    },
+    "SOP": {
+        # Publishing an SOP changes the operating standard.
+        "status": {"requires_approval": True, "blast_radius": "medium"},
+    },
+    "Mission": {
+        # Redirecting a mission changes what an AI employee works on.
+        "status": {"requires_approval": True, "blast_radius": "medium"},
+        "priority": {"requires_approval": True, "blast_radius": "medium"},
+    },
+    "Action": {
+        # Executing an action is a governance-gated side effect.
+        "status": {"requires_approval": True, "blast_radius": "high"},
+    },
+    "EmployeeRun": {
+        # Pausing/activating an employee changes live capacity.
+        "status": {"requires_approval": True, "blast_radius": "medium"},
+    },
+    "Outcome": {
+        # Recording a mission outcome is a consequential write.
+        "result": {"requires_approval": True, "blast_radius": "medium"},
+    },
+    "Review": {
+        # Scheduling a review is low blast.
+        "cadence": {"requires_approval": False, "blast_radius": "low"},
+    },
+    "KPI": {
+        # Changing a KPI target affects process measurement.
+        "target_value": {"requires_approval": True, "blast_radius": "medium"},
+    },
 }
 
 
@@ -243,3 +278,85 @@ def _message_send_underlying(channel: str, text: str) -> dict:
 def governed_message_send(channel: str, text: str, **kwargs: Any) -> Any:
     """Governed outbound communication (high blast radius)."""
     return _message_send_underlying(channel, text)
+
+
+# ── V6 reference implementations (Virtual COO operating model) ─────────────
+
+def _process_owner_change_underlying(process_id: str, owner_id: str) -> dict:
+    return {"updated": process_id, "owner_id": owner_id}
+
+
+@governed_write(object_type="Process", property_name="owner_id", requested_by="OntologyMapper")
+def governed_process_owner_change(process_id: str, owner_id: str, **kwargs: Any) -> Any:
+    """Governed process-owner reassignment (medium blast radius)."""
+    return _process_owner_change_underlying(process_id, owner_id)
+
+
+def _sop_publish_underlying(sop_id: str, status: str) -> dict:
+    return {"updated": sop_id, "status": status}
+
+
+@governed_write(object_type="SOP", property_name="status", requested_by="OntologyMapper")
+def governed_sop_publish(sop_id: str, status: str, **kwargs: Any) -> Any:
+    """Governed SOP publish (medium blast radius)."""
+    return _sop_publish_underlying(sop_id, status)
+
+
+def _mission_redirect_underlying(mission_id: str, status: str) -> dict:
+    return {"updated": mission_id, "status": status}
+
+
+@governed_write(object_type="Mission", property_name="status", requested_by="ChiefOfStaff")
+def governed_mission_redirect(mission_id: str, status: str, **kwargs: Any) -> Any:
+    """Governed mission redirect (medium blast radius)."""
+    return _mission_redirect_underlying(mission_id, status)
+
+
+def _action_execute_underlying(action_id: str, status: str) -> dict:
+    return {"updated": action_id, "status": status}
+
+
+@governed_write(object_type="Action", property_name="status", requested_by="ChiefOfStaff")
+def governed_action_execute(action_id: str, status: str, **kwargs: Any) -> Any:
+    """Governed action execution (high blast radius)."""
+    return _action_execute_underlying(action_id, status)
+
+
+def _employee_pause_underlying(employee_id: str, status: str) -> dict:
+    return {"updated": employee_id, "status": status}
+
+
+@governed_write(object_type="EmployeeRun", property_name="status", requested_by="ChiefOfStaff")
+def governed_employee_pause(employee_id: str, status: str, **kwargs: Any) -> Any:
+    """Governed employee pause/activate (medium blast radius)."""
+    return _employee_pause_underlying(employee_id, status)
+
+
+def _outcome_record_underlying(outcome_id: str, result: str) -> dict:
+    return {"updated": outcome_id, "result": result}
+
+
+@governed_write(object_type="Outcome", property_name="result", requested_by="ChiefOfStaff")
+def governed_outcome_record(outcome_id: str, result: str, **kwargs: Any) -> Any:
+    """Governed outcome recording (medium blast radius)."""
+    return _outcome_record_underlying(outcome_id, result)
+
+
+def _review_schedule_underlying(review_id: str, cadence: str) -> dict:
+    return {"updated": review_id, "cadence": cadence}
+
+
+@governed_write(object_type="Review", property_name="cadence", requested_by="ChiefOfStaff")
+def governed_review_schedule(review_id: str, cadence: str, **kwargs: Any) -> Any:
+    """Governed review scheduling (low blast radius)."""
+    return _review_schedule_underlying(review_id, cadence)
+
+
+def _kpi_target_change_underlying(kpi_id: str, target_value: float) -> dict:
+    return {"updated": kpi_id, "target_value": target_value}
+
+
+@governed_write(object_type="KPI", property_name="target_value", requested_by="FP&A")
+def governed_kpi_target_change(kpi_id: str, target_value: float, **kwargs: Any) -> Any:
+    """Governed KPI target change (medium blast radius)."""
+    return _kpi_target_change_underlying(kpi_id, target_value)

@@ -15,10 +15,11 @@ Output:
     - Overall summary
 """
 import os
+import re
 import sys
 import json
 from typing import Dict, Any, List
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 # Add tests to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "."))
@@ -32,6 +33,7 @@ from datasets.text_to_sql import (
     SQLEvalScenario,
     evaluate_sql_output,
 )
+from datasets.criteria import criterion_matches
 from datasets.bi_narratives import (
     get_narrative_eval_scenarios,
     NarrativeEvalScenario,
@@ -46,6 +48,7 @@ class EvalResult:
     passed: bool
     score: float
     reasons: List[str]
+    checks: Dict[str, bool] = field(default_factory=dict)
 
 
 @dataclass
@@ -122,6 +125,7 @@ def run_sql_evals() -> EvalSetResult:
             passed=eval_dict["passed"],
             score=eval_dict["score"],
             reasons=eval_dict["reasons"],
+            checks=eval_dict["checks"],
         )
 
         results.append(eval_result)
@@ -222,21 +226,33 @@ def _simulate_anomaly_explanation(scenario: AnomalyEvalScenario) -> str:
 
 
 def _simulate_sql_generation(scenario: SQLEvalScenario) -> str:
-    """Simulate LLM-generated SQL."""
-    # In production, this would call DSPy text_to_sql
-    # For evals, we return the gold pattern as the "generated" SQL
-    # This simulates a well-tuned model
-
+    """Simulate LLM-generated SQL, including the required tenant guard."""
     base_sql = scenario.gold_sql_pattern
+    if "tenant_id" in base_sql.lower():
+        return base_sql
 
-    # Add tenant_id filter (security requirement)
-    if "TENANT_ID" not in base_sql.upper():
-        if "WHERE" in base_sql.upper():
-            base_sql = base_sql.replace("WHERE", "WHERE tenant_id = 'test-tenant' AND")
-        else:
-            base_sql = base_sql.replace("FROM transactions", "FROM transactions WHERE tenant_id = 'test-tenant'")
+    where_match = re.search(r"\bWHERE\b", base_sql, re.IGNORECASE)
+    if where_match:
+        return (
+            base_sql[: where_match.end()]
+            + " tenant_id = 'test-tenant' AND"
+            + base_sql[where_match.end():]
+        )
 
-    return base_sql
+    clause_match = re.search(
+        r"\b(GROUP\s+BY|ORDER\s+BY|LIMIT|HAVING)\b",
+        base_sql,
+        re.IGNORECASE,
+    )
+    if clause_match:
+        return (
+            base_sql[: clause_match.start()]
+            + "WHERE tenant_id = 'test-tenant' "
+            + base_sql[clause_match.start():]
+        )
+
+    separator = "" if base_sql.rstrip().endswith(";") else " "
+    return base_sql.rstrip() + separator + "WHERE tenant_id = 'test-tenant'"
 
 
 def _simulate_narrative_generation(scenario: NarrativeEvalScenario) -> str:
@@ -290,79 +306,98 @@ def _simulate_narrative_generation(scenario: NarrativeEvalScenario) -> str:
         return f"Query executed successfully. Total: ${total:,.0f} across {scenario.sql_result['count']} records."
 
 
+def _is_supported_criterion(criterion: str) -> bool:
+    """Whether the shared matcher has a dedicated scoring path for this criterion.
+
+    The shared matcher scores three shapes explicitly: optional criteria
+    (returned as ``None`` and excluded upstream), negative criteria
+    ("no ..." — rejected when the forbidden words appear), and verb-led /
+    identical-amount criteria ("mentions ...", "suggests ...",
+    "recommends ...").  Everything else falls through to naive all-keywords-
+    must-match logic, which cannot credit a criterion it does not understand.
+    """
+    lowered = criterion.lower().strip()
+    if lowered.startswith("no ") or any(
+        phrase in lowered
+        for phrase in ("no alarm", "no urgency", "no error", "no urgent")
+    ):
+        return True
+    if "identical" in lowered and "amount" in lowered:
+        return True
+    return lowered.startswith(("mentions", "suggests ", "recommends "))
+
+
 def _evaluate_anomaly_explanation(explanation: str, scenario: AnomalyEvalScenario) -> EvalResult:
-    """Evaluate anomaly explanation against gold criteria."""
-    reasons = []
-    score = 0.0
+    """Evaluate anomaly explanation against weighted gold criteria.
+
+    Scoring contract (owner decision #102 / A2):
+      * optional criterion  -> excluded from scoring, never an error;
+      * required + supported  -> scored by the shared matcher;
+      * required + unscorable -> rejected and flagged explicitly — never
+        silently omitted from the denominator.
+    """
+    checks: Dict[str, bool] = {}
+    unmet = []
+    required = 0
+
+    for index, criterion in enumerate(scenario.gold_criteria):
+        matched = criterion_matches(
+            criterion,
+            explanation,
+            context=scenario.past_context,
+            vendor=scenario.vendor,
+        )
+        if matched is None:
+            # Optional criterion — exclude from scoring without an error.
+            continue
+        required += 1
+        key = f"criterion_{index}"
+        if not _is_supported_criterion(criterion):
+            # Required but unscorable — reject + flag, no silent omission.
+            checks[key] = False
+            unmet.append(
+                f"Unscorable criterion (no supported matcher path): {criterion}"
+            )
+            continue
+        checks[key] = matched
+        if not matched:
+            unmet.append(f"Missing: {criterion}")
+
+    matched_count = sum(1 for value in checks.values() if value)
+    criteria_ratio = matched_count / required if required else 1.0
+
     explanation_lower = explanation.lower()
+    if scenario.expected_action == "ALERT":
+        action_matched = "alert" in explanation_lower or "critical" in explanation_lower
+    elif scenario.expected_action == "SKIP":
+        action_matched = any(
+            word in explanation_lower for word in ("normal", "expected", "routine")
+        )
+    else:
+        action_matched = any(
+            word in explanation_lower for word in ("brief", "summary", "note")
+        )
+    checks["expected_action"] = action_matched
+    if not action_matched:
+        unmet.append(f"Missing expected action: {scenario.expected_action}")
 
-    # Check each gold criterion with flexible matching
-    for criterion in scenario.gold_criteria:
-        criterion_lower = criterion.lower()
+    score = round(0.9 * criteria_ratio + (0.1 if action_matched else 0.0), 2)
+    passed = score >= 0.6
 
-        # Extract key terms from criterion
-        if "mentions" in criterion_lower:
-            # Extract what should be mentioned
-            keywords = criterion_lower.replace("mentions", "").strip()
-            # Handle special cases
-            if "2x" in keywords or "double" in keywords or "100%" in keywords:
-                if any(x in explanation_lower for x in ["2x", "double", "2.0x", "twice"]):
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            elif "first time" in keywords or "new vendor" in keywords:
-                if any(x in explanation_lower for x in ["first time", "new vendor", "new"]):
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            elif any(x in keywords for x in ["vendor", "aws", "stripe"]):
-                if scenario.vendor.lower() in explanation_lower or "vendor" in explanation_lower:
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            elif any(x in keywords for x in ["amount", "$"]):
-                if str(int(scenario.amount))[:3] in explanation or f"${scenario.amount:,.0f}" in explanation:
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            elif "runway" in keywords:
-                if "runway" in explanation_lower:
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            elif "urgent" in keywords or "immediate" in keywords or "critical" in keywords:
-                if any(x in explanation_lower for x in ["urgent", "immediate", "critical", "review"]):
-                    score += 0.25
-                else:
-                    reasons.append(f"Missing: {criterion}")
-            else:
-                # Generic keyword check
-                kw_list = keywords.split()
-                if any(kw in explanation_lower for kw in kw_list if len(kw) > 3):
-                    score += 0.25
-        elif "suggests" in criterion_lower or "recommends" in criterion_lower:
-            action_words = ["check", "verify", "review", "investigate", "contact", "action", "monitor"]
-            if any(word in explanation_lower for word in action_words):
-                score += 0.25
-            else:
-                reasons.append(f"Missing action: {criterion}")
-
-    # Check action matches expected
-    if scenario.expected_action == "ALERT" and ("alert" in explanation_lower or "critical" in explanation_lower):
-        score += 0.1
-    elif scenario.expected_action == "SKIP" and ("normal" in explanation_lower or "expected" in explanation_lower or "routine" in explanation_lower):
-        score += 0.1
-    elif scenario.expected_action == "DIGEST" and ("brief" in explanation_lower or "summary" in explanation_lower or "note" in explanation_lower):
-        score += 0.1
-
-    # Normalize score
-    score = min(1.0, score)
+    if passed:
+        if unmet:
+            reasons = [f"Passed with score {score:.2f}; unmet: " + "; ".join(unmet)]
+        else:
+            reasons = ["All criteria met"]
+    else:
+        reasons = unmet + ["Score {:.2f} below pass threshold 0.60".format(score)]
 
     return EvalResult(
         scenario_id=scenario.id,
-        passed=score >= 0.6,  # Lowered threshold for simulation
-        score=round(score, 2),
-        reasons=reasons if reasons else ["All criteria met"],
+        passed=passed,
+        score=score,
+        reasons=reasons,
+        checks=checks,
     )
 
 

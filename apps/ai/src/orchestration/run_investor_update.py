@@ -7,7 +7,7 @@ Preserves criteria-based evaluation.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import uuid4
 
 from src.activities.run_investor_agent import run_investor_agent
@@ -54,7 +54,7 @@ async def get_investor_status_summary(tenant_id: str) -> Dict:
     overdue = await get_investor_warmup_alerts(tenant_id)
 
     total_row = await db.fetchval("""
-        SELECT COUNT(*) FROM investor_relationships WHERE tenant_id = $1
+        SELECT COUNT(*) FROM investor_relationships WHERE tenant_id = %s
     """, tenant_id)
 
     return {

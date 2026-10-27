@@ -1,0 +1,43 @@
+{{/* Approval queue — Milestone #5 operational workspace panel. Rows come from
+     the actions table (status = 'pending_approval'). Approve/hold buttons post
+     to the existing command-center approval action endpoint. */}}
+<div class="fade-in">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-sm md:text-base">Approvals</h3>
+        <span class="text-[10px] md:text-xs flex items-center gap-1.5" style="color:var(--text-muted)">
+            <span class="status-dot connected" style="width:6px;height:6px"></span>
+            Live
+        </span>
+    </div>
+
+    {{if .EmptyState}}
+    <div class="text-xs py-6 text-center" style="color:var(--text-muted)">
+        <svg class="w-6 h-6 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        No pending approvals — the queue is clear.
+    </div>
+    {{else}}
+    <div class="space-y-2">
+    {{range .Approvals}}
+        <div class="p-3 rounded-lg" style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <p class="text-xs font-medium truncate" style="color:var(--text)">{{.Capability}}</p>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background:rgba(251,191,36,0.12);color:#fcd34d">{{.RiskTier}}</span>
+                    {{if .PolicyTier}}<span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style="background:rgba(125,211,252,0.12);color:#bae6fd">{{.PolicyTier}}</span>{{end}}
+                </div>
+            </div>
+            {{if .Reason}}<p class="text-[11px] mt-1 line-clamp-2" style="color:var(--text-secondary)">{{.Reason}}</p>{{end}}
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-[10px]" style="color:var(--text-muted)">{{.EmployeeRole}} · {{.Confidence}}% confidence</span>
+                <div class="flex items-center gap-1.5">
+                    <button class="text-[10px] px-2 py-1 rounded-md font-medium" style="background:rgba(52,211,153,0.12);color:#6ee7b7"
+                            hx-post="/command-center/approvals/{{.ID}}/approve" hx-target="closest div" hx-swap="outerHTML">Approve</button>
+                    <button class="text-[10px] px-2 py-1 rounded-md font-medium" style="background:rgba(248,113,113,0.12);color:#fca5a5"
+                            hx-post="/command-center/approvals/{{.ID}}/hold" hx-target="closest div" hx-swap="outerHTML">Hold</button>
+                </div>
+            </div>
+        </div>
+    {{end}}
+    </div>
+    {{end}}
+</div>
