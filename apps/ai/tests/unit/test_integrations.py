@@ -2,7 +2,8 @@
 12 unit tests for all 4 integrations.
 All run in mock mode — no real Stripe/Plaid credentials needed.
 """
-import os, pytest, asyncio
+import os
+import pytest
 
 # Force mock mode
 os.environ["STRIPE_API_KEY"]      = ""
@@ -109,7 +110,7 @@ async def test_slack_send_with_full_draft():
 
 def test_stripe_mock_data_has_reasonable_values():
     """Verify mock MRR data is within realistic bounds."""
-    from src.integrations.stripe import get_mrr_snapshot, _MOCK_MRR_DATA
+    from src.integrations.stripe import get_mrr_snapshot
     snap = get_mrr_snapshot(TENANT)
     # MRR should be between ₹100 and ₹10,00,000
     assert 10000 <= snap["mrr_cents"] <= 100000000
@@ -142,13 +143,34 @@ def test_product_db_returns_users_as_int():
     assert isinstance(result["active_users_30d"], int)
 
 
-def test_qdrant_embed_returns_2048_floats():
-    """_get_embedding produces 2048-dim float vectors from OpenRouter."""
-    import os
-    # Skip if OpenRouter not available
-    if not os.environ.get("OPENROUTER_API_KEY"):
-        pytest.skip("OPENROUTER_API_KEY not set")
+def test_qdrant_embed_returns_2048_floats(monkeypatch):
+    """_get_embedding parses an OpenRouter embeddings response into 2048 floats.
+
+    HTTP boundary is mocked (httpx.MockTransport) so the test is deterministic
+    and never depends on live network availability; previously it called
+    openrouter.ai live and flaked on 429 rate limits.
+    """
+    import httpx
+
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["auth"] = request.headers.get("Authorization", "")
+        return httpx.Response(200, json={"data": [{"embedding": [0.5] * 2048}]})
+
+    real_client = httpx.Client
+
+    def mock_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-deterministic")
+    monkeypatch.setattr(httpx, "Client", mock_client)
+
     from src.memory.qdrant_ops import _get_embedding
     vec = _get_embedding("test query")
     assert len(vec) == 2048, f"Expected 2048 dims, got {len(vec)}"
     assert all(isinstance(v, float) for v in vec)
+    assert captured["url"].endswith("/api/v1/embeddings")
+    assert captured["auth"].startswith("Bearer test-key-deterministic")
